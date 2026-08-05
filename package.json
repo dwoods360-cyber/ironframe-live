@@ -78,6 +78,8 @@
     "ops:cutover-stripe-pathb-live": "npx tsx scripts/ops/cutover-stripe-pathb-live.ts",
     "verify:multiplexer": "npx tsx scripts/dev/verify-multiplexer-integration.ts",
     "synthesize:get-started-audio": "python scripts/synthesize-get-started-audio.py",
+    "synthesize:founder-pitch-audio": "python scripts/synthesize-founder-pitch-audio.py",
+    "synthesize:founder-pitch-casual-audio": "python scripts/synthesize-founder-pitch-audio.py --register casual",
     "test:e2e": "playwright test",
     "test:e2e:production:smoke": "node scripts/run-e2e-production-smoke.mjs",
     "ironleads:install": "cd Ironleads && npm install",

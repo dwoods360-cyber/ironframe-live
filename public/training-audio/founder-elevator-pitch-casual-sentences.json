@@ -1,0 +1,280 @@
+{
+  "version": 1,
+  "register": "casual",
+  "voice": "en-US-GuyNeural",
+  "rate": "-5%",
+  "audioFull": "/training-audio/founder-elevator-pitch-casual.mp3",
+  "sentenceCount": 54,
+  "sentences": [
+    {
+      "index": 0,
+      "text": "This is your casual Ironframe pitch practice track.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/000.mp3"
+    },
+    {
+      "index": 1,
+      "text": "Same ideas as the commercial kit.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/001.mp3"
+    },
+    {
+      "index": 2,
+      "text": "Softer words.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/002.mp3"
+    },
+    {
+      "index": 3,
+      "text": "Use this when you are talking peer to peer and catalog language would sound salesy.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/003.mp3"
+    },
+    {
+      "index": 4,
+      "text": "Memorize this plain spine.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/004.mp3"
+    },
+    {
+      "index": 5,
+      "text": "Ironframe helps regulated companies see cyber and compliance risk in real dollars, with each client kept in its own locked workspace — not color charts and mixed evidence.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/005.mp3"
+    },
+    {
+      "index": 6,
+      "text": "In ten seconds, say this.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/006.mp3"
+    },
+    {
+      "index": 7,
+      "text": "We help regulated companies and M S S Ps see cyber risk in real dollars, with each client in its own locked workspace — so you are not stuck with heatmaps or mixed client data.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/007.mp3"
+    },
+    {
+      "index": 8,
+      "text": "In thirty seconds, say this.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/008.mp3"
+    },
+    {
+      "index": 9,
+      "text": "A lot of tools help you get a compliance badge fast.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/009.mp3"
+    },
+    {
+      "index": 10,
+      "text": "That is useful when sales needs a checkbox.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/010.mp3"
+    },
+    {
+      "index": 11,
+      "text": "We are for the other problem.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/011.mp3"
+    },
+    {
+      "index": 12,
+      "text": "Outside signals get cleaned before they land.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/012.mp3"
+    },
+    {
+      "index": 13,
+      "text": "Each client or subsidiary stays walled off.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/013.mp3"
+    },
+    {
+      "index": 14,
+      "text": "Risk shows up in dollars and cents, not red yellow green.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/014.mp3"
+    },
+    {
+      "index": 15,
+      "text": "You get a workspace you can actually run, and exports you can put in front of a board or auditor.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/015.mp3"
+    },
+    {
+      "index": 16,
+      "text": "If you run many clients, or a few subsidiaries, you get clean walls — not one shared folder pretending to be isolation.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/016.mp3"
+    },
+    {
+      "index": 17,
+      "text": "If someone asks what you do for an M S S P, say this.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/017.mp3"
+    },
+    {
+      "index": 18,
+      "text": "Each client gets its own locked workspace.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/018.mp3"
+    },
+    {
+      "index": 19,
+      "text": "You track their controls there.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/019.mp3"
+    },
+    {
+      "index": 20,
+      "text": "You can show residual risk in dollars.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/020.mp3"
+    },
+    {
+      "index": 21,
+      "text": "You can export evidence without dumping every client into one pile.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/021.mp3"
+    },
+    {
+      "index": 22,
+      "text": "Mapping frameworks matters.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/022.mp3"
+    },
+    {
+      "index": 23,
+      "text": "Keeping clients separated and showing real money risk is usually why they care.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/023.mp3"
+    },
+    {
+      "index": 24,
+      "text": "You are not only talking to M S S Ps.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/024.mp3"
+    },
+    {
+      "index": 25,
+      "text": "Holding companies, portfolio operators, and regulated mid-market teams show up too — anyone who needs board-defendable exposure.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/025.mp3"
+    },
+    {
+      "index": 26,
+      "text": "If they only want a badge fast, that is a different product.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/026.mp3"
+    },
+    {
+      "index": 27,
+      "text": "Point them there.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/027.mp3"
+    },
+    {
+      "index": 28,
+      "text": "Do not force-fit.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/028.mp3"
+    },
+    {
+      "index": 29,
+      "text": "When someone says, so you are like Vanta, keep it light.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/029.mp3"
+    },
+    {
+      "index": 30,
+      "text": "Those tools are great when you need a badge fast.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/030.mp3"
+    },
+    {
+      "index": 31,
+      "text": "We are for when the board asks what you are actually exposed for — and you cannot mix client evidence.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/031.mp3"
+    },
+    {
+      "index": 32,
+      "text": "If someone asks where the A I is, say this.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/032.mp3"
+    },
+    {
+      "index": 33,
+      "text": "Not a chatbot guessing liability.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/033.mp3"
+    },
+    {
+      "index": 34,
+      "text": "We use governed agents behind a strict gateway to pull work forward, do the risk math in whole cents, and draft exports — with a human still signing off.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/034.mp3"
+    },
+    {
+      "index": 35,
+      "text": "If jargon gets in the way, remember four plain loops.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/035.mp3"
+    },
+    {
+      "index": 36,
+      "text": "Clean what comes in.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/036.mp3"
+    },
+    {
+      "index": 37,
+      "text": "Keep each client walled off.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/037.mp3"
+    },
+    {
+      "index": 38,
+      "text": "Turn threats into dollar exposure.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/038.mp3"
+    },
+    {
+      "index": 39,
+      "text": "Export proof scoped to that client.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/039.mp3"
+    },
+    {
+      "index": 40,
+      "text": "For informal rooms, ask soft first.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/040.mp3"
+    },
+    {
+      "index": 41,
+      "text": "If one of those pains is real — mixed clients, board dollars, or exportable evidence — we do a short workflow review on that pain.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/041.mp3"
+    },
+    {
+      "index": 42,
+      "text": "Not a demo tour.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/042.mp3"
+    },
+    {
+      "index": 43,
+      "text": "Only after they lean in, you can say the paid Design Partner seat is four thousand nine hundred ninety-nine dollars for a defined window — convert or exit.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/043.mp3"
+    },
+    {
+      "index": 44,
+      "text": "Practice the soft version out loud.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/044.mp3"
+    },
+    {
+      "index": 45,
+      "text": "Plain spine.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/045.mp3"
+    },
+    {
+      "index": 46,
+      "text": "Ten second hallway.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/046.mp3"
+    },
+    {
+      "index": 47,
+      "text": "Coffee elevator.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/047.mp3"
+    },
+    {
+      "index": 48,
+      "text": "M S S P in plain words.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/048.mp3"
+    },
+    {
+      "index": 49,
+      "text": "Casual Vanta contrast.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/049.mp3"
+    },
+    {
+      "index": 50,
+      "text": "Soft A I answer.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/050.mp3"
+    },
+    {
+      "index": 51,
+      "text": "Four plain loops.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/051.mp3"
+    },
+    {
+      "index": 52,
+      "text": "Soft ask first, price second.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/052.mp3"
+    },
+    {
+      "index": 53,
+      "text": "Switch to the commercial kit when the room wants sharper language.",
+      "src": "/training-audio/founder-elevator-pitch-casual-sentences/053.mp3"
+    }
+  ]
+}

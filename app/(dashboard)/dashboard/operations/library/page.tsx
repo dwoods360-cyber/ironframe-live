@@ -32,6 +32,12 @@ export default async function OperatorLibraryPage() {
               LIVE call assist
             </Link>
             <Link
+              href="/dashboard/operations/founder-pitch-casual"
+              className="text-emerald-300 hover:underline"
+            >
+              Casual pitch practice
+            </Link>
+            <Link
               href="/dashboard/admin/approvals?kind=SALES"
               className="text-cyan-300 hover:underline"
             >

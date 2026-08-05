@@ -13,6 +13,7 @@ import { persistWorkflowReviewRecap } from "@/app/lib/operations/workflowReviewR
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 import { parseJsonResponse } from "@/app/utils/parseJsonResponse";
 
+import FounderPitchPracticeAudio from "./FounderPitchPracticeAudio";
 import WorkflowReviewPostYesStrip from "./WorkflowReviewPostYesStrip";
 import WorkflowReviewTalkTrackPanel from "./WorkflowReviewTalkTrackPanel";
 
@@ -770,32 +771,35 @@ export default function WorkflowReviewCallClient() {
     <div className="min-h-screen bg-[#020617] p-4 text-slate-100 sm:p-6">
       <div className="mx-auto max-w-6xl space-y-4">
         <header className="space-y-2 border-b border-slate-800 pb-4">
-          <div className="flex flex-wrap gap-3 text-xs">
-            <Link href="/dashboard/operations" className="text-cyan-300 hover:underline">
-              ← Operations hub
-            </Link>
-            <Link
-              href="/dashboard/operations/library"
-              className="text-cyan-300 hover:underline"
-            >
-              Operator library
-            </Link>
-            <Link
-              href="/dashboard/operations/salesteam"
-              className="text-cyan-300 hover:underline"
-            >
-              SalesTeam portal
-            </Link>
-            <Link
-              href="/dashboard/operations/library/icp-shortlist#icp-touch-log"
-              className="text-cyan-300 hover:underline"
-              title="C3 — log DISPATCH touch (controlled TOUCH1–3)"
-            >
-              C3 · Log touch
-            </Link>
-            <a href="#talk-track" className="text-amber-300 hover:underline">
-              Talk track
-            </a>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap gap-3 text-xs">
+              <Link href="/dashboard/operations" className="text-cyan-300 hover:underline">
+                ← Operations hub
+              </Link>
+              <Link
+                href="/dashboard/operations/library"
+                className="text-cyan-300 hover:underline"
+              >
+                Operator library
+              </Link>
+              <Link
+                href="/dashboard/operations/salesteam"
+                className="text-cyan-300 hover:underline"
+              >
+                SalesTeam portal
+              </Link>
+              <Link
+                href="/dashboard/operations/library/icp-shortlist#icp-touch-log"
+                className="text-cyan-300 hover:underline"
+                title="C3 — log DISPATCH touch (controlled TOUCH1–3)"
+              >
+                C3 · Log touch
+              </Link>
+              <a href="#talk-track" className="text-amber-300 hover:underline">
+                Talk track
+              </a>
+            </div>
+            <FounderPitchPracticeAudio variant="header" />
           </div>
           <p className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
             Workflow review · LIVE desk · Design Partner

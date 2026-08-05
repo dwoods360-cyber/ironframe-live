@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-30T15:37:25.236Z",
-  "commercialSha256": "6abf19902082d64da4b63b3de63be135359ac02702c9553b500a598f2913d2fe",
+  "updatedAt": "2026-08-05T00:03:32.825Z",
+  "commercialSha256": "64e5ffe5d78af17c3952894cef25a885e9405310e9a7abbf7ad532bf1f8a975e",
   "anchors": {
     "pathBUsd": 4999,
     "pathBCents": "499900",

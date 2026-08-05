@@ -1,0 +1,110 @@
+IRONFRAME — FOUNDER ELEVATOR PITCH (PRACTICE SCRIPT)
+=====================================================
+Audience: Founder / GTM host only
+Do NOT play or read this as a live prospect recording.
+Live calls use the quoted talk-track lines on /dashboard/operations/workflow-review.
+
+Source of truth: docs/sales/founder-elevator-pitch-audio-script.md
+Audio: /training-audio/founder-elevator-pitch.mp3
+
+
+[0:00] WHY THIS RECORDING EXISTS
+--------------------------------
+This is your Ironframe founder pitch practice track. Listen until the lines feel natural.
+Then say them in your own words. This recording is for you — not for prospects on a
+workflow review call.
+
+
+[0:20] THE ONE-SENTENCE SPINE
+-----------------------------
+Memorize this spine.
+
+Ironframe is an invite-only quantitative GRC command post for regulated operators who
+have outgrown spreadsheets and refuse to manage liability with color-coded heatmaps.
+
+
+[0:45] TEN-SECOND HALLWAY VERSION
+---------------------------------
+In ten seconds, say this.
+
+We give regulated operators and MSSPs a multi-tenant command post — turning cyber risk
+into exact dollar exposure inside hard-isolated workspaces. No heatmaps, no mixed
+client data.
+
+
+[1:05] THIRTY-SECOND ELEVATOR
+-----------------------------
+In thirty seconds, say this.
+
+Most GRC tools optimize for speed to certification — for example SOC 2 in ninety days
+with hundreds of integrations. Ironframe is different. We are a command post for
+operations GRC. External intel is sanitized before it is saved. Each client or subsidiary
+lives in a hard isolated enclave. Risk is calculated in real dollars and cents — not red,
+yellow, green. Operators get a governed workspace and analyst exports they can put in a
+board pack. If you are an MSSP with many clients, or a holding company with a few
+subsidiaries, you get clean walls and exportable proof — not a shared folder with a
+compliance UI.
+
+
+[2:10] EXPAND YOUR MSSP ANSWER
+------------------------------
+If someone asks what Ironframe does for an MSSP, do not stop at policy tracking. Say this.
+
+For an MSSP with multiple clients, Ironframe gives each client a sovereign workspace.
+You track controls and governance mapping per enclave, quantify residual risk in
+board-ready dollars, and export analyst-grade evidence — without a shared compliance
+swamp. Policy and framework mapping is part of it. Isolation and dollar risk are why
+they buy.
+
+
+[2:50] WHO ELSE YOU SELL TO
+---------------------------
+You are not only MSSP. Also use holding companies and portfolio operators with a few
+subsidiaries, and regulated mid-market buyers who need board-defendable exposure. If they
+only want a compliance badge fast, that is another product category. Walk or complement —
+do not force-fit.
+
+
+[3:10] VERSUS VANTA AND DRATA
+-----------------------------
+When someone says, so you are like Vanta, answer with one contrast.
+
+They sell audit speed to certification. We sell financial risk defensibility and tenant
+sovereignty. Compliance automation is the floor, not the ceiling.
+
+
+[3:30] WHERE IS THE AI — POCKET ANSWER
+--------------------------------------
+If someone asks where the AI is, do not lead with chat. Say this.
+
+We do not use AI as a chat box that hallucinates liability. We use governed AI agents
+behind a strict zero-trust gateway to automate ingestion, calculate deterministic risk
+math in whole cents, and draft exports — always with human-in-the-loop sign-off.
+
+
+[4:00] FOUR LOOPS TO REMEMBER
+-----------------------------
+If you forget agent names, remember four loops.
+
+1. Ingress — outside signals are sanitized before they land.
+2. Isolation — each client or entity is a hard wall.
+3. Quantification — threats become dollar exposure in whole cents.
+4. Export — tenant-scoped analyst files for board or audit.
+
+
+[4:30] PRICE AND ASK
+--------------------
+Commercial line for now.
+
+Paid Command Design Partner at four thousand nine hundred ninety-nine dollars for a
+defined co-builder window — convert or exit. Planned annual Command is about thirty-five
+thousand dollars per year — say planned until commercial GA. Your ask is not book a demo.
+Your ask is a short workflow review on one real pain — multi-client isolation, board
+dollar exposure, or exportable evidence.
+
+
+[5:05] CLOSE — PRACTICE CUE
+---------------------------
+Practice out loud. One sentence spine. Ten second hallway. Thirty second elevator.
+MSSP expansion. Vanta contrast. AI pocket answer. Four loops. Price and workflow review
+ask. When those pieces are automatic, you can sell Ironframe in any hallway conversation.

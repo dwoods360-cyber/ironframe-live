@@ -1,0 +1,289 @@
+{
+  "version": 1,
+  "voice": "en-US-GuyNeural",
+  "rate": "-5%",
+  "audioFull": "/training-audio/founder-elevator-pitch.mp3",
+  "sentenceCount": 56,
+  "sentences": [
+    {
+      "index": 0,
+      "text": "This is your Ironframe founder pitch practice track.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/000.mp3"
+    },
+    {
+      "index": 1,
+      "text": "Listen until the lines feel natural.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/001.mp3"
+    },
+    {
+      "index": 2,
+      "text": "Then say them in your own words.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/002.mp3"
+    },
+    {
+      "index": 3,
+      "text": "This recording is for you — not for prospects on a workflow review call.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/003.mp3"
+    },
+    {
+      "index": 4,
+      "text": "Memorize this spine.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/004.mp3"
+    },
+    {
+      "index": 5,
+      "text": "Ironframe is an invite-only quantitative G R C command post for regulated operators who have outgrown spreadsheets and refuse to manage liability with color-coded heatmaps.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/005.mp3"
+    },
+    {
+      "index": 6,
+      "text": "In ten seconds, say this.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/006.mp3"
+    },
+    {
+      "index": 7,
+      "text": "We give regulated operators and M S S Ps a multi-tenant command post — turning cyber risk into exact dollar exposure inside hard-isolated workspaces.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/007.mp3"
+    },
+    {
+      "index": 8,
+      "text": "No heatmaps, no mixed client data.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/008.mp3"
+    },
+    {
+      "index": 9,
+      "text": "In thirty seconds, say this.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/009.mp3"
+    },
+    {
+      "index": 10,
+      "text": "Most G R C tools optimize for speed to certification — for example S O C 2 in ninety days with hundreds of integrations.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/010.mp3"
+    },
+    {
+      "index": 11,
+      "text": "Ironframe is different.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/011.mp3"
+    },
+    {
+      "index": 12,
+      "text": "We are a command post for operations G R C.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/012.mp3"
+    },
+    {
+      "index": 13,
+      "text": "External intel is sanitized before it is saved.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/013.mp3"
+    },
+    {
+      "index": 14,
+      "text": "Each client or subsidiary lives in a hard isolated enclave.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/014.mp3"
+    },
+    {
+      "index": 15,
+      "text": "Risk is calculated in real dollars and cents — not red, yellow, green.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/015.mp3"
+    },
+    {
+      "index": 16,
+      "text": "Operators get a governed workspace and analyst exports they can put in a board pack.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/016.mp3"
+    },
+    {
+      "index": 17,
+      "text": "If you are an M S S P with many clients, or a holding company with a few subsidiaries, you get clean walls and exportable proof — not a shared folder with a compliance U I.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/017.mp3"
+    },
+    {
+      "index": 18,
+      "text": "If someone asks what Ironframe does for an M S S P, do not stop at policy tracking.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/018.mp3"
+    },
+    {
+      "index": 19,
+      "text": "Say this.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/019.mp3"
+    },
+    {
+      "index": 20,
+      "text": "For an M S S P with multiple clients, Ironframe gives each client a sovereign workspace.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/020.mp3"
+    },
+    {
+      "index": 21,
+      "text": "You track controls and governance mapping per enclave, quantify residual risk in board-ready dollars, and export analyst-grade evidence — without a shared compliance swamp.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/021.mp3"
+    },
+    {
+      "index": 22,
+      "text": "Policy and framework mapping is part of it.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/022.mp3"
+    },
+    {
+      "index": 23,
+      "text": "Isolation and dollar risk are why they buy.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/023.mp3"
+    },
+    {
+      "index": 24,
+      "text": "You are not only M S S P.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/024.mp3"
+    },
+    {
+      "index": 25,
+      "text": "Also use holding companies and portfolio operators with a few subsidiaries, and regulated mid-market buyers who need board-defendable exposure.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/025.mp3"
+    },
+    {
+      "index": 26,
+      "text": "If they only want a compliance badge fast, that is another product category.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/026.mp3"
+    },
+    {
+      "index": 27,
+      "text": "Walk or complement — do not force-fit.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/027.mp3"
+    },
+    {
+      "index": 28,
+      "text": "When someone says, so you are like Vanta, answer with one contrast.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/028.mp3"
+    },
+    {
+      "index": 29,
+      "text": "They sell audit speed to certification.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/029.mp3"
+    },
+    {
+      "index": 30,
+      "text": "We sell financial risk defensibility and tenant sovereignty.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/030.mp3"
+    },
+    {
+      "index": 31,
+      "text": "Compliance automation is the floor, not the ceiling.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/031.mp3"
+    },
+    {
+      "index": 32,
+      "text": "If someone asks where the A I is, do not lead with chat.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/032.mp3"
+    },
+    {
+      "index": 33,
+      "text": "Say this.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/033.mp3"
+    },
+    {
+      "index": 34,
+      "text": "We do not use A I as a chat box that hallucinates liability.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/034.mp3"
+    },
+    {
+      "index": 35,
+      "text": "We use governed A I agents behind a strict zero-trust gateway to automate ingestion, calculate deterministic risk math in whole cents, and draft exports — always with human-in-the-loop sign-off.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/035.mp3"
+    },
+    {
+      "index": 36,
+      "text": "If you forget agent names, remember four loops.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/036.mp3"
+    },
+    {
+      "index": 37,
+      "text": "Ingress — outside signals are sanitized before they land.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/037.mp3"
+    },
+    {
+      "index": 38,
+      "text": "Isolation — each client or entity is a hard wall.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/038.mp3"
+    },
+    {
+      "index": 39,
+      "text": "Quantification — threats become dollar exposure in whole cents.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/039.mp3"
+    },
+    {
+      "index": 40,
+      "text": "Export — tenant-scoped analyst files for board or audit.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/040.mp3"
+    },
+    {
+      "index": 41,
+      "text": "Commercial line for now.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/041.mp3"
+    },
+    {
+      "index": 42,
+      "text": "Paid Command Design Partner at four thousand nine hundred ninety-nine dollars for a defined co-builder window — convert or exit.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/042.mp3"
+    },
+    {
+      "index": 43,
+      "text": "Planned annual Command is about thirty-five thousand dollars per year — say planned until commercial G A.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/043.mp3"
+    },
+    {
+      "index": 44,
+      "text": "Your ask is not book a demo.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/044.mp3"
+    },
+    {
+      "index": 45,
+      "text": "Your ask is a short workflow review on one real pain — multi-client isolation, board dollar exposure, or exportable evidence.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/045.mp3"
+    },
+    {
+      "index": 46,
+      "text": "Practice out loud.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/046.mp3"
+    },
+    {
+      "index": 47,
+      "text": "One sentence spine.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/047.mp3"
+    },
+    {
+      "index": 48,
+      "text": "Ten second hallway.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/048.mp3"
+    },
+    {
+      "index": 49,
+      "text": "Thirty second elevator.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/049.mp3"
+    },
+    {
+      "index": 50,
+      "text": "M S S P expansion.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/050.mp3"
+    },
+    {
+      "index": 51,
+      "text": "Vanta contrast.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/051.mp3"
+    },
+    {
+      "index": 52,
+      "text": "A I pocket answer.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/052.mp3"
+    },
+    {
+      "index": 53,
+      "text": "Four loops.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/053.mp3"
+    },
+    {
+      "index": 54,
+      "text": "Price and workflow review ask.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/054.mp3"
+    },
+    {
+      "index": 55,
+      "text": "When those pieces are automatic, you can sell Ironframe in any hallway conversation.",
+      "src": "/training-audio/founder-elevator-pitch-sentences/055.mp3"
+    }
+  ]
+}

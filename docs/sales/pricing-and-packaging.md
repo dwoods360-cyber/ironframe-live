@@ -7,8 +7,8 @@
 
 | SKU | Audience | Price | How they pay |
 |-----|----------|-------|--------------|
-| **Command Tier — Path B on-ramp** | Co-builder cohort (3–5) | **$4,999** (499900¢) flat | Tenant-scoped Stripe activation after sales-assisted provision |
-| **Command Tier — public checkout** | New buyers on `/pricing` | **$4,999** | `NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL` when set |
+| **Command Design Partner** (internal: Path B / Command Tier) | Co-builder cohort (3–5) | **$4,999** (499900¢) flat | Tenant-scoped Stripe activation after sales-assisted provision |
+| **Command Design Partner — public list** | Visitors on `/pricing` | **$4,999** published | Workflow-review CTA only — no public Buy now / generic Payment Link |
 
 **Rules**
 

@@ -50,6 +50,24 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
 
   const isTitleNoise = report.blockers.some((b) => b.code === "OSINT_TITLE_NOISE");
 
+  function companyLabelForQueue(nextReport?: IronleadsSuspectReport): string {
+    const fromReport =
+      typeof nextReport?.company === "string" ? nextReport.company.trim() : "";
+    return fromReport || company.trim() || "account";
+  }
+
+  /** Queue decisions leave the dossier; enrich/save-demographics stay. */
+  function returnToQueue(
+    decision: "promoted" | "held" | "restored" | "discarded",
+    nextReport?: IronleadsSuspectReport,
+  ) {
+    const params = new URLSearchParams();
+    params.set(decision, contactId);
+    params.set("company", companyLabelForQueue(nextReport));
+    // Hard navigation (replace): Soft router.push left operators on the dossier after HOLD.
+    window.location.replace(`/dashboard/operations/ironleads?${params.toString()}`);
+  }
+
   async function patchSuspect(body: Record<string, unknown>, successMessage: string) {
     setBusy(true);
     setMessage(null);
@@ -75,24 +93,44 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
       }
       if (data.discarded) {
         setMessage(successMessage);
-        router.push("/dashboard/operations/ironleads");
-        router.refresh();
+        returnToQueue("discarded", data.report);
         return;
       }
       if (data.report) {
         setOnHold(Boolean(data.report.operatorHold));
         setHoldSnapshot(data.report.operatorHold);
+        if (typeof data.report.email === "string") setEmail(data.report.email);
+        if (typeof data.report.fullName === "string") setFullName(data.report.fullName);
+        if (typeof data.report.phone === "string" || data.report.phone === null) {
+          setPhone(data.report.phone ?? "");
+        }
       } else if (body.restoreFromHoldArchive === true) {
         setOnHold(false);
         setHoldSnapshot(null);
       } else if (body.moveToHoldArchive === true) {
         setOnHold(true);
       }
-      setMessage(successMessage);
+      const enrichProvider =
+        body.enrichWithProspeo === true
+          ? ("Prospeo" as const)
+          : body.enrichWithApollo === true
+            ? ("Apollo" as const)
+            : null;
+      setMessage(
+        enrichProvider
+          ? enrichResultMessage(enrichProvider, data.report)
+          : successMessage,
+      );
       if (body.promoteToProspect === true) {
-        // Leave the intake dossier — promoted deals belong in SalesTeam, not the SUSPECT queue.
-        router.push("/dashboard/operations/ironleads");
-        router.refresh();
+        returnToQueue("promoted", data.report);
+        return;
+      }
+      if (body.moveToHoldArchive === true) {
+        returnToQueue("held", data.report);
+        return;
+      }
+      if (body.restoreFromHoldArchive === true) {
+        returnToQueue("restored", data.report);
         return;
       }
       router.refresh();
@@ -160,15 +198,31 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
     await patchSuspect({ discardSuspect: true }, "Discarded — not a buyer company.");
   }
 
+  function enrichResultMessage(
+    provider: "Apollo" | "Prospeo",
+    nextReport: IronleadsSuspectReport | undefined,
+  ): string {
+    const nextEmail = nextReport?.email?.trim() ?? "";
+    const stillPlaceholder =
+      !nextEmail || nextEmail.toLowerCase().endsWith("@ironleads.local");
+    if (stillPlaceholder) {
+      const prospeoNote =
+        nextReport?.prospeoEnrichment?.notes?.filter(Boolean).join(" · ") || null;
+      return (
+        `${provider} ran, but email is still a harvest placeholder (@ironleads.local) — not a real inbox. ` +
+        `Do not Promote on EMAIL until you paste a verified work address` +
+        (prospeoNote ? ` (${prospeoNote})` : ".")
+      );
+    }
+    return `${provider} enrich applied ${nextEmail} — confirm person match, then Promote when Fit/Pain/Buyer/Email pass.`;
+  }
+
   async function onEnrichWithApollo() {
     const ok = window.confirm(
       "Call Apollo to enrich this SUSPECT (org + named buyer email if set)? This consumes Apollo credits. Path B send stays on Approvals — Apollo will not email.",
     );
     if (!ok) return;
-    await patchSuspect(
-      { enrichWithApollo: true },
-      "Apollo enrich complete — review email/phone below, then Promote when ready.",
-    );
+    await patchSuspect({ enrichWithApollo: true }, "Apollo enrich complete.");
   }
 
   async function onEnrichWithProspeo() {
@@ -176,10 +230,7 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
       "Call Prospeo to enrich this SUSPECT (named buyer + domain → work email)? This consumes Prospeo credits. Path B send stays on Approvals — Prospeo will not email.",
     );
     if (!ok) return;
-    await patchSuspect(
-      { enrichWithProspeo: true },
-      "Prospeo enrich complete — review email below, then Promote when ready.",
-    );
+    await patchSuspect({ enrichWithProspeo: true }, "Prospeo enrich complete.");
   }
 
   return (
@@ -385,9 +436,17 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
           disabled={busy || onHold || report.deal?.stage === "PROSPECT"}
           onClick={() => void onSave(true)}
           className="rounded-lg border border-cyan-700 bg-cyan-950/50 px-4 py-2 text-sm font-medium text-cyan-100 hover:border-cyan-500 disabled:opacity-40"
-          title={onHold ? "Restore from HOLD archive before promoting" : undefined}
+          title={
+            report.deal?.stage === "PROSPECT"
+              ? "Already PROSPECT — use SalesTeam / Approvals for outreach (not another promote)"
+              : onHold
+                ? "Restore from HOLD archive before promoting"
+                : undefined
+          }
         >
-          Save + promote to PROSPECT
+          {report.deal?.stage === "PROSPECT"
+            ? "Already PROSPECT"
+            : "Save + promote to PROSPECT"}
         </button>
       </div>
 

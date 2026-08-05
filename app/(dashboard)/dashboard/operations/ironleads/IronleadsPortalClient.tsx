@@ -14,7 +14,31 @@ const FREE_DIRECTORY_SEED_COUNT = listMsspFreeDirectorySeeds().length;
 const PASTE_DRAFT_KEY = "ironleads.directoryPasteDraft.v1";
 const PASTE_MAX_ROWS = 100;
 
-export default function IronleadsPortalClient() {
+type QueueDecision = {
+  kind: "promoted" | "held" | "restored" | "discarded";
+  contactId: string;
+};
+
+type PortalProps = {
+  queueDecision?: QueueDecision | null;
+  queueDecisionCompany?: string | null;
+  /** @deprecated use queueDecision */
+  justPromotedContactId?: string | null;
+  justPromotedCompany?: string | null;
+};
+
+export default function IronleadsPortalClient({
+  queueDecision = null,
+  queueDecisionCompany = null,
+  justPromotedContactId = null,
+  justPromotedCompany = null,
+}: PortalProps) {
+  const decision =
+    queueDecision ??
+    (justPromotedContactId
+      ? { kind: "promoted" as const, contactId: justPromotedContactId }
+      : null);
+  const decisionCompany = queueDecisionCompany ?? justPromotedCompany;
   const [snapshot, setSnapshot] = useState<IronleadsPortalSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [harvestBusy, setHarvestBusy] = useState(false);
@@ -443,6 +467,52 @@ export default function IronleadsPortalClient() {
               <span className="text-slate-300">review</span> SUSPECT reports, Promote when ready, or
               move channel-competitors to the HOLD archive for later retrieval.
             </p>
+            {decision?.kind === "promoted" ? (
+              <div className="mt-3 rounded-lg border border-emerald-800/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100">
+                {decisionCompany || "Account"} promoted to PROSPECT. Next:{" "}
+                <Link
+                  href="/dashboard/operations/salesteam"
+                  className="font-medium text-emerald-300 underline hover:text-emerald-200"
+                >
+                  SalesTeam
+                </Link>{" "}
+                → poll draft → Approvals.{" "}
+                <Link
+                  href={`/dashboard/operations/ironleads/suspects/${decision.contactId}?dossier=1`}
+                  className="text-emerald-300/80 underline hover:text-emerald-200"
+                >
+                  Open intake dossier
+                </Link>
+              </div>
+            ) : null}
+            {decision?.kind === "held" ? (
+              <div className="mt-3 rounded-lg border border-amber-800/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
+                {decisionCompany || "Account"} moved to HOLD archive. Retrieve anytime from HOLD
+                archive below.{" "}
+                <Link
+                  href={`/dashboard/operations/ironleads/suspects/${decision.contactId}?dossier=1`}
+                  className="text-amber-200 underline hover:text-amber-100"
+                >
+                  Open dossier
+                </Link>
+              </div>
+            ) : null}
+            {decision?.kind === "restored" ? (
+              <div className="mt-3 rounded-lg border border-cyan-800/50 bg-cyan-950/30 px-3 py-2 text-sm text-cyan-100">
+                {decisionCompany || "Account"} restored to the active SUSPECT queue.{" "}
+                <Link
+                  href={`/dashboard/operations/ironleads/suspects/${decision.contactId}`}
+                  className="text-cyan-300 underline hover:text-cyan-200"
+                >
+                  Open dossier
+                </Link>
+              </div>
+            ) : null}
+            {decision?.kind === "discarded" ? (
+              <div className="mt-3 rounded-lg border border-rose-800/50 bg-rose-950/30 px-3 py-2 text-sm text-rose-100">
+                {decisionCompany || "Row"} discarded (removed from SUSPECT queue).
+              </div>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -767,7 +837,7 @@ export default function IronleadsPortalClient() {
                         ) : null}
                       </div>
                       <Link
-                        href={`/dashboard/operations/ironleads/suspects/${row.id}`}
+                        href={`/dashboard/operations/ironleads/suspects/${row.id}?dossier=1`}
                         className="shrink-0 text-xs text-amber-200 hover:underline"
                       >
                         Open / restore →

@@ -17,6 +17,7 @@ export const metadata = {
 
 type PageProps = {
   params: Promise<{ contactId: string }>;
+  searchParams: Promise<{ dossier?: string }>;
 };
 
 function Flag({ ok, label }: { ok: boolean; label: string }) {
@@ -33,13 +34,17 @@ function Flag({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
-export default async function IronleadsSuspectReportPage({ params }: PageProps) {
+export default async function IronleadsSuspectReportPage({
+  params,
+  searchParams,
+}: PageProps) {
   const allowed = await canUsePerimeterWorkforceFromSession();
   if (!allowed) {
     redirect("/unauthorized");
   }
 
   const { contactId } = await params;
+  const query = await searchParams;
   const report = await buildIronleadsSuspectReport(contactId);
   if (!report) {
     notFound();
@@ -48,7 +53,16 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
   // Directive / article titles must not remain as SUSPECT accounts.
   if (looksLikeOsintTitleNoise(report.company)) {
     await discardIronleadsSuspectContact(contactId);
-    redirect("/dashboard/operations/ironleads?discarded=osint-title-noise");
+    redirect(
+      `/dashboard/operations/ironleads?discarded=${encodeURIComponent(contactId)}&company=${encodeURIComponent(report.company)}`,
+    );
+  }
+
+  // Promoted deals leave the SUSPECT intake URL unless operator explicitly asks for dossier.
+  if (report.deal?.stage === "PROSPECT" && query.dossier !== "1") {
+    redirect(
+      `/dashboard/operations/ironleads?promoted=${encodeURIComponent(contactId)}&company=${encodeURIComponent(report.company)}`,
+    );
   }
 
   return (

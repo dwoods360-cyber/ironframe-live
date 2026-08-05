@@ -1,19 +1,11 @@
 ---
 title: "Governance Frame Europe — July 2026: CSRD After Omnibus I and the Revised ESRS"
-date: "2026-07-16T00:00:00.000Z"
-status: "QUARANTINED_DRAFT"
-classification: "Institutional Governance"
-category: "newsletter"
-seriesId: "governance-frame-summer-2026"
-installmentId: "GF-SUM-2026-07-N"
+publishedAt: "2026-08-04T18:05:03.729Z"
+published: "2026-08-04"
 summary: "On 3 July 2026 the European Commission adopted revised European Sustainability Reporting Standards under the Omnibus I simplification programme. Scope and datapoints are being reduced; governance duties for entities that remain in scope are not. This newsletter separates enacted CSRD requirements, Omnibus I changes, the revised ESRS delegated act, Official Journal / application timing, and voluntary options for smaller companies."
+classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-audience: "Public — brief.ironframegrc.com"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "industry-research"
-requiresImmediatePromotion: false
-activeExposureCents: "0"
-publishState: "QUARANTINED_AWAITING_OPERATOR"
+publishedBy: "54aac838-9094-4de5-ac24-993672505cbc"
 ---
 
 > **Executive Summary:** EU sustainability reporting is being simplified—not abandoned. Omnibus I narrowed who must report; the Commission’s 3 July 2026 revised ESRS further reduce mandatory datapoints. Entities that remain in scope still need governed materiality decisions, reliable source data, clear ownership, internal controls, and assurance-ready evidence. Readers should track what is enacted, what is adopted but awaiting Official Journal publication, and what applies only from later financial years.

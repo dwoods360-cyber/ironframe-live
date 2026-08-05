@@ -1,20 +1,11 @@
 ---
 title: "Governance Frame Australia — August 2026: After the Tranche 2 Enrolment Deadline"
-date: "2026-06-16T00:00:00.000Z"
-lastUpdated: "2026-08-04T00:00:00.000Z"
-status: "QUARANTINED_DRAFT"
-classification: "Institutional Governance"
-category: "newsletter"
-seriesId: "governance-frame-summer-2026"
-installmentId: "GF-SUM-2026-06-N"
+publishedAt: "2026-08-04T18:14:05.110Z"
+published: "2026-08-04"
 summary: "Australia’s expanded AML/CTF regime is now in force for newly regulated designated services. This August newsletter reads the post–July 29 landscape: who is actually covered, what enrolment did and did not achieve, how senior-manager approval differs from governing-body oversight, and which dealer, CDD, officer-notification and independent-evaluation controls must still be evidenced. Information reviewed through August 4, 2026."
+classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-audience: "Public — brief.ironframegrc.com"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "industry-research"
-requiresImmediatePromotion: false
-activeExposureCents: "0"
-publishState: "QUARANTINED_AWAITING_OPERATOR"
+publishedBy: "54aac838-9094-4de5-ac24-993672505cbc"
 ---
 
 > **Executive Summary:** Australia’s expanded AML/CTF regime applies according to the designated services an entity provides and their geographical link to Australia—not merely the entity’s professional title. Businesses commencing newly regulated services on July 1, 2026 generally had to submit their AUSTRAC enrolment application by July 29, while also implementing an approved ML/TF risk assessment, operational AML/CTF policies, customer-due-diligence and suspicious-matter processes, personnel controls and governing-body oversight. Enrolment, compliance-officer designation and officer notification have related but distinct deadlines. Entities should preserve evidence showing how they scoped their services, approved and implemented their controls, trained relevant personnel and addressed residual risk.

@@ -360,28 +360,24 @@ export function summer2026SeedSpecs(): OpsScheduleSeedSpec[] {
       synopsis:
         "AU research briefing on CPS 230 material service-provider contracts, fourth parties, and exit risk.",
       outcome:
-        "Ops review completed 2026-06-20. Citations checked; draft cleared June GF research slate path (staged briefing on CPS 230 MSP/fourth-party/exit risk).",
+        "DONE + archived 2026-08-04. Promoted to docs/published-briefings/2026-06-16-research-cps-230-msp-contracts.md; queue + quarantine drafts removed; listed in public/rss.xml. Canonical: research.ironframegrc.com/briefings/2026-06-16-research-cps-230-msp-contracts.",
     },
     {
       title: "AUSTRAC Tranche 2 newsletter — July reframe & promote",
       kind: "NEWSLETTER_REVIEW",
-      status: "IN_PROGRESS",
+      status: "DONE",
       dueAt: "2026-07-25T17:00:00.000Z",
       sourceRef: "2026-06-16-draft-newsletter-austrac-tranche-2.md",
       synopsis:
         "AU industry newsletter on Tranche 2 AML/CTF — June ops language cleared; still quarantined. Reframe for post-1 July enrolment window, then desk + Approve.",
-      nextActions: [
-        "Reframe draft from June readiness to post-1 July / enrolment-by-29-July clock",
-        "Re-verify AUSTRAC citations and designated-services scoping language",
-        "Run GF publication desk pass (regulatory + product boundary)",
-        "Ops Hub Approve (or Deny); mark Done with outcome only after promote/deny",
-      ],
+      outcome:
+        "DONE + archived 2026-08-04. Promoted to docs/published-briefings/2026-06-16-newsletter-austrac-tranche-2.md; queue removed. Canonical: research.ironframegrc.com/briefings/2026-06-16-newsletter-austrac-tranche-2.",
     },
     {
       title: "DORA supervision briefing — Ops review & promote",
       kind: "BRIEFING_REVIEW",
       status: "IN_REVIEW",
-      dueAt: "2026-07-22T17:00:00.000Z",
+      dueAt: "2026-08-09T17:00:00.000Z",
       sourceRef: "2026-07-16-draft-research-dora-supervision.md",
       synopsis:
         "EU research briefing on DORA moving from implementation to competent-authority supervision — review citations, then promote.",
@@ -394,22 +390,19 @@ export function summer2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "CSRD / Omnibus ESRS newsletter — Ops review & promote",
       kind: "NEWSLETTER_REVIEW",
-      status: "IN_REVIEW",
+      status: "DONE",
       dueAt: "2026-07-24T17:00:00.000Z",
       sourceRef: "2026-07-16-draft-newsletter-csrd-omnibus-esrs.md",
       synopsis:
         "EU industry newsletter on CSRD after Omnibus I and revised ESRS — verify OJ/application dates before promote.",
-      nextActions: [
-        "Open CSRD / Omnibus ESRS newsletter draft",
-        "Verify OJ vs adopted language and application dates",
-        "Promote or Deny; mark Done with outcome",
-      ],
+      outcome:
+        "DONE + archived 2026-08-04. Promoted to docs/published-briefings/2026-07-16-newsletter-csrd-omnibus-esrs.md; queue removed. Canonical: research.ironframegrc.com/briefings/2026-07-16-newsletter-csrd-omnibus-esrs.",
     },
     {
       title: "EU AI Act August 2 briefing — final fact-check",
       kind: "BRIEFING_REVIEW",
       status: "PLANNED",
-      dueAt: "2026-07-30T17:00:00.000Z",
+      dueAt: "2026-08-17T17:00:00.000Z",
       sourceRef: "2026-08-02-draft-research-eu-ai-act-august.md",
       synopsis:
         "EU research briefing for 2 Aug 2026 — confirm what applies vs Omnibus high-risk deferrals before Ops approve.",
@@ -423,43 +416,37 @@ export function summer2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "EU AI Act briefing — publish window",
       kind: "BRIEFING_DRAFT",
       status: "PLANNED",
-      dueAt: "2026-08-02T17:00:00.000Z",
+      dueAt: "2026-08-20T17:00:00.000Z",
       sourceRef: "2026-08-02-draft-research-eu-ai-act-august.md#publish",
       synopsis:
-        "Publish the AI Act briefing on the 2 Aug 2026 applicability threshold after final fact-check passes.",
+        "Publish the AI Act briefing after final fact-check passes (rescheduled from 2 Aug threshold; intervals preserved).",
       nextActions: [
         "Confirm final fact-check activity is Done",
-        "Publish on/near 2 Aug 2026 threshold",
+        "Publish in the scheduled publish window",
         "Mark Done with publish slug/URL",
       ],
     },
     {
       title: "SEC Item 1.05 filings newsletter — Ops review",
       kind: "NEWSLETTER_REVIEW",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-08-12T17:00:00.000Z",
       sourceRef: "2026-08-16-draft-newsletter-sec-item-105-filings.md",
       synopsis:
         "US newsletter analyzing Item 1.05 cyber disclosure filing patterns and materiality — re-verify EDGAR examples before promote.",
-      nextActions: [
-        "Re-verify EDGAR Item 1.05 examples",
-        "Confirm materiality framing (patterns, not rule restatement)",
-        "Promote or Deny; mark Done with outcome",
-      ],
+      outcome:
+        "DONE + archived 2026-08-04 (early promote vs Aug 16 edition date). EDGAR-verified revise applied; promoted to docs/published-briefings/2026-08-16-newsletter-sec-item-105-filings.md; queue + quarantine drafts removed. Canonical: research.ironframegrc.com/briefings/2026-08-16-newsletter-sec-item-105-filings.",
     },
     {
       title: "SEC cyber disclosure newsletter — syndicate",
       kind: "NEWSLETTER_SYNDICATE",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-08-16T17:00:00.000Z",
       sourceRef: "2026-08-16-draft-newsletter-sec-item-105-filings.md#syndicate",
       synopsis:
         "After promote, syndicate the SEC cyber disclosure newsletter to distribution channels.",
-      nextActions: [
-        "Confirm SEC newsletter promote is Done",
-        "Syndicate to RSS / Ironcast / channels",
-        "Mark Done with syndicate paths",
-      ],
+      outcome:
+        "DONE + archived 2026-08-04. Item present in public/rss.xml with research.ironframegrc.com deep link; published ledger is the syndication source of truth.",
     },
   ];
 }
@@ -474,7 +461,7 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Video Phase 0 — Style lock complete",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-07-25T17:00:00.000Z",
+      dueAt: "2026-08-09T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#phase-0",
       synopsis:
         "Lock character refs, boardroom stills, title/end cards, and V1–V2 shot lists before episode production spend.",
@@ -483,16 +470,16 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Video V1 — The Risk Register (build)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-01T17:00:00.000Z",
+      dueAt: "2026-08-16T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v1-build",
       synopsis:
-        "Produce Episode 1 (The Number / risk register) clips for 6 Aug publish — Phase 1 budget ~$200.",
+        "Produce Episode 1 (The Number / risk register) clips for scheduled publish — Phase 1 budget ~$200.",
     },
     {
       title: "Video V1 — Publish The Number",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-06T15:00:00.000Z",
+      dueAt: "2026-08-21T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v1-publish",
       synopsis:
         "Ship Episode 1 to LinkedIn + /marketing with CTA to a 10–15 min workflow review.",
@@ -501,7 +488,7 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Video V2 — The Audit Request (build)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-08T17:00:00.000Z",
+      dueAt: "2026-08-23T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v2-build",
       synopsis:
         "Produce Episode 2 (The Evidence / audit request) and freeze the style pack after edit.",
@@ -510,7 +497,7 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Video V2 — Publish The Evidence",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-13T15:00:00.000Z",
+      dueAt: "2026-08-28T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v2-publish",
       synopsis:
         "Ship Episode 2 pointing to /product-demo and audit-ready evidence solutions.",
@@ -519,16 +506,16 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Video Phase 2 — V3/V4/V5 production window",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-18T17:00:00.000Z",
+      dueAt: "2026-09-02T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#phase-2",
       synopsis:
-        "Start Episodes 3–5 (Boundary, Draft, Intake) production window for late-Aug / Sep publishes.",
+        "Start Episodes 3–5 (Boundary, Draft, Intake) production window for Sep publishes.",
     },
     {
       title: "Video V3 — Publish The Boundary",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-27T15:00:00.000Z",
+      dueAt: "2026-09-11T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v3-publish",
       synopsis:
         "Ship Episode 3 on multi-entity / boundary control with workflow-review CTA.",
@@ -537,7 +524,7 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Video V4 — Publish The Draft",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-09-03T15:00:00.000Z",
+      dueAt: "2026-09-18T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v4-publish",
       synopsis:
         "Ship Episode 4 on governed AI drafts — AI never self-approves.",
@@ -546,7 +533,7 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Video V5 — Publish The Intake",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-09-10T15:00:00.000Z",
+      dueAt: "2026-09-25T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v5-publish",
       synopsis:
         "Ship Episode 5 on Irongate sanitize-before-persist intake narrative.",
@@ -555,16 +542,16 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Video V6 — Complete Story (build)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-09-26T17:00:00.000Z",
+      dueAt: "2026-10-11T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v6-build",
       synopsis:
-        "Finish the 2–3 min complete Ironframe story film for 1 Oct publish.",
+        "Finish the 2–3 min complete Ironframe story film for mid-Oct publish.",
     },
     {
       title: "Video V6 — Publish Complete Ironframe Story",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-10-01T15:00:00.000Z",
+      dueAt: "2026-10-16T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v6-publish",
       synopsis:
         "Ship the complete story to LinkedIn, homepage, and newsletter with workflow-review CTA.",
@@ -624,11 +611,13 @@ export function ironframeRollout2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "Rollout — Golden Path regression smoke (Stops 1–5)",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-07-24T17:00:00.000Z",
       sourceRef: "rollout/golden-path-regression",
       synopsis:
         "Re-run Golden Path Stops 1–5 so production demo path is green before DP outreach.",
+      outcome:
+        "DONE + archived 2026-08-04. Golden Path Run #4 (2026-07-10) PASS — Stops 1–5b + optional Stop 6 per docs/ops/golden-path-checklist.md; Item 1A PASS on pilot-to-commercial-readiness-checklist.md.",
     },
     {
       title: "Rollout — Partner client provisioning (1D) walkthrough",
@@ -762,20 +751,24 @@ export function queueBacklog2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "Queue — Review GRC evolution research draft",
       kind: "BRIEFING_REVIEW",
-      status: "IN_REVIEW",
+      status: "DONE",
       dueAt: "2026-07-23T17:00:00.000Z",
       sourceRef: "2026-07-15-draft-research-grc-evolution.md",
       synopsis:
         "Quarantined research on how GRC evolved — Ops promote or deny after citation check.",
+      outcome:
+        "DONE + archived 2026-08-04. Promoted to docs/published-briefings/2026-07-15-research-grc-evolution.md; queue removed. Canonical: research.ironframegrc.com/briefings/2026-07-15-research-grc-evolution.",
     },
     {
       title: "Queue — Review GRC current-pain research draft",
       kind: "BRIEFING_REVIEW",
-      status: "IN_REVIEW",
+      status: "DONE",
       dueAt: "2026-07-23T17:00:00.000Z",
       sourceRef: "2026-07-15-draft-research-grc-current-pain.md",
       synopsis:
         "Quarantined research on current GRC operator pain — Ops promote or deny after citation check.",
+      outcome:
+        "DONE + archived 2026-08-04. Promoted to docs/published-briefings/2026-07-15-research-grc-current-pain.md; queue removed. Canonical: research.ironframegrc.com/briefings/2026-07-15-research-grc-current-pain.",
     },
     {
       title: "Queue — Review stakeholder benefit-map draft",
@@ -867,7 +860,7 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "LinkedIn Mon — GRC problem post (heatmap vs dollars)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-07-21T15:00:00.000Z",
+      dueAt: "2026-08-09T15:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-07-21",
       priorityHint: 5,
       synopsis:
@@ -877,21 +870,21 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "LinkedIn Wed — point to /product-demo (pre-video)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-07-23T15:00:00.000Z",
+      dueAt: "2026-08-11T15:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-07-23",
       priorityHint: 6,
       synopsis:
-        "Founder LinkedIn: Wednesday post to /product-demo while video Wed demos start 6 Aug.",
+        "Founder LinkedIn: Wednesday post to /product-demo ahead of rescheduled video demo publishes.",
     },
     {
       title: "LinkedIn Fri — GF control lesson",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-07-25T15:00:00.000Z",
+      dueAt: "2026-08-13T15:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-07-25",
       priorityHint: 7,
       synopsis:
-        "Founder LinkedIn: Friday Governance Frame control lesson for the week of 21 Jul.",
+        "Founder LinkedIn: Friday Governance Frame control lesson (rescheduled; 2-day cadence preserved).",
     },
     {
       title: "Marketing — Warm network / advisor asks (before cold)",

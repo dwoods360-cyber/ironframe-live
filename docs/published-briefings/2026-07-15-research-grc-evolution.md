@@ -1,19 +1,11 @@
 ---
 title: "Industry Research Brief — Evolution of GRC: Persistent Pain Points and Historical Mitigations (2002–2026)"
-date: "2026-07-15T14:00:00.000Z"
-lastUpdated: "2026-08-04T00:00:00.000Z"
-researchCutoff: "2026-08-04"
-status: "QUARANTINED_DRAFT"
-classification: "Institutional Governance"
-category: "independent-industry-research"
-researchType: "independent-industry-synthesis"
-author: "Ironframe Executive Intelligence Unit"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "industry-research"
-requiresImmediatePromotion: false
-activeExposureCents: "0"
-publishState: "QUARANTINED_AWAITING_OPERATOR"
+publishedAt: "2026-08-04T19:09:02.112Z"
+published: "2026-08-04"
 summary: "Governance, risk and compliance practices have evolved from formal internal-control assessment and document-centred assurance toward integrated cyber governance, operational resilience and automation-supported evidence. Across these periods, research and public enforcement records show persistent challenges involving spreadsheet lifecycle controls, evidence traceability, risk communication, third-party dependencies and access boundaries—without treating exact-dollar certainty, physical tenant separation or universal AI review as mandatory in every environment. Information reviewed through August 4, 2026."
+classification: "Institutional Governance"
+author: "Ironframe Governance Frame"
+publishedBy: "54aac838-9094-4de5-ac24-993672505cbc"
 ---
 
 > **Executive Summary:** Governance, risk and compliance practices have evolved from formal internal-control assessment and document-centred assurance toward integrated cyber governance, operational resilience and automation-supported evidence. Across these periods, research and public enforcement records show persistent challenges involving spreadsheet lifecycle controls, evidence traceability, risk communication, third-party dependencies and access boundaries. The evidence does not support treating exact-dollar estimates, physical tenant separation, quarantine-before-any-storage or universal human review as mandatory in every environment. A defensible control-first approach instead requires traceable evidence, decision-useful risk estimates with uncertainty, validated promotion of external data, enforceable and tested tenant isolation, and approval controls proportionate to the consequence of the output.

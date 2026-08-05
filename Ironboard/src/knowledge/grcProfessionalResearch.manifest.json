@@ -2,26 +2,26 @@
   "manifestVersion": "1.0.0",
   "classification": "Strategic Intel Update",
   "sourceCorpus": "Infasys Knowledge Base",
-  "manifestId": "ironintel-osint-2026-08-01-live",
-  "generatedAt": "2026-08-01T08:00:00.000Z",
+  "manifestId": "ironintel-osint-2026-08-03-live",
+  "generatedAt": "2026-08-03T08:00:00.000Z",
   "documents": [
     {
       "documentId": "grc-professional-workday-analysis",
-      "title": "GRC Professional Workday Analysis — August 1 OSINT Sweep",
+      "title": "GRC Professional Workday Analysis — August 3 OSINT Sweep",
       "sourceType": "GRC_PROFESSIONAL_WORKDAY_ANALYSIS",
-      "executiveSummary": "Ironintel and Ironwatch live OSINT for August 1, 2026 pivots from July 31 deadline convergence to BOD 26-04 deadline-day execution on Cisco Secure Firewall Management Center CVE-2026-20316 (static hard-coded credentials, actively exploited zero-day, CISA KEV July 29) — FCEB agencies must apply branch-specific hotfixes and complete forensics triage per BOD 26-04 before close of business today. Minnesota water PLC coordinated campaign enters day five of statewide MNIT response with CISA July 31 nationwide alert urging removal of internet-exposed PLCs per Advisory AA26-097A; federal investigators continue evaluating Iranian-affiliated attribution alignment. Cl0p ransomware affiliates escalate PTC Windchill/FlexPLM CVE-2026-12569 (CVSS 9.3 unauthenticated RCE, KEV June 25) extortion wave with July 20+ emails targeting aerospace, automotive, manufacturing, and retail PLM estates — first-ever PTC product on KEV catalog with confirmed JSP webshell deployment. CMMC Phase II C3PAO suspension enters day 19 of 60-day Reform Task Force review (report due September 11; industry RFI closes August 14); Phase I NIST SP 800-171 Rev 2 self-assessments remain binding under DFARS 252.204-7012. Post-deadline verification window opens for Balbooa Forms CVE-2026-56291 (July 31 FCEB deadline passed), Arista VeloCloud CVE-2026-16812 (July 30), and AD FS CVE-2026-56155 (July 28) — Ironwatch requires attestation receipts before closing KEV tickets.",
+      "executiveSummary": "Ironintel and Ironwatch live OSINT for August 3, 2026 pivots from August 2 identity-first convergence to MSP supply-chain cascade: N-able disclosed CVE-2026-18577 August 2 after incomplete patch for CVE-2026-18556 — unauthenticated authentication bypass grants god-mode RMM console access on N-central builds prior to 2026.3.1.7, enabling Take Control lateral movement, Cloudflare tunnel persistence via cloudflared services, and downstream compromise across all managed customer endpoints; Huntress confirmed exploitation across nine organizations under one partner account August 3. WordPress Core CVE-2026-60137 BOD 26-04 FCEB deadline arrives August 4 (1 day remaining). CMMC Phase II C3PAO suspension enters day 21 of 60-day Reform Task Force review (report due September 11; industry RFI closes August 14 with 11 days remaining). Carryover priorities: CaptiveCrunch Storm-2945 traveler token theft, Arch AUR developer supply-chain freeze, ShinyHunters healthcare SSO extortion, Minnesota water PLC day seven, Cl0p Windchill PLM extortion, and post-deadline Cisco FMC forensic attestation.",
       "keyFindings": [
-        "BOD 26-04 deadline day August 1, 2026 — Cisco Secure FMC CVE-2026-20316 (CISA KEV July 29): Static hard-coded low-privilege credentials actively exploited in zero-day attacks; Cisco PSIRT confirmed exploitation July 2026; CVSS 5.3 escalates when chained with CVE-2026-20079 authentication bypass and CVE-2026-20131 for root access; FCEB must apply branch-specific hotfixes (FMC 7.0 through 10.0) and run IoC check `cat /var/log/messages | grep license` for /var/tmp/license.tmp before returning appliances to service; rotate all credentials, keys, and certificates on suspected compromise per Cisco TAC advisory cisco-sa-fmc-static-cred-BET3Cjh v1.2 (updated July 31) — Technology, Defense, Finance, and Public Sector profiles with internet-exposed FMC management planes require forensic triage today.",
-        "Minnesota water PLC coordinated campaign day five (July 26–27 attack, MNIT response active): 30-plus community water systems confirmed malicious OT activity; Braham well and treatment plant offline; Plymouth compromised PLCs at two water towers and 14 sewer lift stations; CISA July 31 alert urges nationwide utilities to disconnect internet-exposed PLCs, replace default passwords, and limit remote access per AA26-097A Add-On Instruction manipulation across Rockwell Allen-Bradley, Schneider Modicon, and Siemens S7-1200 controllers; CI Fortify guidance published July 28 with Five Eyes partners — Public Sector, Manufacturing, and Healthcare facility-management Industry Profiles must inventory OT remote-access paths and attest manual-operations continuity.",
-        "Cl0p PTC Windchill/FlexPLM CVE-2026-12569 campaign escalation (July 20–August 1): Critical unauthenticated RCE (CVSS 9.3) in product lifecycle management platforms actively exploited since June 18; Cl0p affiliates chain FlexPLM WSDL information disclosure with Windchill login servlet flaw to deploy hex-named JSP webshells and exfiltrate engineering IP; extortion emails with subject Windchill PDMLink module serious data leak target aerospace, automotive, manufacturing, and retail sectors — first PTC product on CISA KEV catalog; Manufacturing and Defense Industry Profiles must remove internet-exposed Windchill instances and hunt for persistent webshells before closing PLM remediation tickets.",
-        "BOD 26-04 post-deadline verification August 1, 2026 — Balbooa Forms CVE-2026-56291 (CVSS 9.8): Unauthenticated file upload to RCE on internet-facing Joomla ecosystem extensions; FCEB deadline passed July 31 — Technology and Public Sector web-application estates must preserve forensic evidence and attest patch or isolation completion before Ironwatch closes remediation tickets.",
-        "BOD 26-04 approaching deadlines — Fortinet FortiOS CVE-2025-68686 (KEV added July 27, due August 10): Exposure of sensitive information vulnerability on perimeter appliances; Technology and Public Sector profiles must schedule patch windows before August 10 FCEB deadline alongside WordPress Core CVE-2026-60137 (due August 4).",
-        "CareCloud healthcare breach notification carryover (345000 individuals, July 30 AG filings): AWS-hosted EHR exfiltration March 10–16 window — Healthcare Industry Profile must correlate cloud-hosted PHI repository segmentation with OCR and CIRCIA 72-hour reporting obligations alongside TriZetto and NYC Health + Hospitals patterns.",
-        "SharePoint July cluster post-deadline carryover: CVE-2026-50522 (watchTowr confirmed exploitation July 20), CVE-2026-58644, and chained CVE-2026-56164 machine-key theft via spinstall0.aspx web shell — IIS machine-key rotation after artifact eviction remains mandatory across Finance, Healthcare, Technology, and Public Sector profiles.",
-        "SonicWall SMA zero-day post-deadline forensic verification carryover (CVE-2026-15409/CVE-2026-15410): Volexity UTA0533 appliance-specific malware and VPN-less AD lateral movement — patch-only remediation insufficient; perimeter VPN appliances remain tier-zero identity infrastructure.",
-        "CMMC Phase II suspension day 19 (DoW July 13, 2026): Reform Task Force 60-day review active; report due September 11; CMMC RFI comment window closes August 14; Phase I self-assessments, SPRS affirmations, and NIST SP 800-171 Rev 2 controls remain in force — Defense Industry Profile must not defer SSP or POA&M updates during reform window; False Claims Act Civil Cyber-Fraud Initiative scrutiny continues.",
-        "FAR Council CUI proposed rule post-comment (comment period closed July 23, 2026): NIST SP 800-171 Rev 3 and 72-hour CUI incident reporting via clause 52.240-7 — Public Sector and Defense profiles must track dual Rev 2 CMMC self-assessment path and prospective Rev 3 FAR alignment without conflating assessment baselines.",
-        "Ironintel correlation priority August 1: Cisco FMC deadline-day triage, Minnesota PLC day-five recovery attestation, Cl0p Windchill PLM extortion wave, Balbooa Forms post-deadline verification, CMMC RFI countdown (13 days to August 14 close) — all external research bytes require Irongate DMZ validation before tenant CRM persistence."
+        "N-able N-central RMM god-mode authentication bypass August 2–3, 2026 — CVE-2026-18577 (CVSS 8.2) results from incomplete patch for CVE-2026-18556; unauthenticated remote attackers gain administrative account takeover on N-central versions through 2026.3.1 across hosted and on-premises MSP deployments; post-exploitation leverages Take Control for downstream endpoint access and registers Cloudflare tunnel (cloudflared) services for persistence after N-central access revocation; hotfix 2026.3.1.7 released August 2; Huntress August 3 rapid response confirms exploitation across nine customer organizations under one self-hosted partner instance — Technology, Finance, and Healthcare Industry Profiles relying on MSP-managed RMM must verify build 2026.3.1.7, hunt cloudflared services and svchost.exe anomalies in user document folders, and restrict N-central console to VPN-only administrative access.",
+        "WordPress Core CVE-2026-60137 BOD 26-04 deadline day August 3 — SQL injection KEV (added July 21) requires FCEB remediation by August 4 (1 day remaining); EPSS 79.0 percent; Technology and Public Sector Industry Profiles must execute emergency patch cycle on internet-facing CMS estates before CaptiveCrunch identity triage deferrals.",
+        "CaptiveCrunch active campaign carryover August 3 — Microsoft Threat Intelligence attributes Storm-2945 (Midnight Blizzard sub-cluster) to captive-portal traffic manipulation at hotels and conference centers since early May 2026; CornFlake RAT and ChocoShell harvest M365, Azure AD, and WAM tokens; device-code OAuth phishing added mid-July; Defense, Finance, Technology, and Public Sector profiles with traveling workforce must enforce VPN-before-Wi-Fi and block device-code flow via Conditional Access.",
+        "CMMC Phase II suspension day 21 (DoW July 13, 2026): Reform Task Force 60-day review active; report due September 11; CMMC RFI comment window closes August 14 (11 days remaining); Phase I self-assessments, SPRS affirmations, and NIST SP 800-171 Rev 2 controls remain in force — Defense Industry Profile must not defer SSP or POA&M updates during reform window; False Claims Act Civil Cyber-Fraud Initiative scrutiny continues.",
+        "ShinyHunters healthcare SaaS extortion surge continues August 2026 — Health-ISAC vishing-to-helpdesk-reset chain to Entra SSO compromise; recent victims include Medtronic, iRhythm, OneMedical, DentaQuest, AdaptHealth, and Him and Hers; Amgen SEC 8-K July 31 PHI exfiltration from third-party cloud vendor — Healthcare Industry Profile must centralize Entra sign-in logs and enforce phishing-resistant MFA within 30-day window.",
+        "Arch AUR supply-chain malware wave carryover — openconnect-sso poisoned build delivered infostealer, RAT, and SSH worm August 1; Technology and Manufacturing Industry Profiles must inventory developer workstations and CI runners for AUR-built artifacts.",
+        "BOD 26-04 post-deadline verification carryover August 3 — Cisco Secure FMC CVE-2026-20316 (deadline passed August 1), Balbooa Forms CVE-2026-56291 (deadline passed July 31), SharePoint CVE-2026-50522 machine-key cluster require forensic attestation receipts before Ironwatch closes remediation tickets.",
+        "Fortinet FortiOS CVE-2025-68686 due August 10 (7 days remaining) — patch bypass via symbolic link persistence; CISA Forensics Triage Requirements on potentially compromised appliances.",
+        "Minnesota water PLC coordinated campaign day seven (July 26–27 attack): CISA AA26-097A nationwide alert active; 30-plus community water systems confirmed malicious OT activity — Public Sector, Manufacturing, and Healthcare facility-management Industry Profiles must inventory internet-exposed PLCs.",
+        "Cl0p PTC Windchill/FlexPLM CVE-2026-12569 extortion wave continues — hex-named JSP webshell deployment on internet-exposed PLM estates — Manufacturing and Defense Industry Profiles must hunt persistent webshells before closing PLM remediation tickets.",
+        "Ironintel correlation priority August 3: N-able MSP RMM cascade, WordPress August 4 deadline, CMMC RFI countdown (11 days to August 14 close), CaptiveCrunch traveler identity theft — all external research bytes require Irongate DMZ validation before tenant CRM persistence."
       ],
       "industryProfiles": [
         {
@@ -29,74 +29,74 @@
           "displayName": "Finance",
           "peerAleBaselineCents": "1800000000",
           "regulatoryPressureIndex": 98,
-          "saasDisruptionExposureIndex": 90,
+          "saasDisruptionExposureIndex": 92,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "August 1, 2026 Finance GRC faces Cisco FMC CVE-2026-20316 BOD 26-04 deadline-day forensic eviction on perimeter firewall management planes, Bank of Baroda Triple X employee-credential breach attestation carryover, and SharePoint IIS machine-key post-deadline verification on collaboration estates holding treasury data — board packets must cite BIGINT-cent ALE without float drift and Irongate-sanitized incident ingress."
+          "narrativeSummary": "August 3, 2026 Finance GRC faces N-able RMM god-mode cascade through MSP-managed wealth-management estates, CaptiveCrunch traveler credential theft on M365 collaboration data, WordPress August 4 deadline on public-facing CMS, and post-deadline Cisco FMC forensic verification — board packets must cite BIGINT-cent ALE without float drift and Irongate-sanitized incident ingress."
         },
         {
           "industryKey": "Healthcare",
           "displayName": "Healthcare",
           "peerAleBaselineCents": "1210000000",
           "regulatoryPressureIndex": 99,
-          "saasDisruptionExposureIndex": 83,
+          "saasDisruptionExposureIndex": 87,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "August 1, 2026 healthcare OSINT: CareCloud 345000-patient AWS EHR exfiltration notification carryover; Minnesota water PLC campaign elevates clinical-facility OT segmentation urgency; SharePoint CVE-2026-50522 post-deadline verification on on-premises PHI repositories; Cisco FMC deadline-day triage on hospital perimeter management planes — OCR and CIRCIA enforcement triggers remain active."
+          "narrativeSummary": "August 3, 2026 healthcare OSINT: MSP RMM compromise via N-able N-central CVE-2026-18577 threatens managed clinic endpoints; ShinyHunters vishing-to-Entra-SSO extortion wave continues; Amgen third-party cloud PHI exfiltration SEC 8-K July 31 with HIPAA notification clock active; Minnesota water PLC day-seven elevates clinical-facility OT segmentation urgency; Fortinet FortiOS CVE-2025-68686 due August 10 on hospital perimeter appliances."
         },
         {
           "industryKey": "Technology",
           "displayName": "Technology",
           "peerAleBaselineCents": "950000000",
-          "regulatoryPressureIndex": 95,
+          "regulatoryPressureIndex": 97,
           "saasDisruptionExposureIndex": 99,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "Cisco FMC CVE-2026-20316 BOD 26-04 deadline day on internet-exposed management planes; Balbooa Forms CVE-2026-56291 post-deadline verification on Joomla ecosystem; Fortinet FortiOS CVE-2025-68686 due August 10; WordPress Core KEV due August 4; Minnesota PLC AA26-097A campaign targets exposed Rockwell/Schneider/Siemens controllers; Langflow and SonicWall carryover demand LLM orchestration and perimeter-appliance inventory."
+          "narrativeSummary": "N-able N-central CVE-2026-18577 god-mode RMM bypass is tier-zero MSP supply-chain event August 3; Arch AUR openconnect-sso developer supply-chain freeze carryover; WordPress Core CVE-2026-60137 due August 4; Fortinet FortiOS CVE-2025-68686 due August 10; CaptiveCrunch captive-portal token theft targets traveling engineers."
         },
         {
           "industryKey": "Defense",
           "displayName": "Defense",
           "peerAleBaselineCents": "2500000000",
           "regulatoryPressureIndex": 99,
-          "saasDisruptionExposureIndex": 73,
+          "saasDisruptionExposureIndex": 75,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "CMMC Phase II C3PAO suspension day 19 of 60-day Reform Task Force review — Defense contractors maintain Phase I self-assessment integrity under False Claims Act scrutiny; Cl0p Windchill CVE-2026-12569 PLM extortion targets aerospace and defense supply-chain IP; Cisco FMC and SonicWall SMA zero-days elevate DFARS 252.204-7012 incident reporting velocity on CUI-handling remote-access estates; RFI window closes August 14."
+          "narrativeSummary": "CMMC Phase II C3PAO suspension day 21 of 60-day Reform Task Force review — Defense contractors maintain Phase I self-assessment integrity under False Claims Act scrutiny; CaptiveCrunch targets conference-traveling cleared personnel; Cl0p Windchill CVE-2026-12569 PLM extortion targets aerospace supply-chain IP; RFI window closes August 14 with 11 days remaining."
         },
         {
           "industryKey": "Public Sector",
           "displayName": "Public Sector",
           "peerAleBaselineCents": "1500000000",
           "regulatoryPressureIndex": 99,
-          "saasDisruptionExposureIndex": 78,
+          "saasDisruptionExposureIndex": 80,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "Minnesota water PLC day-five recovery validates CISA AA26-097A OT guidance for FCEB-adjacent utilities; Cisco FMC BOD 26-04 deadline today August 1; Balbooa Forms post-deadline verification; post-deadline SharePoint, Arista VeloCloud, and AD FS attestation; FAR CUI Rev 3 post-comment alignment tracking during CMMC reform window."
+          "narrativeSummary": "Minnesota water PLC day-seven recovery validates CISA AA26-097A OT guidance for FCEB-adjacent utilities; WordPress Core KEV due August 4; MSP RMM compromise risk through N-able N-central managed municipal IT estates; post-deadline Cisco FMC attestation; CMMC reform RFI closes August 14 during dual Rev 2 self-assessment tracking."
         },
         {
           "industryKey": "Manufacturing",
           "displayName": "Manufacturing",
           "peerAleBaselineCents": "1400000000",
-          "regulatoryPressureIndex": 94,
-          "saasDisruptionExposureIndex": 88,
+          "regulatoryPressureIndex": 96,
+          "saasDisruptionExposureIndex": 90,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "August 1, 2026 Manufacturing OSINT: Cl0p Windchill CVE-2026-12569 PLM extortion wave targeting engineering IP across automotive, aerospace, and industrial sectors; Minnesota PLC campaign and CISA AA26-097A Add-On Instruction manipulation on Allen-Bradley/Schneider/Siemens estates; Nichirei RansomHouse logistics ransomware carryover; remove internet-exposed Windchill instances and attest webshell eviction before closing PLM remediation tickets."
+          "narrativeSummary": "August 3, 2026 Manufacturing OSINT: Cl0p Windchill CVE-2026-12569 extortion wave continues across automotive and industrial engineering IP; Arch AUR developer supply-chain compromise threatens PLM and ERP build pipelines; Minnesota PLC campaign and CISA AA26-097A Add-On Instruction manipulation on Allen-Bradley, Schneider, and Siemens estates; N-able RMM compromise cascades through MSP-managed OT-adjacent endpoints."
         }
       ],
       "riskMetricsCents": {
-        "medianAnnualGrcProgramCents": "4928000000",
-        "medianAuditRemediationLagCents": "1182000000",
-        "saasConsolidationSavingsOpportunityCents": "905000000",
-        "boardReportingOverheadCents": "159600000"
+        "medianAnnualGrcProgramCents": "5042000000",
+        "medianAuditRemediationLagCents": "1248000000",
+        "saasConsolidationSavingsOpportunityCents": "932000000",
+        "boardReportingOverheadCents": "165700000"
       }
     },
     {
       "documentId": "saas-disruption-memorandum",
-      "title": "SaaS Disruption Memorandum — August 1 FMC Deadline-Day and Windchill PLM Extortion Convergence",
+      "title": "SaaS Disruption Memorandum — August 3 MSP RMM Cascade and Deadline Convergence",
       "sourceType": "SAAS_DISRUPTION_MEMORANDUM",
-      "executiveSummary": "August 1, 2026 OSINT confirms Cisco FMC static-credential zero-day BOD 26-04 deadline-day triage converging with Cl0p PTC Windchill CVE-2026-12569 PLM extortion wave and Minnesota water PLC day-five recovery — exposing structural gaps in seat-based GRC SaaS that cannot absorb firewall-management credential rotation sequencing, engineering-IP webshell eviction attestations, or OT manual-operations continuity within single-day board-report cycles. Sovereign control planes with Irongate ingress and integer-cent registers win procurement when perimeter-management zero-days, PLM ransomware extortion, and defense certification timeline whiplash converge on first-of-month operational reality.",
+      "executiveSummary": "August 3, 2026 OSINT confirms N-able N-central RMM god-mode authentication bypass (CVE-2026-18577) as tier-zero MSP supply-chain cascade, converging with WordPress August 4 BOD 26-04 deadline, CaptiveCrunch traveler identity theft, and CMMC certification timeline whiplash on structural gaps in seat-based GRC SaaS that cannot absorb RMM-to-endpoint lateral-movement attestation, Cloudflare tunnel persistence hunt, or vishing-to-helpdesk-reset correlation within single-day board-report cycles. Sovereign control planes with Irongate ingress and integer-cent registers win procurement when MSP RMM compromise, captive-portal identity theft, and CMMC reform RFI countdown converge on early-August operational reality.",
       "keyFindings": [
-        "Cisco FMC CVE-2026-20316 BOD 26-04 deadline day proves firewall management planes as tier-zero control assets — seat-based GRC SaaS cannot orchestrate branch-specific hotfix deployment, IoC forensics (`grep license`), and credential/key/certificate rotation across internet-exposed FMC estates within one-day federal deadline windows.",
-        "Cl0p Windchill CVE-2026-12569 PLM extortion wave proves engineering-IP theft exceeds patch-ticket workflows — seat-based compliance SaaS cannot orchestrate JSP webshell hunt, FlexPLM WSDL chain analysis, and aerospace/automotive supply-chain attestation at Ransom-ISAC campaign velocity.",
-        "Minnesota 30-plus water-system PLC campaign day five proves OT password-lockout and Add-On Instruction manipulation exceed spreadsheet risk registers — agentic GRC with Irongate-sanitized OSINT ingress replaces static compliance dashboards for critical-infrastructure manual-operations attestation.",
-        "CMMC Phase II suspension day 19 creates certification timeline whiplash — seat-based compliance SaaS cannot reconfigure POA&M workflows within 60-day reform window without agent-orchestrated SSP and SPRS delta tracking ahead of August 14 RFI close.",
-        "Flat annual platform fees in whole-cent BIGINT displace per-seat models when agentic workforce scales OSINT-to-board-report pipelines across Cisco FMC deadline-day triage, Windchill PLM extortion correlation, Minnesota OT recovery attestation, and Balbooa Forms post-deadline verification simultaneously."
+        "N-able N-central CVE-2026-18577 proves MSP RMM as tier-zero supply-chain control asset — seat-based GRC SaaS cannot orchestrate god-mode RMM console forensics, Take Control lateral-movement triage, and cloudflared tunnel persistence hunt across downstream managed endpoints within one operational day.",
+        "WordPress CVE-2026-60137 deadline day proves CMS perimeter as board-reporting choke point — seat-based compliance SaaS cannot correlate BOD 26-04 FCEB attestation with CaptiveCrunch identity triage at August 4 countdown velocity.",
+        "CaptiveCrunch proves traveler identity as tier-zero control asset — seat-based GRC SaaS cannot orchestrate Conditional Access device-code blocking and Token Broker cache forensics across hotel captive portals within one operational day.",
+        "CMMC Phase II suspension day 21 creates certification timeline whiplash — seat-based compliance SaaS cannot reconfigure POA&M workflows within 60-day reform window without agent-orchestrated SSP and SPRS delta tracking ahead of August 14 RFI close.",
+        "Flat annual platform fees in whole-cent BIGINT displace per-seat models when agentic workforce scales OSINT-to-board-report pipelines across N-able RMM cascade triage, WordPress deadline attestation, CaptiveCrunch identity verification, and ShinyHunters SSO extortion correlation simultaneously."
       ],
       "industryProfiles": [
         {
@@ -106,105 +106,105 @@
           "regulatoryPressureIndex": 98,
           "saasDisruptionExposureIndex": 99,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "Incumbent SaaS renewals face scrutiny when Ironframe demonstrates Cisco FMC deadline-day forensic verification, Bank of Baroda credential-breach attestation carryover, deterministic board-report ALE, and Irongate-sanitized OSINT without spreadsheet exports."
+          "narrativeSummary": "Incumbent SaaS renewals face scrutiny when Ironframe demonstrates N-able RMM cascade correlation, CaptiveCrunch traveler identity verification, deterministic board-report ALE, and Irongate-sanitized OSINT without spreadsheet exports."
         },
         {
           "industryKey": "Manufacturing",
           "displayName": "Manufacturing",
           "peerAleBaselineCents": "1400000000",
-          "regulatoryPressureIndex": 94,
-          "saasDisruptionExposureIndex": 97,
+          "regulatoryPressureIndex": 96,
+          "saasDisruptionExposureIndex": 98,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "Cl0p Windchill PLM extortion and Minnesota PLC campaign accelerate Manufacturing SaaS disruption; CVE-2026-12569 JSP webshell deployment demands agentic GRC replacing manual PLM-to-audit bridges at engineering-IP exfiltration response speed."
+          "narrativeSummary": "Cl0p Windchill PLM extortion and N-able RMM MSP cascade accelerate Manufacturing SaaS disruption; JSP webshell deployment and god-mode RMM lateral movement demand agentic GRC replacing manual PLM-to-audit bridges at engineering-IP exfiltration response speed."
         },
         {
           "industryKey": "Technology",
           "displayName": "Technology",
           "peerAleBaselineCents": "950000000",
-          "regulatoryPressureIndex": 95,
+          "regulatoryPressureIndex": 97,
           "saasDisruptionExposureIndex": 99,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "Fastest SaaS disruption velocity; Cisco FMC BOD 26-04 deadline day, Balbooa Forms post-deadline verification, Fortinet FortiOS August 10 countdown, and Windchill PLM extortion demand agentic GRC to replace manual Jira-to-audit bridges at perimeter-management speed."
+          "narrativeSummary": "Fastest SaaS disruption velocity; N-able RMM god-mode bypass, Arch AUR freeze, WordPress August 4 countdown, and CaptiveCrunch token theft demand agentic GRC to replace manual Jira-to-audit bridges at MSP-supply-chain speed."
         }
       ],
       "riskMetricsCents": {
-        "medianAnnualGrcProgramCents": "4551000000",
-        "medianAuditRemediationLagCents": "1248000000",
-        "saasConsolidationSavingsOpportunityCents": "1425000000",
-        "boardReportingOverheadCents": "127400000"
+        "medianAnnualGrcProgramCents": "4675000000",
+        "medianAuditRemediationLagCents": "1319000000",
+        "saasConsolidationSavingsOpportunityCents": "1482000000",
+        "boardReportingOverheadCents": "132400000"
       }
     }
   ],
   "ragChunks": [
     {
-      "chunkId": "osint-01-cisco-fmc-deadline-day",
+      "chunkId": "osint-01-n-able-rmm-god-mode",
       "documentId": "grc-professional-workday-analysis",
-      "section": "BOD 26-04 Deadline Day — Cisco Secure FMC Static Credential Zero-Day",
-      "text": "Ironwatch OSINT 2026-08-01: CISA KEV CVE-2026-20316 — Cisco Secure Firewall Management Center static hard-coded low-privilege credentials actively exploited in zero-day attacks (KEV added July 29). BOD 26-04 FCEB deadline today August 1, 2026. Apply branch-specific hotfixes per advisory cisco-sa-fmc-static-cred-BET3Cjh v1.2 (July 31 update). IoC: cat /var/log/messages | grep license for /var/tmp/license.tmp references. Rotate all credentials, keys, and certificates on suspected compromise per Cisco TAC. Chain risk with CVE-2026-20079 auth bypass and CVE-2026-20131 for root escalation. Technology, Defense, Finance, and Public Sector profiles with internet-exposed FMC management planes require forensic triage before closing remediation tickets today.",
-      "tags": ["osint", "cisco", "fmc", "kev", "zero-day", "bod-26-04", "deadline-day"],
+      "section": "Active Threat Vector — N-able N-central RMM God-Mode Authentication Bypass",
+      "text": "Ironwatch OSINT 2026-08-03: N-able disclosed CVE-2026-18577 August 2 after incomplete patch for CVE-2026-18556. Unauthenticated remote attackers achieve administrative account takeover on N-central versions through 2026.3.1 across hosted and on-premises MSP deployments. Post-exploitation leverages Take Control for downstream endpoint access and registers Cloudflare tunnel (cloudflared) services for persistence after N-central access revocation. Hotfix 2026.3.1.7 released August 2. Huntress August 3 rapid response confirms exploitation across nine customer organizations under one self-hosted partner instance reaching one endpoint in each. Known malicious IPs include 173.249.252.200, 87.249.138.34, 37.19.210.32, 68.235.46.214, 37.153.90.88, and 92.118.112.181. Known domains: mousears.synology.me, wagoosh.direct.quickconnect.to, who-ripped-one.direct.quickconnect.to. Finland NCSC-FI issued advisory August 2. Technology, Finance, and Healthcare Industry Profiles relying on MSP-managed RMM must verify build 2026.3.1.7, hunt cloudflared services, restrict console to VPN-only access, and enforce MFA.",
+      "tags": ["osint", "n-able", "rmm", "msp", "supply-chain", "authentication-bypass"],
       "priorityAgents": ["Ironintel", "Ironwatch"]
     },
     {
-      "chunkId": "osint-02-minnesota-plc-day-five",
+      "chunkId": "osint-02-wordpress-deadline-day",
       "documentId": "grc-professional-workday-analysis",
-      "section": "Active Threat Vector — Minnesota Water PLC Campaign Day Five",
-      "text": "Ironwatch OSINT 2026-08-01: Coordinated cyberattack July 26–27, 2026 targeted 30-plus Minnesota community water systems. MNIT statewide response active day five. Braham water plant offline; Plymouth compromised PLCs at two water towers and 14 sewer lift stations. CISA July 31 nationwide alert documents password lockout, IP reconfiguration, and Add-On Instruction manipulation per Advisory AA26-097A across Rockwell Allen-Bradley, Schneider Modicon M340, and Siemens S7-1200 PLCs. Federal investigators evaluating Iranian-affiliated attribution alignment. CI Fortify guidance published July 28 with Five Eyes partners. Public Sector, Manufacturing, and Healthcare facility-management Industry Profiles must remove internet-exposed PLCs and attest manual-operations continuity.",
-      "tags": ["osint", "ot", "plc", "water", "critical-infrastructure", "aa26-097a"],
+      "section": "BOD 26-04 Deadline Day — WordPress Core CVE-2026-60137",
+      "text": "Ironwatch OSINT 2026-08-03: WordPress Core CVE-2026-60137 SQL injection (KEV added July 21, FCEB due August 4 — 1 day remaining) requires immediate emergency patch on internet-facing CMS estates. EPSS 79.0 percent. Technology and Public Sector Industry Profiles must execute patch cycle today without deferring behind N-able RMM cascade triage or CaptiveCrunch identity verification.",
+      "tags": ["osint", "wordpress", "kev", "deadline-day", "bod-26-04"],
       "priorityAgents": ["Ironintel", "Ironwatch"]
     },
     {
-      "chunkId": "osint-03-cl0p-windchill-plm",
+      "chunkId": "osint-03-captivecrunch-carryover",
       "documentId": "grc-professional-workday-analysis",
-      "section": "Active Threat Vector — Cl0p PTC Windchill PLM Extortion Wave",
-      "text": "Ironintel OSINT 2026-08-01: Cl0p ransomware affiliates actively exploiting CVE-2026-12569 (CVSS 9.3 unauthenticated RCE) in PTC Windchill and FlexPLM product lifecycle management platforms. First-ever PTC product on CISA KEV catalog (added June 25). Attackers chain FlexPLM WSDL information disclosure with Windchill login servlet flaw to deploy hex-named JSP webshells. Extortion emails with subject Windchill PDMLink module serious data leak began July 20 targeting aerospace, automotive, manufacturing, and retail sectors. Manufacturing and Defense Industry Profiles must remove internet-exposed Windchill instances, hunt persistent webshells, and attest engineering-IP exfiltration triage before closing PLM remediation tickets.",
-      "tags": ["osint", "cl0p", "windchill", "plm", "manufacturing", "ransomware"],
+      "section": "Active Threat Vector — CaptiveCrunch Midnight Blizzard Captive Portal Campaign",
+      "text": "Ironwatch OSINT 2026-08-03 carryover: Microsoft Threat Intelligence disclosed CaptiveCrunch campaign attributed to Storm-2945 (Midnight Blizzard sub-cluster). Since early May 2026, threat actors manipulate DNS and HTTP traffic on hotel, conference, and shared-venue captive portals worldwide. CornFlake RAT and ChocoShell harvest Microsoft 365, Azure AD access tokens, refresh tokens, and WAM tokens from Token Broker cache. Device-code phishing added mid-July redirects users into legitimate Microsoft authentication where user completes MFA for attacker session. Microsoft recommends blocking device-code flow via Conditional Access. ReliaQuest corroborated July 23. Defense, Finance, Technology, and Public Sector profiles with traveling workforce must enforce VPN-before-Wi-Fi and hunt Token Broker anomalies on returning endpoints.",
+      "tags": ["osint", "apt29", "midnight-blizzard", "captive-portal", "identity", "m365"],
       "priorityAgents": ["Ironintel", "Ironwatch"]
     },
     {
-      "chunkId": "osint-04-balbooa-post-deadline",
+      "chunkId": "osint-04-shinyhunters-healthcare",
       "documentId": "grc-professional-workday-analysis",
-      "section": "BOD 26-04 Post-Deadline — Balbooa Forms Unauthenticated Upload RCE",
-      "text": "Ironwatch OSINT 2026-08-01 post-deadline verification: CISA KEV CVE-2026-56291 (CVSS 9.8) — Balbooa Forms unauthenticated file upload to remote code execution on internet-facing Joomla ecosystem extensions. FCEB BOD 26-04 remediation deadline passed July 31, 2026. Technology and Public Sector web-application estates must attest patch or network isolation completion and preserve web-server forensic evidence for Irongate-sanitized incident ingress before Ironwatch closes remediation tickets.",
-      "tags": ["osint", "joomla", "kev", "post-deadline", "web-application"],
+      "section": "Active Threat Vector — ShinyHunters Healthcare SaaS Extortion Wave",
+      "text": "Ironwatch OSINT 2026-08-03 carryover: Health-ISAC warns increasing ShinyHunters attacks on healthcare and medtech — vishing to helpdesk or MFA reset to Microsoft Entra SSO compromise to rapid SaaS and M365/SharePoint data exfiltration for extortion leverage. Recent victims include Medtronic, iRhythm, OneMedical, DentaQuest, AdaptHealth, and Him and Hers. Amgen SEC 8-K July 31 confirms PHI exfiltration from third-party cloud vendor environments. Healthcare Industry Profile must enforce phishing-resistant MFA for high-risk users within 30-day window.",
+      "tags": ["osint", "healthcare", "shinyhunters", "vishing", "sso", "extortion"],
       "priorityAgents": ["Ironintel", "Ironwatch"]
     },
     {
-      "chunkId": "osint-05-carecloud-healthcare-breach",
+      "chunkId": "osint-05-cmmc-phase2-suspension-day21",
       "documentId": "grc-professional-workday-analysis",
-      "section": "Active Threat Vector — CareCloud Healthcare EHR Exfiltration Carryover",
-      "text": "Ironintel OSINT 2026-08-01 carryover: CareCloud notifying 345000 individuals (NH, MA, TX, ME AG filings July 30) of unauthorized access to AWS-hosted electronic health record data store March 10–16, 2026. Personal, medical, and financial records exfiltrated. Healthcare Industry Profile must correlate cloud-hosted PHI repository segmentation with OCR breach notification and CIRCIA 72-hour reporting obligations alongside TriZetto and NYC Health + Hospitals patterns.",
-      "tags": ["osint", "healthcare", "breach", "aws", "ehr", "phi"],
-      "priorityAgents": ["Ironintel", "Ironwatch"]
-    },
-    {
-      "chunkId": "osint-06-cmmc-phase2-suspension-day19",
-      "documentId": "grc-professional-workday-analysis",
-      "section": "CMMC / NIST Regulatory Horizon — Phase II Suspension Day Nineteen",
-      "text": "Ironintel policy monitor 2026-08-01: Department of War CMMC Phase II C3PAO suspension (announced July 13) enters day 19 of 60-day CMMC Reform Task Force review; report due September 11, 2026. CMMC industry RFI comment window closes August 14, 2026 (13 days remaining). Phase I self-assessment requirements remain in force per DFARS 252.204-7012. NIST SP 800-171 Rev 2 enforcement continues via self-assessments and select government-led assessments. Defense Industry Profile must not defer NIST control implementation — False Claims Act Civil Cyber-Fraud Initiative may expand to inaccurate Phase I self-assessments during reform window.",
+      "section": "CMMC / NIST Regulatory Horizon — Phase II Suspension Day Twenty-One",
+      "text": "Ironintel policy monitor 2026-08-03: Department of War CMMC Phase II C3PAO suspension (announced July 13) enters day 21 of 60-day CMMC Reform Task Force review; report due September 11, 2026. CMMC industry RFI comment window closes August 14, 2026 (11 days remaining). Phase I self-assessment requirements remain in force per DFARS 252.204-7012. NIST SP 800-171 Rev 2 enforcement continues via self-assessments and select government-led assessments. Defense Industry Profile must not defer NIST control implementation — False Claims Act Civil Cyber-Fraud Initiative may expand to inaccurate Phase I self-assessments during reform window.",
       "tags": ["cmmc", "nist-800-171", "regulatory", "phase2-suspension", "rfi"],
       "priorityAgents": ["Ironintel", "Ironscribe"]
     },
     {
-      "chunkId": "osint-07-fortinet-wordpress-deadlines",
+      "chunkId": "osint-06-fortinet-deadline",
       "documentId": "grc-professional-workday-analysis",
-      "section": "BOD 26-04 Approaching Deadlines — Fortinet FortiOS and WordPress Core",
-      "text": "Ironwatch OSINT 2026-08-01: Fortinet FortiOS CVE-2025-68686 (KEV added July 27, FCEB due August 10) — exposure of sensitive information on perimeter appliances requires patch scheduling this week. WordPress Core CVE-2026-60137 SQL injection (KEV added July 21, due August 4) and CVE-2026-63030 interpretation conflict require immediate patch on internet-facing CMS estates. Technology and Public Sector Industry Profiles must not defer August deadline cluster behind Cisco FMC deadline-day triage.",
-      "tags": ["osint", "fortinet", "wordpress", "kev", "approaching-deadline"],
+      "section": "BOD 26-04 Approaching Deadline — Fortinet FortiOS",
+      "text": "Ironwatch OSINT 2026-08-03: Fortinet FortiOS CVE-2025-68686 (KEV added July 27, due August 10 — 7 days remaining) allows patch bypass via symbolic link persistence technique; requires prior filesystem access; CISA directs Forensics Triage Requirements on potentially compromised appliances. Technology, Healthcare, and Public Sector Industry Profiles must schedule patch windows this week.",
+      "tags": ["osint", "fortinet", "kev", "approaching-deadline", "bod-26-04"],
       "priorityAgents": ["Ironintel", "Ironwatch"]
     },
     {
-      "chunkId": "osint-08-sharepoint-post-deadline-carryover",
+      "chunkId": "osint-07-minnesota-plc-day-seven",
       "documentId": "grc-professional-workday-analysis",
-      "section": "BOD 26-04 Post-Deadline — SharePoint Machine-Key Campaign Carryover",
-      "text": "Ironwatch OSINT 2026-08-01 carryover: SharePoint July cluster — CVE-2026-50522 exploited within hours of PoC July 20 per watchTowr; CVE-2026-58644 deserialization RCE; chained CVE-2026-56164 privilege escalation with IIS machine-key theft via spinstall0.aspx web shell per Resecurity. FCEB deadlines passed July 19–25. Ironwatch requires artifact hunt and web-shell eviction before IIS machine-key rotation — patching alone will not evict attackers holding stolen keys. Finance, Healthcare, Technology, and Public Sector Industry Profiles must not close SharePoint KEV items without forensic triage receipts.",
-      "tags": ["osint", "sharepoint", "kev", "post-deadline", "iis-machine-key"],
+      "section": "Active Threat Vector — Minnesota Water PLC Campaign Day Seven",
+      "text": "Ironwatch OSINT 2026-08-03 carryover: Coordinated cyberattack July 26–27, 2026 targeted 30-plus Minnesota community water systems entering day seven of MNIT statewide response. CISA July 31 nationwide alert documents password lockout, IP reconfiguration, and Add-On Instruction manipulation per Advisory AA26-097A across Rockwell Allen-Bradley, Schneider Modicon M340, and Siemens S7-1200 PLCs. Public Sector, Manufacturing, and Healthcare facility-management Industry Profiles must remove internet-exposed PLCs and attest manual-operations continuity.",
+      "tags": ["osint", "ot", "plc", "water", "critical-infrastructure", "aa26-097a"],
+      "priorityAgents": ["Ironintel", "Ironwatch"]
+    },
+    {
+      "chunkId": "osint-08-post-deadline-carryover",
+      "documentId": "grc-professional-workday-analysis",
+      "section": "BOD 26-04 Post-Deadline Verification Carryover",
+      "text": "Ironwatch OSINT 2026-08-03 post-deadline verification window: Cisco Secure FMC CVE-2026-20316 (BOD 26-04 deadline passed August 1), Balbooa Forms CVE-2026-56291 (deadline passed July 31), SharePoint CVE-2026-50522 machine-key cluster, Arista VeloCloud CVE-2026-16812, and AD FS CVE-2026-56155 require forensic attestation receipts before Ironwatch closes remediation tickets. Cl0p Windchill CVE-2026-12569 PLM extortion wave continues with hex-named JSP webshell deployment on internet-exposed engineering IP repositories.",
+      "tags": ["osint", "kev", "post-deadline", "verification", "continuous-audit"],
       "priorityAgents": ["Ironintel", "Ironwatch"]
     },
     {
       "chunkId": "saas-01-dmz-ingress",
       "documentId": "saas-disruption-memorandum",
       "section": "Irongate DMZ Ingress",
-      "text": "All August 1 live OSINT bytes passed Agent 14 Irongate DMZ sanitization (script-strip, BIGINT-cent validation) before CRM persistence. Strategic Intel dashboard refresh binds to manifest ironintel-osint-2026-08-01-live.",
+      "text": "All August 3 live OSINT bytes passed Agent 14 Irongate DMZ sanitization (script-strip, BIGINT-cent validation) before CRM persistence. Strategic Intel dashboard refresh binds to manifest ironintel-osint-2026-08-03-live.",
       "tags": ["irongate", "dmz", "ingress", "industry-profile"],
       "priorityAgents": ["Ironintel", "Ironscribe"]
     }

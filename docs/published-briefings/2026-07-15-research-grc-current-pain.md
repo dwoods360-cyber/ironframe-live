@@ -1,18 +1,11 @@
 ---
 title: "Industry Research Brief — Current GRC Pain Points and Control-First Alleviation Paths"
-date: "2026-07-15T14:05:00.000Z"
-lastUpdated: "2026-08-04T00:00:00.000Z"
-status: "QUARANTINED_DRAFT"
-classification: "Institutional Governance"
-category: "independent-industry-research"
-researchType: "independent-industry-synthesis"
-author: "Ironframe Executive Intelligence Unit"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "industry-research"
-requiresImmediatePromotion: false
-activeExposureCents: "0"
-publishState: "QUARANTINED_AWAITING_OPERATOR"
+publishedAt: "2026-08-04T19:03:57.711Z"
+published: "2026-08-04"
 summary: "Organisations continue to face control risks when evidence is manually assembled, risk estimates conceal uncertainty, external data enters trusted workflows without validation, tenant boundaries depend only on application conventions, or AI-generated content is used without risk-appropriate review. This brief maps five current GRC pain themes to enforceable, testable alleviation requirements—correcting prior misattributions of SolarWinds and SOX 404 figures and refusing incomparable financial aggregation. Information reviewed through August 4, 2026."
+classification: "Institutional Governance"
+author: "Ironframe Governance Frame"
+publishedBy: "54aac838-9094-4de5-ac24-993672505cbc"
 ---
 
 > **Executive Summary:** Organisations continue to face control risks when evidence is manually assembled, risk estimates conceal uncertainty, external data enters trusted workflows without validation, tenant boundaries depend only on application conventions, or AI-generated content is used without risk-appropriate review. Published research supports concerns about spreadsheet lifecycle controls, evidence traceability, cybersecurity governance, tenant isolation and AI oversight, but it does not establish that every organisation requires exact-dollar risk values, physically separate tenant databases or one universal human-approval design. A control-first approach should require traceable evidence, decision-useful risk estimates, provenance-aware ingest, enforceable and tested isolation, and approval controls proportionate to the consequence of each output.

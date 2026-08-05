@@ -39,13 +39,48 @@ function Register-DailyTask {
         [string]$DaysOfWeek = ""
     )
 
-    $action = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`""
+    $plainName = $TaskName.TrimStart("\")
+    $action = New-ScheduledTaskAction `
+        -Execute "powershell.exe" `
+        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`"" `
+        -WorkingDirectory $ProjectRoot
+
     if ($DaysOfWeek) {
-        schtasks /Create /F /TN $TaskName /TR $action /SC WEEKLY /D $DaysOfWeek /ST $StartTime /RL LIMITED | Out-Null
+        $dayMap = @{
+            MON = "Monday"; TUE = "Tuesday"; WED = "Wednesday"
+            THU = "Thursday"; FRI = "Friday"; SAT = "Saturday"; SUN = "Sunday"
+        }
+        $days = @(
+            $DaysOfWeek.Split(",") | ForEach-Object {
+                $token = $_.Trim().ToUpperInvariant()
+                if ($dayMap.ContainsKey($token)) { $dayMap[$token] } else { $_.Trim() }
+            }
+        )
+        $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At $StartTime
     } else {
-        schtasks /Create /F /TN $TaskName /TR $action /SC DAILY /ST $StartTime /RL LIMITED | Out-Null
+        $trigger = New-ScheduledTaskTrigger -Daily -At $StartTime
     }
-    Write-Host "Registered $TaskName at $StartTime local -> $ScriptPath"
+
+    $settings = New-ScheduledTaskSettingsSet `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
+        -StartWhenAvailable `
+        -ExecutionTimeLimit (New-TimeSpan -Hours 2)
+
+    $principal = New-ScheduledTaskPrincipal `
+        -UserId $env:USERNAME `
+        -LogonType Interactive `
+        -RunLevel Limited
+
+    Register-ScheduledTask `
+        -TaskName $plainName `
+        -Action $action `
+        -Trigger $trigger `
+        -Settings $settings `
+        -Principal $principal `
+        -Force | Out-Null
+
+    Write-Host "Registered $TaskName at $StartTime local -> $ScriptPath (cwd=$ProjectRoot)"
 }
 
 Register-DailyTask -TaskName $DocTaskName -ScriptPath $DocScript -StartTime "03:00"

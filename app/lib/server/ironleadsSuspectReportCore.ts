@@ -366,12 +366,13 @@ export async function buildIronleadsSuspectReport(
     persistedBrief?.gates.buyer.result === "PASS" &&
     rebuiltBrief.gates.buyer.result !== "PASS";
   const emailMissing = Boolean(persistedBrief) && !persistedBrief?.gates?.email;
+  // rebuiltBrief always includes gates.email; optional on legacy persisted briefs.
   const emailImproved =
     persistedBrief?.gates.email?.result !== "PASS" &&
-    rebuiltBrief.gates.email.result === "PASS";
+    rebuiltBrief.gates.email?.result === "PASS";
   const emailDegraded =
     persistedBrief?.gates.email?.result === "PASS" &&
-    rebuiltBrief.gates.email.result !== "PASS";
+    rebuiltBrief.gates.email?.result !== "PASS";
   const persistedBuyerNames = (persistedBrief?.buyerMap ?? [])
     .map((b) => (b.name ?? "").trim().toLowerCase())
     .filter(Boolean)

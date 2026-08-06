@@ -376,11 +376,13 @@ export function summer2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "DORA supervision briefing — Ops review & promote",
       kind: "BRIEFING_REVIEW",
-      status: "IN_REVIEW",
+      status: "DONE",
       dueAt: "2026-08-09T17:00:00.000Z",
       sourceRef: "2026-07-16-draft-research-dora-supervision.md",
       synopsis:
         "EU research briefing on DORA moving from implementation to competent-authority supervision — review citations, then promote.",
+      outcome:
+        "DONE 2026-08-06 — Promoted after citation revise. Canonical: https://research.ironframegrc.com/briefings/2026-07-16-research-dora-supervision · docs/published-briefings/2026-07-16-research-dora-supervision.md",
       nextActions: [
         "Open DORA supervision quarantine draft",
         "Verify citations — supervision readiness, not a fictional EU-wide year-two exam",

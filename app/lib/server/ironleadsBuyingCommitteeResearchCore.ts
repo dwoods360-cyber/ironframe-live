@@ -5,19 +5,23 @@ import type { Prisma } from "@prisma/client";
 import { buildAccountResearchBrief, mergeNamedBuyerIntoBriefMembers } from "@/app/lib/server/ironleadsAccountResearchBrief";
 import {
   extractBuyingPersons,
-  extractPublishedEmails,
+  discoverPublishedEmails,
   extractPublicSocialLinks,
   extractSameOriginTeamPageUrls,
+  extractTradeShowAndEventSignals,
   extractUsPhones,
   buildEmailPermutationCandidates,
   inferEmailLocalPattern,
   isPlausiblePersonName,
   looksLikeOsintTitleNoise,
+  publishedEmailMatchesPerson,
   RESEARCH_PATHS,
   socialAboutFetchUrl,
   stripHtmlToText,
   type BuyingRole,
   type PublicSocialLink,
+  type PublishedEmailHit,
+  type TradeShowEventSignal,
 } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import { normalizeAccountDomain } from "@/app/lib/ingress/ironleadsSuspectIdentity";
 import {
@@ -78,6 +82,10 @@ export type BuyingCommitteeResearchResult = {
   members: BuyingCommitteeMember[];
   switchboardPhones: BuyingCommitteePhone[];
   publishedEmails: string[];
+  /** Initial-search mailto / directory / body hits (before pattern guesses). */
+  publishedEmailDiscovery?: PublishedEmailHit[];
+  /** Trade show / conference booth, speaker, hosted-event clues from site copy. */
+  tradeShowAndEventSignals?: TradeShowEventSignal[];
   pagesFetched: number;
   socialProfiles: PublicSocialLink[];
   socialPagesFetched: number;
@@ -239,13 +247,15 @@ function buildMembers(input: {
 
   return input.people.map((person) => {
     const emails: BuyingCommitteeEmail[] = [];
-    const publishedForPerson = input.emails.filter((email) => {
-      const local = email.split("@")[0] ?? "";
-      const last = person.fullName.split(/\s+/).pop()?.toLowerCase() ?? "";
-      return last.length >= 3 && local.includes(last);
-    });
-    for (const email of publishedForPerson.slice(0, 2)) {
-      emails.push({ email, status: "published", source: "company_website" });
+    const publishedForPerson = input.emails.filter((email) =>
+      publishedEmailMatchesPerson(email, person.fullName),
+    );
+    for (const email of publishedForPerson.slice(0, 3)) {
+      emails.push({
+        email,
+        status: "published",
+        source: "company_website_mailto_or_directory",
+      });
     }
     if (emails.length === 0 && guessDomain) {
       const candidates = buildEmailPermutationCandidates(person.fullName, guessDomain, {
@@ -277,7 +287,7 @@ function buildMembers(input: {
       sourceUrls: input.sourceUrls.slice(0, 6),
       note:
         emails.some((e) => e.status === "pattern_guess")
-          ? "Email is a pattern guess (test order first.last → f.last → first@) until published or buyer-confirmed. MX PASS ≠ ownership on catch-all domains."
+          ? "Email is a pattern guess until published mailto/directory clue or buyer-confirmed. MX PASS ≠ ownership on catch-all domains."
           : null,
     };
   });
@@ -555,8 +565,44 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
       ...pages.map((p) => p.url),
       ...socialPages.map((p) => p.url),
     ];
+    // INITIAL SEARCH (before pattern guesses): mailto hrefs + directory labels + body text
+    // on company pages, then social about pages. Legal/terms paths are in RESEARCH_PATHS.
+    const discoveryByEmail = new Map<string, PublishedEmailHit>();
+    for (const page of pages) {
+      for (const hit of discoverPublishedEmails({
+        html: page.rawHtml,
+        text: page.text,
+        accountDomain,
+      })) {
+        const prev = discoveryByEmail.get(hit.email);
+        const rank = { mailto: 3, directory_label: 2, body_text: 1 } as const;
+        if (!prev || rank[hit.kind] > rank[prev.kind]) {
+          discoveryByEmail.set(hit.email, hit);
+        }
+      }
+    }
+    for (const page of socialPages) {
+      for (const hit of discoverPublishedEmails({
+        html: null,
+        text: page.text,
+        accountDomain,
+      })) {
+        if (!discoveryByEmail.has(hit.email)) discoveryByEmail.set(hit.email, hit);
+      }
+    }
+    const publishedEmailDiscovery = [...discoveryByEmail.values()];
+    const tradeShowAndEventSignals: TradeShowEventSignal[] = [];
+    const tradeSeen = new Set<string>();
+    for (const page of pages) {
+      for (const signal of extractTradeShowAndEventSignals(page.text, page.url)) {
+        const key = `${signal.eventName}|${signal.kind}|${signal.detail ?? ""}`.toLowerCase();
+        if (tradeSeen.has(key)) continue;
+        tradeSeen.add(key);
+        tradeShowAndEventSignals.push(signal);
+      }
+    }
     const emails = [
-      ...extractPublishedEmails(corpus, accountDomain),
+      ...publishedEmailDiscovery.map((h) => h.email),
       ...(playbook?.publishedEmails ?? []),
     ];
     const phones = [
@@ -600,6 +646,8 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
             }))
           : (playbook?.switchboardPhones ?? []),
       publishedEmails: emails.length > 0 ? emails : (playbook?.publishedEmails ?? []),
+      publishedEmailDiscovery,
+      tradeShowAndEventSignals: tradeShowAndEventSignals.slice(0, 20),
       pagesFetched: pages.length,
       socialProfiles,
       socialPagesFetched: socialPages.length,
@@ -667,13 +715,26 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
           error: null,
         };
         if (google.corpus.trim()) {
+          const googleEmailHits = discoverPublishedEmails({
+            html: null,
+            text: google.corpus,
+            accountDomain,
+          });
+          const googleEmails = googleEmailHits.map((h) => h.email);
+          const priorDiscovery = result.publishedEmailDiscovery ?? [];
+          const discoveryMerged = new Map(
+            priorDiscovery.map((h) => [h.email, h] as const),
+          );
+          for (const hit of googleEmailHits) {
+            if (!discoveryMerged.has(hit.email)) discoveryMerged.set(hit.email, hit);
+          }
           const googlePeople = extractBuyingPersons(google.corpus).filter((p) =>
             isPlausiblePersonName(p.fullName),
           );
-          if (googlePeople.length > 0) {
+          if (googlePeople.length > 0 || googleEmails.length > 0) {
             const googleMembers = buildMembers({
               people: googlePeople,
-              emails: [],
+              emails: [...new Set([...result.publishedEmails, ...googleEmails])],
               phones: [],
               sourceUrls: googleSourceUrls,
               accountDomain,
@@ -698,6 +759,10 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
               skipped: false,
               skipReason: null,
               members: [...byRole.values()],
+              publishedEmails: [
+                ...new Set([...result.publishedEmails, ...googleEmails]),
+              ],
+              publishedEmailDiscovery: [...discoveryMerged.values()],
             };
           }
         }
@@ -792,6 +857,10 @@ async function persistResearch(
     contactEmail: hasRealEmail ? contact.email : null,
     contactTitle: null,
   });
+  const priorHold = asRecord(asRecord(contact.metadata)?.operatorHold);
+  const pathBHold =
+    priorHold?.classification === "channel_competitor" ||
+    priorHold?.classification === "hold";
   const brief = buildAccountResearchBrief({
     company: contact.company,
     websiteUrl: result.websiteUrl,
@@ -803,6 +872,8 @@ async function persistResearch(
     members: briefMembers,
     socialProfiles: result.socialProfiles,
     hasRealEmail,
+    contactEmail: hasRealEmail ? contact.email : null,
+    pathBHold,
     hasPhone,
     generatedAt: result.researchedAt,
   });
@@ -888,6 +959,8 @@ async function persistResearch(
       skipReason: result.skipReason,
       pagesFetched: result.pagesFetched,
       publishedEmails: result.publishedEmails,
+      publishedEmailDiscovery: result.publishedEmailDiscovery ?? [],
+      tradeShowAndEventSignals: result.tradeShowAndEventSignals ?? [],
       switchboardPhones: result.switchboardPhones,
       members: result.members,
       socialProfiles: result.socialProfiles,
@@ -896,6 +969,12 @@ async function persistResearch(
         ? { googleLeadershipSearch: evidence.googleLeadershipSearch }
         : {}),
     },
+    // Top-level alias for operator briefs / dossiers that look for conference intel.
+    ...(result.tradeShowAndEventSignals && result.tradeShowAndEventSignals.length > 0
+      ? {
+          tradeShowAndEventSignals: result.tradeShowAndEventSignals,
+        }
+      : {}),
     accountResearchBrief: brief,
     publicSocialProfiles: result.socialProfiles,
     candidateEmails: mergeCandidateEmails(prior, result.members),

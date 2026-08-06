@@ -107,26 +107,203 @@ function orgLabel(domain: string): string {
   return secondLevel.replace(/(bank|bancorp|bancorporation|corp|inc|llc)$/i, "");
 }
 
-export function extractPublishedEmails(text: string, accountDomain?: string | null): string[] {
-  const matches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? [];
+/** Role / department inboxes — published, but not schema evidence for personal aliases. */
+const ROLE_LOCAL_PARTS = new Set([
+  "hello",
+  "hi",
+  "info",
+  "contact",
+  "support",
+  "help",
+  "sales",
+  "press",
+  "media",
+  "privacy",
+  "legal",
+  "security",
+  "admin",
+  "office",
+  "team",
+  "careers",
+  "jobs",
+  "hr",
+  "billing",
+  "invoice",
+  "noreply",
+  "no-reply",
+  "donotreply",
+  "do-not-reply",
+]);
+
+export function isRoleLocalPart(local: string): boolean {
+  const base = local.toLowerCase().split("+")[0] ?? "";
+  return ROLE_LOCAL_PARTS.has(base);
+}
+
+function domainAllowsEmail(email: string, accountDomain?: string | null): boolean {
   const domain = accountDomain?.replace(/^www\./i, "").toLowerCase() ?? null;
-  const label = domain ? orgLabel(domain) : null;
+  if (!domain) return true;
+  const emailDomain = (email.split("@")[1] ?? "").toLowerCase();
+  const sameHost = emailDomain === domain || emailDomain.endsWith(`.${domain}`);
+  const label = orgLabel(domain);
+  const siblingOrg =
+    label.length >= 6 && orgLabel(emailDomain).startsWith(label.slice(0, 8));
+  return sameHost || siblingOrg;
+}
+
+function normalizeFoundEmail(raw: string): string | null {
+  const email = decodeURIComponent(raw.trim())
+    .replace(/^mailto:/i, "")
+    .split("?")[0]
+    ?.toLowerCase();
+  if (!email || !email.includes("@")) return null;
+  if (email.endsWith(".png") || email.endsWith(".jpg") || email.endsWith(".gif")) {
+    return null;
+  }
+  if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(email)) return null;
+  return email;
+}
+
+/**
+ * Pull addresses from mailto: hrefs in raw HTML (stripHtmlToText drops href content).
+ * Must run on initial company-page fetch before pattern guesses.
+ */
+export function extractMailtoEmails(
+  html: string,
+  accountDomain?: string | null,
+): string[] {
   const out = new Set<string>();
-  for (const raw of matches) {
-    const email = raw.toLowerCase();
-    if (email.endsWith(".png") || email.endsWith(".jpg")) continue;
-    if (domain) {
-      const emailDomain = email.split("@")[1] ?? "";
-      const sameHost = emailDomain === domain || emailDomain.endsWith(`.${domain}`);
-      const siblingOrg =
-        Boolean(label) &&
-        label!.length >= 6 &&
-        orgLabel(emailDomain).startsWith(label!.slice(0, 8));
-      if (!sameHost && !siblingOrg) continue;
-    }
+  const re = /mailto:([^"'>\s]+)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const email = normalizeFoundEmail(m[1] ?? "");
+    if (!email) continue;
+    if (!domainAllowsEmail(email, accountDomain)) continue;
     out.add(email);
   }
   return [...out].slice(0, 40);
+}
+
+/**
+ * Bio / directory lines that publish a specific email string near contact chrome
+ * (e.g. "E-Mail nicole@…", "Email: hello@…") — complements bare regex on body text.
+ */
+export function extractDirectoryEmailClues(
+  text: string,
+  accountDomain?: string | null,
+): string[] {
+  const out = new Set<string>();
+  const labeled =
+    /(?:e-?mail|email|mailto|contact)\s*(?:address|us)?\s*[:|]?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
+  let m: RegExpExecArray | null;
+  while ((m = labeled.exec(text)) !== null) {
+    const email = normalizeFoundEmail(m[1] ?? "");
+    if (!email) continue;
+    if (!domainAllowsEmail(email, accountDomain)) continue;
+    out.add(email);
+  }
+  return [...out].slice(0, 40);
+}
+
+export function extractPublishedEmails(text: string, accountDomain?: string | null): string[] {
+  const matches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? [];
+  const out = new Set<string>();
+  for (const raw of matches) {
+    const email = normalizeFoundEmail(raw);
+    if (!email) continue;
+    if (!domainAllowsEmail(email, accountDomain)) continue;
+    out.add(email);
+  }
+  return [...out].slice(0, 40);
+}
+
+export type PublishedEmailHit = {
+  email: string;
+  kind: "mailto" | "directory_label" | "body_text";
+  isRoleInbox: boolean;
+};
+
+/**
+ * Initial-search published email pass: mailto hrefs → labeled directory clues → body text.
+ * Prefer this over text-only extractPublishedEmails when raw HTML is available.
+ */
+export function discoverPublishedEmails(input: {
+  html?: string | null;
+  text?: string | null;
+  accountDomain?: string | null;
+}): PublishedEmailHit[] {
+  const domain = input.accountDomain ?? null;
+  const byEmail = new Map<string, PublishedEmailHit>();
+
+  const upsert = (email: string, kind: PublishedEmailHit["kind"]) => {
+    const local = email.split("@")[0] ?? "";
+    const prev = byEmail.get(email);
+    // mailto wins over body; directory label wins over bare body.
+    const rank = { mailto: 3, directory_label: 2, body_text: 1 } as const;
+    if (prev && rank[prev.kind] >= rank[kind]) return;
+    byEmail.set(email, {
+      email,
+      kind,
+      isRoleInbox: isRoleLocalPart(local),
+    });
+  };
+
+  for (const email of extractMailtoEmails(input.html ?? "", domain)) {
+    upsert(email, "mailto");
+  }
+  for (const email of extractDirectoryEmailClues(input.text ?? "", domain)) {
+    upsert(email, "directory_label");
+  }
+  for (const email of extractPublishedEmails(input.text ?? "", domain)) {
+    upsert(email, "body_text");
+  }
+
+  return [...byEmail.values()].slice(0, 40);
+}
+
+/**
+ * True when a published local-part plausibly belongs to this person
+ * (first@, first.last@, f.last@, firstlast@, first.last_initial@).
+ */
+export function publishedEmailMatchesPerson(
+  email: string,
+  fullName: string,
+): boolean {
+  const local = (email.split("@")[0] ?? "").toLowerCase();
+  if (!local || isRoleLocalPart(local)) return false;
+  const tokens = fullName
+    .replace(/[^A-Za-z\s'-]/g, " ")
+    .trim()
+    .split(/[\s]+/)
+    .flatMap((t) => t.split(/[-']/))
+    .map((t) => t.replace(/[^A-Za-z]/g, "").toLowerCase())
+    .filter((t) => t.length >= 2 && !/^[a-z]$/.test(t));
+  if (tokens.length === 0) return false;
+  if (tokens.length === 1) return local === tokens[0];
+
+  const first = tokens[0]!;
+  const last = tokens[tokens.length - 1]!;
+  const f = first[0] ?? "";
+  const surnameTokens = tokens.slice(1);
+  const candidates = new Set<string>([
+    first,
+    `${first}.${last}`,
+    `${first}_${last}`,
+    `${first}${last}`,
+    `${f}${last}`,
+    `${f}.${last}`,
+    `${first}.${last[0] ?? ""}`,
+  ]);
+  // Hyphenated / multi-token surnames (Nicole Jiang-Gibson → nicole.jiang + nicole.gibson).
+  for (const sur of surnameTokens) {
+    candidates.add(`${first}.${sur}`);
+    candidates.add(`${first}_${sur}`);
+    candidates.add(`${first}${sur}`);
+    candidates.add(`${f}${sur}`);
+    candidates.add(`${f}.${sur}`);
+    candidates.add(`${first}.${sur[0] ?? ""}`);
+  }
+  return candidates.has(local);
 }
 
 export function extractUsPhones(text: string): string[] {
@@ -190,33 +367,36 @@ export function inferEmailLocalPattern(
   for (const email of emails) {
     const [local, domain] = email.split("@");
     if (!local || !domain) continue;
+    // Role inboxes (hello@, support@) must not drive personal schema inference.
+    if (isRoleLocalPart(local)) continue;
     const list = byDomain.get(domain.toLowerCase()) ?? [];
     list.push(local.toLowerCase());
     byDomain.set(domain.toLowerCase(), list);
   }
   for (const [domain, locals] of byDomain) {
     const firstDotLast = locals.filter((local) => /^[a-z]{2,}\.[a-z]{2,}$/.test(local));
-    if (firstDotLast.length >= 2) {
+    // One clear first.last personal publish is enough to prefer that schema.
+    if (firstDotLast.length >= 1) {
       return { domain, pattern: "first_dot_last" };
     }
     const firstUnderscore = locals.filter((local) => /^[a-z]{2,}_[a-z]{2,}$/.test(local));
-    if (firstUnderscore.length >= 2) {
+    if (firstUnderscore.length >= 1) {
       return { domain, pattern: "first_underscore_last" };
     }
     const initialDotLast = locals.filter((local) => /^[a-z]\.[a-z]{2,}$/.test(local));
     if (initialDotLast.length >= 2) {
       return { domain, pattern: "initial_dot_last" };
     }
-    // f+last: 1 letter + surname (≥4 letters), e.g. smcmaster — not short first names like "jane"
+    // f+last: 1 letter + surname (≥4 letters), e.g. smcmaster / swhitlow — needs 2+ samples.
+    // Evaluate before first_only so 8-char f+last locals are not misread as first names.
     const initialLast = locals.filter((local) => /^[a-z][a-z]{4,}$/.test(local));
     if (initialLast.length >= 2) {
       return { domain, pattern: "initial_last" };
     }
-    // Boutique first@ — short alpha locals, not f+surname shape
-    const firstOnly = locals.filter(
-      (local) => /^[a-z]{2,10}$/.test(local) && !/^[a-z][a-z]{4,}$/.test(local),
-    );
-    if (firstOnly.length >= 2) {
+    // Boutique first@ (e.g. nicole@). Single personal publish is enough.
+    // Cap length so longer f+surname singles do not auto-seed first_only alone.
+    const firstOnly = locals.filter((local) => /^[a-z]{2,8}$/.test(local));
+    if (firstOnly.length >= 1) {
       return { domain, pattern: "first_only" };
     }
   }
@@ -488,11 +668,125 @@ export const RESEARCH_PATHS = [
   "/about/team",
   "/about/leadership",
   "/about/meet-the-team",
+  // Legal / notice pages often publish hello@ / support@ / privacy@ mailto links.
+  "/terms-of-service",
+  "/terms",
+  "/terms-of-use",
+  "/website-terms",
+  "/website-terms-of-use",
+  "/webite-terms-of-use", // observed typo slug on some SaaS sites
+  "/privacy-policy",
+  "/privacy",
+  "/legal",
+  "/legal/terms",
+  "/trust",
+  "/trust-center",
   "/news",
   "/insights",
   "/press",
   "/careers",
+  // Trade show / event registration surfaces (booth, speaker, hosted dinners).
+  "/events",
+  "/event",
+  "/resources",
+  "/resources/events",
+  "/resources/blog",
+  "/resources-hub",
+  "/resources-hub/events",
+  "/company/events",
+  "/about/events",
 ] as const;
+
+export type TradeShowEventSignal = {
+  eventName: string;
+  kind: "booth" | "speaker" | "hosted_event" | "exhibitor" | "mention";
+  detail: string | null;
+  sourceUrl: string | null;
+};
+
+const TRADE_SHOW_NAME_RE =
+  /\b(?:Black\s*Hat(?:\s*USA)?|RSA\s*C(?:onference)?|RSAC|DEF\s*CON|Gartner\s+Security|InfoSec\s*World|SecureWorld|AWS\s+re:Invent|Microsoft\s+Ignite|Web\s*Summit)\b/gi;
+
+/**
+ * Pull trade-show / conference registration clues from company event or blog copy.
+ * Captures booth numbers, exhibitor language, and hosted side-events — not email proof.
+ */
+export function extractTradeShowAndEventSignals(
+  text: string,
+  sourceUrl?: string | null,
+): TradeShowEventSignal[] {
+  if (!text || text.length < 40) return [];
+  const out: TradeShowEventSignal[] = [];
+  const seen = new Set<string>();
+
+  const push = (signal: TradeShowEventSignal) => {
+    const key = `${signal.eventName}|${signal.kind}|${signal.detail ?? ""}`.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(signal);
+  };
+
+  const boothRe =
+    /\b(?:booth|stand)\s*[#:]?\s*([A-Z]?-?\d{2,5})\b(?:\s*(?:in|at)\s+([A-Za-z][A-Za-z0-9 &/-]{2,40}))?/gi;
+  let m: RegExpExecArray | null;
+  while ((m = boothRe.exec(text)) !== null) {
+    const window = text.slice(Math.max(0, m.index - 120), m.index + 160);
+    const eventMatch = window.match(TRADE_SHOW_NAME_RE);
+    const eventName = eventMatch?.[0]?.replace(/\s+/g, " ").trim() || "Trade show";
+    push({
+      eventName,
+      kind: "booth",
+      detail: `Booth ${m[1]}${m[2] ? ` (${m[2].trim()})` : ""}`,
+      sourceUrl: sourceUrl ?? null,
+    });
+  }
+
+  const exhibitorRe =
+    /\b(?:exhibiting|exhibitor|debut(?:ing)?\s+at|join\s+us\s+at|find\s+us\s+at|visit\s+us\s+at)\b[^.]{0,120}/gi;
+  while ((m = exhibitorRe.exec(text)) !== null) {
+    const snippet = m[0].replace(/\s+/g, " ").trim();
+    const eventMatch = snippet.match(TRADE_SHOW_NAME_RE);
+    if (!eventMatch) continue;
+    push({
+      eventName: eventMatch[0].replace(/\s+/g, " ").trim(),
+      kind: "exhibitor",
+      detail: snippet.slice(0, 160),
+      sourceUrl: sourceUrl ?? null,
+    });
+  }
+
+  const speakerRe =
+    /\b(?:speaker|keynote|presenter|panelist|fireside)\b[^.]{0,100}\b(?:Black\s*Hat|RSA|RSAC|InfoSec\s*World|SecureWorld)\b[^.]{0,80}/gi;
+  while ((m = speakerRe.exec(text)) !== null) {
+    const snippet = m[0].replace(/\s+/g, " ").trim();
+    const eventMatch = snippet.match(TRADE_SHOW_NAME_RE);
+    push({
+      eventName: eventMatch?.[0]?.replace(/\s+/g, " ").trim() || "Industry event",
+      kind: "speaker",
+      detail: snippet.slice(0, 160),
+      sourceUrl: sourceUrl ?? null,
+    });
+  }
+
+  // Named mega-events mentioned with registration / RSVP / hosted language.
+  const hostedRe =
+    /\b(?:hosted|hosting|RSVP|register(?:ed)?|side\s*event|executive\s+dinner|private\s+(?:suite|briefing))\b[^.]{0,140}/gi;
+  while ((m = hostedRe.exec(text)) !== null) {
+    const snippet = m[0].replace(/\s+/g, " ").trim();
+    const eventMatch = (text.slice(Math.max(0, m.index - 80), m.index + 180)).match(
+      TRADE_SHOW_NAME_RE,
+    );
+    if (!eventMatch) continue;
+    push({
+      eventName: eventMatch[0].replace(/\s+/g, " ").trim(),
+      kind: "hosted_event",
+      detail: snippet.slice(0, 160),
+      sourceUrl: sourceUrl ?? null,
+    });
+  }
+
+  return out.slice(0, 20);
+}
 
 const TEAM_PATH_HINT =
   /(?:meet[-_]?the[-_]?team|meet[-_]?our[-_]?team|our[-_]?team|our[-_]?leadership|leadership|\/team(?:\/|$)|\/people(?:\/|$)|\/staff(?:\/|$))/i;

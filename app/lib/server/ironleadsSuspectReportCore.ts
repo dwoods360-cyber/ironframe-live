@@ -1,9 +1,12 @@
 import "server-only";
 
+import type { Prisma } from "@prisma/client";
+
 import {
   buildAccountResearchBrief,
   mergeNamedBuyerIntoBriefMembers,
   resolveAccountResearchBrief,
+  selectAccountResearchBriefForReport,
   type AccountResearchBrief,
 } from "@/app/lib/server/ironleadsAccountResearchBrief";
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
@@ -335,6 +338,10 @@ export async function buildIronleadsSuspectReport(
   ]
     .filter(Boolean)
     .join("\n");
+  const operatorHold = resolveOperatorHold(contact.metadata);
+  const pathBHold =
+    operatorHold?.classification === "channel_competitor" ||
+    operatorHold?.classification === "hold";
   const rebuiltBrief = buildAccountResearchBrief({
     company: contact.company,
     websiteUrl: location.websiteUrl,
@@ -351,58 +358,45 @@ export async function buildIronleadsSuspectReport(
     members: briefMembers,
     socialProfiles: location.buyingCommittee?.socialProfiles ?? [],
     hasRealEmail,
+    contactEmail: hasRealEmail ? contact.email : null,
+    pathBHold,
     hasPhone,
     generatedAt: new Date().toISOString(),
   });
-  // Prefer persisted brief (has real page corpus) unless Buyer/Email gate or roster drifted:
-  // - improve: operator/Prospeo namedBuyer or real email added after scrape → rebuild
-  // - degrade: scrape junk cleared / email lost / stricter name rules → rebuild
-  // - roster: junk names dropped → rebuild finding copy
-  // - schema: pre-Email-gate briefs always rebuild so Email appears as its own row
-  const buyerImproved =
-    persistedBrief?.gates.buyer.result === "FAIL" &&
-    rebuiltBrief.gates.buyer.result !== "FAIL";
-  const buyerDegraded =
-    persistedBrief?.gates.buyer.result === "PASS" &&
-    rebuiltBrief.gates.buyer.result !== "PASS";
-  const emailMissing = Boolean(persistedBrief) && !persistedBrief?.gates?.email;
-  // rebuiltBrief always includes gates.email; optional on legacy persisted briefs.
-  const emailImproved =
-    persistedBrief?.gates.email?.result !== "PASS" &&
-    rebuiltBrief.gates.email?.result === "PASS";
-  const emailDegraded =
-    persistedBrief?.gates.email?.result === "PASS" &&
-    rebuiltBrief.gates.email?.result !== "PASS";
-  const persistedBuyerNames = (persistedBrief?.buyerMap ?? [])
-    .map((b) => (b.name ?? "").trim().toLowerCase())
-    .filter(Boolean)
-    .sort()
-    .join("|");
-  const rebuiltBuyerNames = rebuiltBrief.buyerMap
-    .map((b) => (b.name ?? "").trim().toLowerCase())
-    .filter(Boolean)
-    .sort()
-    .join("|");
-  const buyerRosterChanged =
-    Boolean(persistedBrief) && persistedBuyerNames !== rebuiltBuyerNames;
-  const accountResearchBrief =
-    persistedBrief &&
-    !buyerImproved &&
-    !buyerDegraded &&
-    !emailMissing &&
-    !emailImproved &&
-    !emailDegraded &&
-    !buyerRosterChanged
-      ? persistedBrief
-      : rebuiltBrief;
-
-  const operatorHold = resolveOperatorHold(contact.metadata);
+  const briefSelection = selectAccountResearchBriefForReport(persistedBrief, rebuiltBrief);
+  const accountResearchBrief = briefSelection.brief;
   const metaRecord =
     contact.metadata &&
     typeof contact.metadata === "object" &&
     !Array.isArray(contact.metadata)
       ? (contact.metadata as Record<string, unknown>)
       : null;
+
+  // Persist gate/roster upgrades only — never clobber rich scrape findings with a thin
+  // report-corpus rebuild when Email is still company-intake UNKNOWN.
+  if (briefSelection.shouldPersist) {
+    const fresh = await prisma.ironboardCrmContact.findUnique({
+      where: { id: contact.id },
+      select: { metadata: true },
+    });
+    const freshMeta =
+      fresh?.metadata &&
+      typeof fresh.metadata === "object" &&
+      !Array.isArray(fresh.metadata)
+        ? (fresh.metadata as Record<string, unknown>)
+        : (metaRecord ?? {});
+    await prisma.ironboardCrmContact
+      .update({
+        where: { id: contact.id },
+        data: {
+          metadata: {
+            ...freshMeta,
+            accountResearchBrief: briefSelection.brief,
+          } as Prisma.InputJsonValue,
+        },
+      })
+      .catch(() => undefined);
+  }
   const apolloRaw = metaRecord?.apolloEnrichment ?? null;
   const apolloEnrichment =
     apolloRaw && typeof apolloRaw === "object" && !Array.isArray(apolloRaw)

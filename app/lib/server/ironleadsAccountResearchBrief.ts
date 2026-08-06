@@ -77,8 +77,8 @@ export type AccountResearchBrief = {
     /** Named economic/operational buyer from public pages or operator attach. */
     buyer: AccountResearchBriefGate;
     /**
-     * Real work inbox (published / operator / Apollo / Prospeo).
-     * Optional on legacy persisted briefs — report rebuild fills it.
+     * Promote-ready buyer work inbox (published person mailto / operator / Apollo / Prospeo).
+     * Company intakes (info@/hello@) stay UNKNOWN. Optional on legacy briefs.
      */
     email?: AccountResearchBriefGate;
   };
@@ -132,6 +132,63 @@ export type AccountResearchBrief = {
   sourceLedger: AccountResearchBriefSource[];
 };
 
+/** Role/company intakes — reachable, but not Email-gate PASS for Path B Promote. */
+const GENERIC_COMPANY_INBOX_LOCALS = new Set([
+  "info",
+  "hello",
+  "hi",
+  "sales",
+  "support",
+  "contact",
+  "admin",
+  "office",
+  "team",
+  "privacy",
+  "customerservice",
+  "customer.service",
+  "customer-service",
+  "enquiries",
+  "enquiry",
+  "inquiry",
+  "inquiries",
+  "help",
+  "noreply",
+  "no-reply",
+  "donotreply",
+  "do-not-reply",
+  "marketing",
+  "press",
+  "media",
+  "hr",
+  "jobs",
+  "careers",
+  "billing",
+  "accounts",
+  "webmaster",
+  "postmaster",
+  "abuse",
+  "security",
+  "compliance",
+]);
+
+/**
+ * True when the address looks like a person/work seat (not info@/hello@ switchboard).
+ * Placeholder @ironleads.local never qualifies.
+ */
+export function isPromoteReadyWorkEmail(email: string | null | undefined): boolean {
+  const raw = (email ?? "").trim().toLowerCase();
+  if (!raw || !raw.includes("@")) return false;
+  if (/@ironleads\.local$/i.test(raw)) return false;
+  const local = raw.split("@")[0] ?? "";
+  if (!local) return false;
+  const base = local.split("+")[0] ?? local;
+  if (GENERIC_COMPANY_INBOX_LOCALS.has(base)) return false;
+  // Single-token role aliases like "info.us"
+  const roleRoot = base.split(/[._-]/)[0] ?? base;
+  if (GENERIC_COMPANY_INBOX_LOCALS.has(roleRoot) && base !== roleRoot) return false;
+  return true;
+}
+
 export type BuildAccountResearchBriefInput = {
   company: string;
   websiteUrl: string | null;
@@ -161,7 +218,18 @@ export type BuildAccountResearchBriefInput = {
     fetchable?: boolean;
     note?: string | null;
   }>;
+  /** Any non-placeholder inbox (channel reachability). */
   hasRealEmail: boolean;
+  /**
+   * Optional contact.email — used with member emails to decide Email-gate PASS.
+   * Company intakes (info@/hello@) keep Email UNKNOWN even when hasRealEmail is true.
+   */
+  contactEmail?: string | null;
+  /**
+   * Operator HOLD archive / channel_competitor — forces Path B FAIL/HOLD even when
+   * the company is not on the static SALES_DISPATCH_HOLD_COMPANIES list.
+   */
+  pathBHold?: boolean;
   hasPhone: boolean;
   generatedAt?: string;
 };
@@ -196,11 +264,6 @@ export function mergeNamedBuyerIntoBriefMembers(input: {
   if (!isPlausiblePersonName(buyer.fullName)) return members;
 
   const nameKey = buyer.fullName.trim().toLowerCase();
-  const already = members.some(
-    (m) => m.fullName?.trim().toLowerCase() === nameKey,
-  );
-  if (already) return members;
-
   const email =
     (buyer.email?.trim() || input.contactEmail?.trim() || "").toLowerCase() || null;
   const emailStatus = buyer.emailStatus?.trim() || (email ? "operator_verified" : null);
@@ -208,6 +271,42 @@ export function mergeNamedBuyerIntoBriefMembers(input: {
     buyer.role?.trim() ||
     inferBriefRoleFromTitle(buyer.title || input.contactTitle) ||
     "FOUNDER";
+  const sourceUrls = [
+    ...(buyer.sourceUrls ?? []),
+    ...(buyer.linkedinUrl ? [buyer.linkedinUrl] : []),
+  ].filter(Boolean);
+  const note =
+    buyer.note?.trim() ||
+    "Named buyer on contact metadata (operator / Prospeo) — not scrape-only.";
+
+  const existingIdx = members.findIndex(
+    (m) => m.fullName?.trim().toLowerCase() === nameKey,
+  );
+  if (existingIdx >= 0) {
+    const existing = members[existingIdx]!;
+    const hasEmail = existing.emails.some(
+      (e) => e.email?.trim().toLowerCase() === email,
+    );
+    members[existingIdx] = {
+      ...existing,
+      title: existing.title || buyer.title?.trim() || input.contactTitle?.trim() || null,
+      role: existing.role || role,
+      emails:
+        email && !hasEmail
+          ? [
+              {
+                email,
+                status: emailStatus || "operator_verified",
+                source: "namedBuyer",
+              },
+              ...existing.emails,
+            ]
+          : existing.emails,
+      sourceUrls: [...new Set([...(existing.sourceUrls ?? []), ...sourceUrls])],
+      note: existing.note || note,
+    };
+    return members;
+  }
 
   members.unshift({
     role,
@@ -223,13 +322,8 @@ export function mergeNamedBuyerIntoBriefMembers(input: {
         ]
       : [],
     phones: [],
-    sourceUrls: [
-      ...(buyer.sourceUrls ?? []),
-      ...(buyer.linkedinUrl ? [buyer.linkedinUrl] : []),
-    ].filter(Boolean),
-    note:
-      buyer.note?.trim() ||
-      "Named buyer on contact metadata (operator / Prospeo) — not scrape-only.",
+    sourceUrls,
+    note,
   });
   return members;
 }
@@ -380,7 +474,7 @@ export function buildAccountResearchBrief(
   const corpus = input.corpus || "";
   const products = detectProducts(corpus, input.company);
   const services = detectServices(corpus, input.company);
-  const hold = isSalesDispatchHoldCompany(input.company);
+  const hold = isSalesDispatchHoldCompany(input.company) || Boolean(input.pathBHold);
   const competingPlatform = products.find((p) => p === "OSCAR" || p === "Radius360") ?? null;
   const hasCompetingStack = Boolean(competingPlatform) || hold;
 
@@ -388,6 +482,18 @@ export function buildAccountResearchBrief(
     (m) => m.fullName?.trim() && isPlausiblePersonName(m.fullName),
   );
   const hasNamedBuyer = namedMembers.length > 0;
+  const memberPromoteReadyEmail = namedMembers.some((m) =>
+    m.emails.some(
+      (e) =>
+        isPromoteReadyWorkEmail(e.email) &&
+        e.status !== "pattern_guess" &&
+        e.status !== "INVALID" &&
+        e.status !== "unavailable",
+    ),
+  );
+  const contactPromoteReady = isPromoteReadyWorkEmail(input.contactEmail);
+  /** Email gate PASS — person/work seat, not company intake alone. */
+  const hasPromoteReadyEmail = memberPromoteReadyEmail || contactPromoteReady;
 
   const fitHaystack = [
     input.company,
@@ -464,23 +570,29 @@ export function buildAccountResearchBrief(
   const email: AccountResearchBriefGate = hasCompetingStack
     ? {
         result: "FAIL",
-        finding: input.hasRealEmail
-          ? "A real inbox is on file, but HOLD/competitor blocks Path B use of it."
-          : "No real buyer inbox on file; HOLD/competitor also blocks Path B.",
+        finding: hasPromoteReadyEmail
+          ? "A promote-ready buyer inbox is on file, but HOLD/competitor blocks Path B use of it."
+          : input.hasRealEmail
+            ? "Only a company intake inbox is on file; HOLD/competitor also blocks Path B."
+            : "No real buyer inbox on file; HOLD/competitor also blocks Path B.",
         why: "Do not DISPATCH while the account is on the competitor/HOLD shortlist.",
       }
-    : input.hasRealEmail
+    : hasPromoteReadyEmail
       ? {
           result: "PASS",
-          finding: "A real (non-placeholder) work email is on file for outreach.",
-          why: "Published, operator-pasted, Apollo, or Prospeo inboxes clear this gate — pattern_guess alone does not.",
+          finding: "A promote-ready (non-placeholder, non-generic) work email is on file for outreach.",
+          why: "Published person mailto, operator-pasted buyer inbox, Apollo, or Prospeo clears this gate — pattern_guess and info@/hello@ intakes alone do not.",
         }
       : {
           result: "UNKNOWN",
-          finding: hasNamedBuyer
-            ? "Named buyer is on file, but no real work email yet."
-            : "No real work email on file.",
-          why: "Enrich with Apollo/Prospeo or paste a verified inbox. Switchboard phone alone is not enough. Buyer PASS without Email keeps the account SUSPECT.",
+          finding: input.hasRealEmail
+            ? hasNamedBuyer
+              ? "Named buyer is on file, but only a company intake inbox (info@/hello@/sales@) — not a personal work seat."
+              : "Only a company intake inbox is on file — not a personal work seat."
+            : hasNamedBuyer
+              ? "Named buyer is on file, but no real work email yet."
+              : "No real work email on file.",
+          why: "Enrich with Apollo/Prospeo or paste a verified buyer inbox. Company intakes and switchboard phones alone are not enough. Buyer PASS without Email keeps the account SUSPECT.",
         };
 
   let status: BriefAccountStatus = "SUSPECT";
@@ -580,11 +692,13 @@ export function buildAccountResearchBrief(
 
   const bestChannel = hasCompetingStack
     ? "No Path B cold contact"
-    : input.hasRealEmail
+    : hasPromoteReadyEmail
       ? "Email (Resend) after Promote → SalesTeam poll → human DISPATCH"
-      : input.hasPhone
-        ? "Phone / switchboard (SMS deferred) — confirm buyer then email"
-        : "Enrich email first; LinkedIn review link only (no scrape, no auto-message)";
+      : input.hasRealEmail
+        ? "Company intake only — enrich named-buyer inbox before Promote; phone/switchboard as backup"
+        : input.hasPhone
+          ? "Phone / switchboard (SMS deferred) — confirm buyer then email"
+          : "Enrich email first; LinkedIn review link only (no scrape, no auto-message)";
 
   const personalizationFact = hasCompetingStack
     ? proprietaryPlatform
@@ -726,6 +840,97 @@ export function buildAccountResearchBrief(
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
+}
+
+export type AccountResearchBriefSelection = {
+  brief: AccountResearchBrief;
+  shouldPersist: boolean;
+  reasons: string[];
+};
+
+/**
+ * Prefer persisted brief (rich scrape corpus / operator adjudication) unless Buyer,
+ * Email, or roster drifted. When improving, merge gates onto the persisted brief so
+ * company-intake UNKNOWN findings are not wiped by a thin report rebuild — and so
+ * Prospeo personal-inbox PASS does land in CRM.
+ */
+export function selectAccountResearchBriefForReport(
+  persistedBrief: AccountResearchBrief | null,
+  rebuiltBrief: AccountResearchBrief,
+): AccountResearchBriefSelection {
+  if (!persistedBrief) {
+    return { brief: rebuiltBrief, shouldPersist: true, reasons: ["missing_brief"] };
+  }
+
+  const buyerImproved =
+    persistedBrief.gates.buyer.result === "FAIL" &&
+    rebuiltBrief.gates.buyer.result !== "FAIL";
+  const buyerDegraded =
+    persistedBrief.gates.buyer.result === "PASS" &&
+    rebuiltBrief.gates.buyer.result !== "PASS";
+  const emailMissing = !persistedBrief.gates?.email;
+  const emailImproved =
+    persistedBrief.gates.email?.result !== "PASS" &&
+    rebuiltBrief.gates.email?.result === "PASS";
+  const emailDegraded =
+    persistedBrief.gates.email?.result === "PASS" &&
+    rebuiltBrief.gates.email?.result !== "PASS";
+  const persistedBuyerNames = (persistedBrief.buyerMap ?? [])
+    .map((b) => (b.name ?? "").trim().toLowerCase())
+    .filter(Boolean)
+    .sort()
+    .join("|");
+  const rebuiltBuyerNames = rebuiltBrief.buyerMap
+    .map((b) => (b.name ?? "").trim().toLowerCase())
+    .filter(Boolean)
+    .sort()
+    .join("|");
+  const buyerRosterChanged = persistedBuyerNames !== rebuiltBuyerNames;
+
+  const reasons: string[] = [];
+  if (buyerImproved) reasons.push("buyer_improved");
+  if (buyerDegraded) reasons.push("buyer_degraded");
+  if (emailMissing) reasons.push("email_gate_missing");
+  if (emailImproved) reasons.push("email_improved");
+  if (emailDegraded) reasons.push("email_degraded");
+  if (buyerRosterChanged) reasons.push("buyer_roster_changed");
+
+  if (reasons.length === 0) {
+    return { brief: persistedBrief, shouldPersist: false, reasons };
+  }
+
+  // Schema repair: legacy briefs without Email gate need the full rebuilt shape.
+  if (emailMissing && !emailImproved && !buyerImproved) {
+    return {
+      brief: rebuiltBrief,
+      shouldPersist: true,
+      reasons,
+    };
+  }
+
+  // Keep scrape/operator corpus; overlay rebuilt Buyer/Email/outreach decision surfaces.
+  const brief: AccountResearchBrief = {
+    ...persistedBrief,
+    gates: {
+      ...persistedBrief.gates,
+      buyer: rebuiltBrief.gates.buyer,
+      email: rebuiltBrief.gates.email,
+    },
+    buyerMap: rebuiltBrief.buyerMap.length > 0 ? rebuiltBrief.buyerMap : persistedBrief.buyerMap,
+    outreach: rebuiltBrief.outreach,
+    snapshot: {
+      ...persistedBrief.snapshot,
+      status: rebuiltBrief.snapshot.status,
+    },
+    generatedAt: rebuiltBrief.generatedAt ?? persistedBrief.generatedAt,
+  };
+
+  return {
+    brief,
+    // Persist degrades too — e.g. operator channel_competitor HOLD must not leave CRM on promote.
+    shouldPersist: reasons.length > 0,
+    reasons,
+  };
 }
 
 /** Parse persisted brief from contact.metadata when present. */

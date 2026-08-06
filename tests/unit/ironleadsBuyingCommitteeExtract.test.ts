@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   extractBuyingPersons,
   extractPublishedEmails,
+  extractMailtoEmails,
+  extractDirectoryEmailClues,
+  discoverPublishedEmails,
+  extractTradeShowAndEventSignals,
+  publishedEmailMatchesPerson,
   extractPublicSocialLinks,
   extractSameOriginTeamPageUrls,
   extractUsPhones,
@@ -13,6 +18,7 @@ import {
   inferEmailLocalPattern,
   inferInitialLastEmailPattern,
   isPlausiblePersonName,
+  isRoleLocalPart,
   socialAboutFetchUrl,
 } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 
@@ -92,6 +98,84 @@ describe("ironleadsBuyingCommitteeExtract", () => {
     expect(
       extractPublishedEmails(text, "westernalliancebancorporation.com"),
     ).toContain("mpondelik@westernalliancebank.com");
+  });
+
+  it("initial search: mailto hrefs survive HTML strip (Contact link text alone)", () => {
+    const html = `
+      <a href="mailto:Hello@dynamiccomply.com">Contact</a>
+      <a href="mailto:support@fablesecurity.com?subject=Help">Support</a>
+      <p>Visible body has no address.</p>
+    `;
+    expect(extractMailtoEmails(html, "dynamiccomply.com")).toContain(
+      "hello@dynamiccomply.com",
+    );
+    expect(extractMailtoEmails(html, "fablesecurity.com")).toContain(
+      "support@fablesecurity.com",
+    );
+    // Text-only extract would miss href-only mailtos after strip.
+    expect(extractPublishedEmails("Contact Support", "dynamiccomply.com")).toEqual([]);
+  });
+
+  it("initial search: directory/bio E-Mail labels and discoverPublishedEmails priority", () => {
+    const text =
+      "Key Contact Name Nicole Jiang Title CEO E-Mail nicole@fablesecurity.com Funding Events";
+    expect(extractDirectoryEmailClues(text, "fablesecurity.com")).toContain(
+      "nicole@fablesecurity.com",
+    );
+    const hits = discoverPublishedEmails({
+      html: `<a href="mailto:hello@fablesecurity.com">hello</a>`,
+      text: "Email: press@fablesecurity.com and stray other@gmail.com",
+      accountDomain: "fablesecurity.com",
+    });
+    const byEmail = Object.fromEntries(hits.map((h) => [h.email, h]));
+    expect(byEmail["hello@fablesecurity.com"]?.kind).toBe("mailto");
+    expect(byEmail["press@fablesecurity.com"]?.kind).toBe("directory_label");
+    expect(byEmail["other@gmail.com"]).toBeUndefined();
+    expect(isRoleLocalPart("hello")).toBe(true);
+    expect(isRoleLocalPart("nicole")).toBe(false);
+  });
+
+  it("matches published first@ / first.last@ locals to people; ignores role inboxes", () => {
+    expect(publishedEmailMatchesPerson("nicole@fablesecurity.com", "Nicole Jiang-Gibson")).toBe(
+      true,
+    );
+    expect(
+      publishedEmailMatchesPerson("nicole.jiang@fablesecurity.com", "Nicole Jiang-Gibson"),
+    ).toBe(true);
+    expect(publishedEmailMatchesPerson("hello@fablesecurity.com", "Nicole Jiang-Gibson")).toBe(
+      false,
+    );
+    expect(publishedEmailMatchesPerson("ross@dynamiccomply.com", "Ross J.")).toBe(true);
+    expect(publishedEmailMatchesPerson("ali@ocsecurityaudit.com", "Ali Hassani")).toBe(true);
+  });
+
+  it("extracts trade show booth and hosted-event registration clues", () => {
+    const text = `
+      Come find us at Black Hat USA 2026 booth 6011 in Startup Alley.
+      We are hosting a private threat briefing suite and an executive dinner.
+      Also exhibiting at RSA Conference booth S-0263.
+    `;
+    const signals = extractTradeShowAndEventSignals(
+      text,
+      "https://fablesecurity.com/resources/blog/fable-at-black-hat-2026/",
+    );
+    expect(signals.some((s) => s.kind === "booth" && /6011/.test(s.detail ?? ""))).toBe(
+      true,
+    );
+    expect(signals.some((s) => /Black Hat/i.test(s.eventName))).toBe(true);
+    expect(signals.some((s) => /RSA/i.test(s.eventName) && s.kind === "booth")).toBe(true);
+  });
+
+  it("seeds first_only schema from a single published personal first@ (not hello@)", () => {
+    expect(
+      inferEmailLocalPattern(["hello@fablesecurity.com", "nicole@fablesecurity.com"]),
+    ).toEqual({ domain: "fablesecurity.com", pattern: "first_only" });
+    expect(
+      buildEmailPermutationCandidates("Sanny Liao", "fablesecurity.com", {
+        primary: "first_only",
+        max: 2,
+      }).map((c) => c.email),
+    ).toEqual(["sanny@fablesecurity.com", "sanny.liao@fablesecurity.com"]);
   });
 
   it("rejects award / board / product-UI noise as person names", () => {

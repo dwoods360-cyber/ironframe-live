@@ -95,8 +95,8 @@ export default function PublishingDeskClient() {
   const [draftReaderValidationOk, setDraftReaderValidationOk] = useState<boolean | null>(null);
   const [draftReaderLoading, setDraftReaderLoading] = useState(false);
   const [draftReaderError, setDraftReaderError] = useState<string | null>(null);
-  const [linkedinMarkdown, setLinkedinMarkdown] = useState("");
-  const [linkedinTitle, setLinkedinTitle] = useState<string | null>(null);
+  const [linkedinTitle, setLinkedinTitle] = useState("");
+  const [linkedinBody, setLinkedinBody] = useState("");
   const [linkedinUpdatedAt, setLinkedinUpdatedAt] = useState<string | null>(null);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinSaving, setLinkedinSaving] = useState(false);
@@ -273,22 +273,27 @@ export default function PublishingDeskClient() {
     void loadSnapshot();
   }, [loadSnapshot]);
 
-  const loadLinkedinDraft = useCallback(async () => {
+  const loadLinkedinDraft = useCallback(async (opts?: { seedSuggested?: boolean }) => {
     setLinkedinLoading(true);
     setLinkedinError(null);
     try {
+      const qs = opts?.seedSuggested ? "?seed=suggested" : "";
       const data = await fetchOpsPortalJson<{
         title?: string;
-        markdown?: string;
+        body?: string;
         updatedAt?: string | null;
         source?: string;
-      }>("/api/admin/operations-hub/linkedin/draft", undefined, "Failed to load LinkedIn draft.");
-      setLinkedinMarkdown(data.markdown ?? "");
-      setLinkedinTitle(data.title ?? null);
+      }>(
+        `/api/admin/operations-hub/linkedin/draft${qs}`,
+        undefined,
+        "Failed to load LinkedIn draft.",
+      );
+      setLinkedinTitle(data.title ?? "");
+      setLinkedinBody(data.body ?? "");
       setLinkedinUpdatedAt(data.updatedAt ?? null);
       setLinkedinMessage(
-        data.source === "repo_file" || data.source === "fallback"
-          ? "Bootstrapped into APP_DOCS — edit below and Save draft."
+        data.source === "suggested" || data.source === "seeded"
+          ? "Loaded suggested heatmap draft — edit title/body, then Save."
           : null,
       );
       linkedinLoadedRef.current = true;
@@ -301,19 +306,19 @@ export default function PublishingDeskClient() {
 
   useEffect(() => {
     if (desk !== "linkedin") return;
-    if (linkedinLoadedRef.current && linkedinMarkdown.length > 0) return;
-    void loadLinkedinDraft();
-  }, [desk, loadLinkedinDraft, linkedinMarkdown.length]);
+    if (linkedinLoadedRef.current && linkedinBody.length > 0) return;
+    void loadLinkedinDraft({ seedSuggested: true });
+  }, [desk, loadLinkedinDraft, linkedinBody.length]);
 
   const handleSaveLinkedinDraft = async () => {
-    if (linkedinSaving || linkedinMarkdown.trim().length < 40) return;
+    if (linkedinSaving || linkedinBody.trim().length < 40) return;
     setLinkedinSaving(true);
     setLinkedinMessage(null);
     setLinkedinError(null);
     try {
       const data = await fetchOpsPortalJson<{
         title?: string;
-        markdown?: string;
+        body?: string;
         updatedAt?: string | null;
         message?: string;
       }>(
@@ -321,12 +326,12 @@ export default function PublishingDeskClient() {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ markdown: linkedinMarkdown }),
+          body: JSON.stringify({ title: linkedinTitle, body: linkedinBody }),
         },
         "Failed to save LinkedIn draft.",
       );
-      setLinkedinMarkdown(data.markdown ?? linkedinMarkdown);
       setLinkedinTitle(data.title ?? linkedinTitle);
+      setLinkedinBody(data.body ?? linkedinBody);
       setLinkedinUpdatedAt(data.updatedAt ?? null);
       setLinkedinMessage(data.message ?? "Saved.");
     } catch (err) {
@@ -338,11 +343,11 @@ export default function PublishingDeskClient() {
 
   const handleCopyLinkedinDraft = async () => {
     try {
-      await navigator.clipboard.writeText(linkedinMarkdown);
-      setLinkedinMessage("Copied to clipboard — paste into LinkedIn (Wil).");
+      await navigator.clipboard.writeText(linkedinBody);
+      setLinkedinMessage("Copied post body — paste into LinkedIn (Wil).");
       setLinkedinError(null);
     } catch {
-      setLinkedinError("Clipboard copy failed — select the text and copy manually.");
+      setLinkedinError("Clipboard copy failed — select the body and copy manually.");
     }
   };
 
@@ -725,22 +730,31 @@ export default function PublishingDeskClient() {
             <section className="rounded-xl border border-cyan-900/50 bg-slate-900/60 p-5">
               <h2 className="text-lg font-semibold text-white">LinkedIn publication desk</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Paste and edit founder copy here — same workbench pattern as Governance Frame, but
-                this never promotes to research.ironframegrc.com. When ready: Copy → paste into
-                LinkedIn (Wil → optional company amplify).
+                Same workbench pattern as Governance Frame (title + draft). This never promotes to
+                research.ironframegrc.com. When ready: Copy body → paste into LinkedIn (Wil →
+                optional company amplify).
               </p>
-              {linkedinTitle ? (
+              {linkedinUpdatedAt ? (
                 <p className="mt-3 font-mono text-[10px] text-slate-500">
-                  {linkedinTitle}
-                  {linkedinUpdatedAt ? ` · saved ${new Date(linkedinUpdatedAt).toLocaleString()}` : ""}
+                  Last saved {new Date(linkedinUpdatedAt).toLocaleString()}
                 </p>
               ) : null}
               <label className="mt-4 block text-xs text-slate-400">
-                Draft markdown
+                Title
+                <input
+                  value={linkedinTitle}
+                  onChange={(e) => setLinkedinTitle(e.target.value)}
+                  disabled={linkedinLoading}
+                  placeholder="e.g. LinkedIn Mon — Heatmap theater vs dollar-risk clarity"
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                />
+              </label>
+              <label className="mt-3 block text-xs text-slate-400">
+                Post body (paste into LinkedIn)
                 <textarea
-                  value={linkedinMarkdown}
-                  onChange={(e) => setLinkedinMarkdown(e.target.value)}
-                  rows={22}
+                  value={linkedinBody}
+                  onChange={(e) => setLinkedinBody(e.target.value)}
+                  rows={18}
                   disabled={linkedinLoading}
                   placeholder="Loading LinkedIn draft…"
                   className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm leading-relaxed text-slate-100"
@@ -749,7 +763,7 @@ export default function PublishingDeskClient() {
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={linkedinSaving || linkedinLoading || linkedinMarkdown.trim().length < 40}
+                  disabled={linkedinSaving || linkedinLoading || linkedinBody.trim().length < 40}
                   onClick={() => void handleSaveLinkedinDraft()}
                   className="rounded-lg bg-cyan-800 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
                 >
@@ -757,22 +771,22 @@ export default function PublishingDeskClient() {
                 </button>
                 <button
                   type="button"
-                  disabled={linkedinLoading || linkedinMarkdown.trim().length < 1}
+                  disabled={linkedinLoading || linkedinBody.trim().length < 1}
                   onClick={() => void handleCopyLinkedinDraft()}
                   className="rounded-lg border border-slate-600 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-100 hover:border-cyan-700 disabled:opacity-50"
                 >
-                  Copy to clipboard
+                  Copy body
                 </button>
                 <button
                   type="button"
                   disabled={linkedinLoading || linkedinSaving}
                   onClick={() => {
                     linkedinLoadedRef.current = false;
-                    void loadLinkedinDraft();
+                    void loadLinkedinDraft({ seedSuggested: true });
                   }}
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-300 hover:border-slate-500 disabled:opacity-50"
+                  className="rounded-lg border border-violet-800/80 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 hover:border-violet-500 disabled:opacity-50"
                 >
-                  {linkedinLoading ? "Loading…" : "Reload"}
+                  {linkedinLoading ? "Loading…" : "Load suggested draft"}
                 </button>
               </div>
               {linkedinMessage ? (
@@ -786,9 +800,9 @@ export default function PublishingDeskClient() {
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">How to publish</h2>
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-300">
-                  <li>Edit the Monday (heatmap vs dollars) section in the desk on the left.</li>
+                  <li>Confirm the Title header, then edit the post body if needed.</li>
                   <li>Save draft (writes APP_DOCS so the docs reader stays in sync).</li>
-                  <li>Copy → paste into LinkedIn from Wil’s profile.</li>
+                  <li>Copy body → paste into LinkedIn from Wil’s profile.</li>
                   <li>Mark the Ops Calendar card Done with the post URL.</li>
                 </ol>
                 <p className="mt-4 text-sm text-slate-400">

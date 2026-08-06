@@ -908,20 +908,16 @@ export default function PublishingDeskClient() {
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
               <h2 className="text-lg font-semibold text-white">LinkedIn drafts</h2>
               <p className="mt-1 text-sm text-slate-400">
-                {linkedinDraftCounts.total} catalog slots · {linkedinDraftCounts.active} active ·{" "}
-                {linkedinDraftCounts.posted} posted (archived). Manual paste to LinkedIn only; no GF
-                Approve / promote on this desk.
+                Active founder slots ready to paste ({linkedinDraftCounts.active} open). Published
+                posts live in the Published section below — not mixed here. Manual LinkedIn paste
+                only; no GF Approve / promote.
               </p>
-
-              <h3 className="mt-5 font-mono text-[10px] uppercase tracking-widest text-cyan-400">
-                Active ({linkedinDraftCounts.active})
-              </h3>
-              <ul className="mt-2 space-y-3">
+              <ul className="mt-4 space-y-3">
                 {linkedinDrafts.length === 0 ? (
                   <li className="text-sm text-slate-500">
                     {linkedinLoading
                       ? "Loading drafts…"
-                      : "No active LinkedIn drafts — all slots are in Posted archive."}
+                      : "No active LinkedIn drafts — see Published below."}
                   </li>
                 ) : (
                   linkedinDrafts.map((draft) => {
@@ -968,59 +964,6 @@ export default function PublishingDeskClient() {
                           {draft.updatedAt ? (
                             <span>saved {new Date(draft.updatedAt).toLocaleString()}</span>
                           ) : null}
-                        </div>
-                      </li>
-                    );
-                  })
-                )}
-              </ul>
-
-              <h3 className="mt-6 font-mono text-[10px] uppercase tracking-widest text-slate-500">
-                Posted archive ({linkedinDraftCounts.posted})
-              </h3>
-              <p className="mt-1 text-xs text-slate-500">
-                Moves here when the matching Ops Calendar card is Done. Still editable for reuse —
-                not deleted.
-              </p>
-              <ul className="mt-2 space-y-3">
-                {linkedinPostedArchive.length === 0 ? (
-                  <li className="text-sm text-slate-600">No posted slots yet.</li>
-                ) : (
-                  linkedinPostedArchive.map((draft) => {
-                    const selected = linkedinDraftId === draft.id;
-                    return (
-                      <li
-                        key={draft.id}
-                        id={`linkedin-draft-${draft.id}`}
-                        className={`rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-sm opacity-80 ${
-                          selected ? "ring-1 ring-slate-500" : ""
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded bg-emerald-950 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-emerald-300">
-                                Posted · {draft.slotLabel}
-                              </span>
-                              <span className="font-medium text-slate-300">{draft.title}</span>
-                            </div>
-                            <div className="mt-1 font-mono text-[10px] text-slate-600">{draft.slug}</div>
-                            {draft.calendarOutcome ? (
-                              <p className="mt-1 text-xs text-slate-500 line-clamp-2">
-                                {draft.calendarOutcome}
-                              </p>
-                            ) : draft.summary ? (
-                              <p className="mt-1 text-xs text-slate-500 line-clamp-2">{draft.summary}</p>
-                            ) : null}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => selectLinkedinDraft(draft.id)}
-                            className="shrink-0 text-xs text-slate-400 hover:text-cyan-300 hover:underline"
-                            aria-pressed={selected}
-                          >
-                            {selected ? "Selected" : "Open"}
-                          </button>
                         </div>
                       </li>
                     );
@@ -1219,6 +1162,62 @@ export default function PublishingDeskClient() {
                 </ul>
               </div>
             </div>
+
+            <section
+              id="linkedin-published"
+              className="rounded-xl border border-emerald-900/40 bg-emerald-950/15 p-5"
+            >
+              <h2 className="text-lg font-semibold text-emerald-50">Published</h2>
+              <p className="mt-1 text-sm text-emerald-100/70">
+                Shipments whose Ops Calendar card is Done ({linkedinDraftCounts.posted}). Kept for
+                reuse and citations — not mixed with open drafts above.
+              </p>
+              <ul className="mt-4 space-y-3">
+                {linkedinPostedArchive.length === 0 ? (
+                  <li className="text-sm text-slate-500">
+                    Nothing published yet — posts move here after you mark the calendar card Done.
+                  </li>
+                ) : (
+                  linkedinPostedArchive.map((draft) => {
+                    const selected = linkedinDraftId === draft.id;
+                    return (
+                      <li
+                        key={draft.id}
+                        id={`linkedin-published-${draft.id}`}
+                        className={`rounded-lg border border-emerald-900/30 bg-slate-950/50 p-3 text-sm ${
+                          selected ? "ring-1 ring-emerald-600/50" : ""
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded bg-emerald-950 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-emerald-300">
+                                {draft.slotLabel}
+                              </span>
+                              <span className="font-medium text-slate-200">{draft.title}</span>
+                            </div>
+                            <div className="mt-1 font-mono text-[10px] text-slate-600">{draft.slug}</div>
+                            {draft.calendarOutcome ? (
+                              <p className="mt-1 text-xs text-slate-400 line-clamp-2">
+                                {draft.calendarOutcome}
+                              </p>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => selectLinkedinDraft(draft.id)}
+                            className="shrink-0 text-xs text-emerald-300/80 hover:text-emerald-200 hover:underline"
+                            aria-pressed={selected}
+                          >
+                            {selected ? "Selected" : "Open"}
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            </section>
           </div>
         ) : null}
 

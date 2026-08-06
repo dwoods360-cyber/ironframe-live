@@ -11,6 +11,8 @@ import {
   parsePublishingDeskTab,
   publishingDeskHref,
   publishingDeskTabForQueueDraft,
+  PUBLISHING_LINKEDIN_CADENCE_HREF,
+  PUBLISHING_LINKEDIN_DRAFTS_HREF,
   PUBLISHING_VIDEO_NARRATIVE_LINKS,
   PUBLISHING_VIDEOS_PAGE_HREF,
   type PublishingDeskTab,
@@ -575,9 +577,16 @@ export default function PublishingDeskClient() {
       href: publishingDeskHref("video"),
       active: desk === "video",
     },
+    {
+      id: "linkedin",
+      label: "LinkedIn",
+      href: publishingDeskHref("linkedin"),
+      active: desk === "linkedin",
+    },
   ];
 
   const isBriefingsOrResearchDesk = desk === "briefings" || desk === "research";
+  const isDocsOnlyDesk = desk === "video" || desk === "linkedin";
 
   return (
     <div className="min-h-screen bg-[#020617] p-4 text-slate-100 sm:p-6">
@@ -629,7 +638,58 @@ export default function PublishingDeskClient() {
         </div>
 
         {error ? <div className="rounded-xl border border-rose-900/50 bg-rose-950/30 p-4 text-sm text-rose-200">{error}</div> : null}
-        {loading && !snapshot && desk !== "video" ? <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center text-slate-400">Loading publishing snapshot…</div> : null}
+        {loading && !snapshot && !isDocsOnlyDesk ? <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center text-slate-400">Loading publishing snapshot…</div> : null}
+
+        {desk === "linkedin" ? (
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+              <h2 className="text-lg font-semibold text-white">LinkedIn drafts</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Founder paste-ready copy for Mon/Wed/Fri. Edit the draft here, then publish manually
+                from Wil’s LinkedIn (optional company amplify). This is not Governance Frame
+                quarantine — Approve/Deny on Briefings does not apply.
+              </p>
+              <Link
+                href={PUBLISHING_LINKEDIN_DRAFTS_HREF}
+                className="mt-5 inline-flex items-center rounded-lg bg-cyan-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-700"
+              >
+                Open LinkedIn drafts
+              </Link>
+              <p className="mt-3 font-mono text-[10px] text-slate-500">
+                {PUBLISHING_LINKEDIN_DRAFTS_HREF}
+              </p>
+              <p className="mt-4 text-sm text-slate-400">
+                Current slot theme: <span className="text-slate-200">heatmap vs dollars</span> (see
+                Monday section in the drafts file).
+              </p>
+            </section>
+            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+              <h2 className="text-lg font-semibold text-white">Cadence &amp; calendar</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Cadence plan and Ops Calendar checklist. Mark the calendar card Done after posting
+                and put the LinkedIn URL in the outcome.
+              </p>
+              <ul className="mt-4 space-y-2">
+                <li>
+                  <Link
+                    href={PUBLISHING_LINKEDIN_CADENCE_HREF}
+                    className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
+                  >
+                    Founder LinkedIn cadence
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/dashboard/operations?tab=calendar"
+                    className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
+                  >
+                    Ops Calendar
+                  </Link>
+                </li>
+              </ul>
+            </section>
+          </div>
+        ) : null}
 
         {desk === "video" ? (
           <div className="grid gap-6 lg:grid-cols-2">
@@ -1192,6 +1252,9 @@ export default function PublishingDeskClient() {
                   </Link>
                   <Link href="/dashboard/operations/publishing?desk=video" className="text-cyan-300 hover:underline">
                     Video desk
+                  </Link>
+                  <Link href="/dashboard/operations/publishing?desk=linkedin" className="text-cyan-300 hover:underline">
+                    LinkedIn drafts
                   </Link>
                 </div>
                 <div className="mt-5 space-y-3">

@@ -61,7 +61,7 @@ export function hrefForOpsSourceRef(
   }
 
   if (base.startsWith("marketing/linkedin")) {
-    return "/docs/marketing-strategy/linkedin-founder-cadence";
+    return "/dashboard/operations/publishing?desk=linkedin";
   }
   if (base === "marketing/live-surfaces-credibility-spotcheck") {
     return "/marketing";

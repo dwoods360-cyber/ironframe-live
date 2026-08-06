@@ -3,13 +3,19 @@
  * Keeps Briefings / Newsletters / Research papers lists mutually exclusive.
  */
 
-export type PublishingDeskTab = "briefings" | "newsletters" | "research" | "video";
+export type PublishingDeskTab =
+  | "briefings"
+  | "newsletters"
+  | "research"
+  | "video"
+  | "linkedin";
 
 export const PUBLISHING_DESK_TAB_IDS: PublishingDeskTab[] = [
   "briefings",
   "newsletters",
   "research",
   "video",
+  "linkedin",
 ];
 
 export function parsePublishingDeskTab(raw: string | null | undefined): PublishingDeskTab {
@@ -56,6 +62,14 @@ export function publishingDeskHref(
 /** Canonical Videos page (When Risk Enters the Room campaign hub). */
 export const PUBLISHING_VIDEOS_PAGE_HREF =
   "/docs/marketing-strategy/video-series/when-risk-enters-the-room";
+
+/** Founder LinkedIn paste-ready drafts (manual publish — not GF quarantine). */
+export const PUBLISHING_LINKEDIN_DRAFTS_HREF =
+  "/docs/marketing-strategy/linkedin-drafts-week-1";
+
+/** Founder LinkedIn Mon/Wed/Fri cadence plan. */
+export const PUBLISHING_LINKEDIN_CADENCE_HREF =
+  "/docs/marketing-strategy/linkedin-founder-cadence";
 
 const VIDEO_SERIES_DOCS_PREFIX = "/docs/marketing-strategy/video-series";
 

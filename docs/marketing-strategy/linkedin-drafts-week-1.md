@@ -2,7 +2,40 @@
 
 **Publishing note:** These are ready-to-paste drafts for manual publishing from the founder's personal LinkedIn profile. Before publishing, replace relative paths with the correct production-host URLs if needed. Do not add customer names, results, or certification claims unless separately verified and approved.
 
-## Monday — the evidence problem
+**Where to work:** Edit this file. The Ops Calendar card (`LinkedIn Mon — GRC problem post`) is only the checklist — mark Done there after you post, with the LinkedIn URL in the outcome. Paste the final text into LinkedIn (Wil → optional company amplify).
+
+**Calendar slot:** `marketing/linkedin-2026-07-21` — due 2026-08-09 (post Mon Aug 10 is fine).
+
+---
+
+## Monday — heatmap vs dollars (USE THIS for the calendar card)
+
+Most GRC programs can color a risk red, amber, or green.
+
+Fewer can answer the board question in dollars: what is the estimated exposure, in whole cents, for this scenario—and what assumptions produced that number?
+
+Heatmaps are useful as context. They become theater when they are the only decision layer: no quantified exposure, no visible methodology, no path from control evidence to a board-defendable figure.
+
+The usual fix—another dashboard, another scoring workshop—doesn’t remove the problem. It adds another color system on top of the same gap.
+
+What to inspect this week:
+1. Pick one “High” risk on your heatmap.
+2. Ask for the estimated dollar exposure and the assumptions behind it.
+3. Ask which evidence and owner support that estimate.
+4. If the answer is only a color, you’ve found the next workflow to redesign.
+
+I’m happy to walk one evidence-to-exposure workflow with you in 10–15 minutes:
+https://ironframegrc.com/register/contact
+
+Also: https://ironframegrc.com/marketing/heatmap-amnesty
+
+#GRC #RiskQuantification #CyberRisk #BoardRisk #Governance
+
+**Suggested production links:** `/register/contact`, `/marketing/heatmap-amnesty`
+
+---
+
+## Alternate Monday — the evidence problem (not the Aug 9 calendar theme)
 
 Most GRC programs do not fail because the organization forgot to write a control.
 

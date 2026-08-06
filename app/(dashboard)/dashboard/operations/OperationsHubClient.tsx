@@ -668,6 +668,7 @@ export default function OperationsHubClient() {
                     ["Newsletters desk", "/dashboard/operations/publishing?desk=newsletters"],
                     ["Research papers desk", "/dashboard/operations/publishing?desk=research"],
                     ["Video desk", "/dashboard/operations/publishing?desk=video"],
+                    ["LinkedIn drafts", "/dashboard/operations/publishing?desk=linkedin"],
                     ["GF public", "/governance-frame"],
                   ],
                 },

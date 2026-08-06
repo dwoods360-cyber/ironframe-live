@@ -32,6 +32,13 @@ tsconfig.tsbuildinfo
 .env.*
 !.env.example
 
+# Accidental Explorer/Finder " copy" duplicates (never re-commit)
+* copy
+* copy.*
+*copy.*
+public copy/
+test_docs copy/
+
 # Loose development files and IDE noise
 .cursor/
 .vscode/

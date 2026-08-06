@@ -1,0 +1,31 @@
+﻿# Keep Cursor / tsserver away from heavy and duplicate trees
+node_modules/
+.next/
+out/
+build/
+coverage/
+playwright-report/
+test-results/
+.vercel/
+.pki-provision/
+storage/
+artifacts/
+reports/
+logs/
+public/training-audio/
+public copy/
+test_docs copy/
+docs/briefing-queue/
+docs/sales/exports/
+
+# Nested package workspaces (own tsconfigs; open as separate roots if needed)
+Ironboard/
+Ironleads/
+SalesTeam/
+SuccessTeam/
+SupportTeam/
+
+# Accidental copy duplicates that inflate indexing / TS projects
+**/* copy.*
+package-lock copy.json
+package copy.json

@@ -872,12 +872,12 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       status: "DONE",
       dueAt: "2026-08-06T20:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-08-06-heatmap",
-      href: "/dashboard/operations/publishing?desk=linkedin&li=mon-heatmap",
+      href: "/dashboard/operations/publishing?desk=linkedin",
       priorityHint: 5,
       synopsis:
         "Founder LinkedIn (catch-up): paste heatmap vs estimated whole-cent exposure post from Publishing Desk → LinkedIn tab.",
       outcome:
-        "DONE 2026-08-06 — Posted from Wil personal profile: LinkedIn Mon — Heatmap theater vs dollar-risk clarity. Add public LinkedIn URL when available; company page amplify next.",
+        "DONE 2026-08-06 — Posted from Wil personal profile + Ironframe company Page amplify. Canonical desk slot: mon-heatmap (Published).",
     },
     {
       title: "LinkedIn Wed — point to /product-demo (pre-video)",

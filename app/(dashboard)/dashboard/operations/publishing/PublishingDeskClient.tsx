@@ -378,10 +378,18 @@ export default function PublishingDeskClient() {
           posted: archived.length,
         },
       );
-      return data.defaultId ?? "fri-collection";
+      return {
+        defaultId: data.defaultId ?? "fri-collection",
+        activeIds: active.map((d) => d.id),
+        postedIds: archived.map((d) => d.id),
+      };
     } catch (err) {
       setLinkedinError(err instanceof Error ? err.message : "Failed to list LinkedIn drafts.");
-      return "fri-collection";
+      return {
+        defaultId: "fri-collection",
+        activeIds: ["fri-collection"] as string[],
+        postedIds: [] as string[],
+      };
     }
   }, []);
 
@@ -444,10 +452,17 @@ export default function PublishingDeskClient() {
     if (desk !== "linkedin") return;
     let cancelled = false;
     void (async () => {
-      const defaultId = await loadLinkedinDraftList();
+      const list = await loadLinkedinDraftList();
       if (cancelled) return;
       const fromUrl = searchParams.get("li")?.trim();
-      const id = fromUrl || linkedinDraftId || defaultId;
+      // Match Briefings/Newsletters: land on open work, not Published.
+      let id = fromUrl || linkedinDraftId || list.defaultId;
+      if (fromUrl && list.postedIds.includes(fromUrl) && list.activeIds.length > 0) {
+        id = list.defaultId;
+      }
+      if (!list.activeIds.includes(id) && !list.postedIds.includes(id)) {
+        id = list.defaultId;
+      }
       if (!linkedinLoadedRef.current || linkedinDraftId !== id) {
         linkedinLoadedRef.current = false;
         await loadLinkedinDraft({ id });
@@ -459,6 +474,11 @@ export default function PublishingDeskClient() {
     // Intentionally run when entering LinkedIn desk / li param changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [desk, searchParams.get("li")]);
+
+  const linkedinSelectedIsPublished = useMemo(
+    () => linkedinPostedArchive.some((d) => d.id === linkedinDraftId),
+    [linkedinPostedArchive, linkedinDraftId],
+  );
 
   const linkedinCitationUrls = useMemo(() => {
     const matches = linkedinResearch.match(/https?:\/\/[^\s)|\]>"']+/gi) ?? [];
@@ -905,81 +925,166 @@ export default function PublishingDeskClient() {
 
         {desk === "linkedin" ? (
           <div className="space-y-6">
-            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-              <h2 className="text-lg font-semibold text-white">LinkedIn drafts</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Active founder slots ready to paste ({linkedinDraftCounts.active} open). Published
-                posts live in the Published section below — not mixed here. Manual LinkedIn paste
-                only; no GF Approve / promote.
-              </p>
-              <ul className="mt-4 space-y-3">
-                {linkedinDrafts.length === 0 ? (
-                  <li className="text-sm text-slate-500">
-                    {linkedinLoading
-                      ? "Loading drafts…"
-                      : "No active LinkedIn drafts — see Published below."}
-                  </li>
-                ) : (
-                  linkedinDrafts.map((draft) => {
-                    const selected = linkedinDraftId === draft.id;
-                    return (
-                      <li
-                        key={draft.id}
-                        id={`linkedin-draft-${draft.id}`}
-                        className={`rounded-lg border p-3 text-sm ${
-                          selected
-                            ? "border-cyan-500 bg-cyan-950/30 ring-1 ring-cyan-500/40"
-                            : "border-slate-800 bg-slate-950/50"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-cyan-300">
-                                {draft.slotLabel}
-                              </span>
-                              <span className="font-medium text-slate-100">{draft.title}</span>
+            {/* Same chrome as Newsletters / Briefings: drafts left, published right */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+                <h2 className="text-lg font-semibold text-white">Drafts awaiting paste</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Open Mon / Wed / Fri slots ({linkedinDraftCounts.active}). Select one, verify
+                  citations, Copy body → LinkedIn. No GF Approve / promote on this desk.
+                </p>
+                <ul className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+                  {linkedinDrafts.length === 0 ? (
+                    <li className="text-sm text-slate-500">
+                      {linkedinLoading
+                        ? "Loading drafts…"
+                        : "No open drafts — see Published on the right."}
+                    </li>
+                  ) : (
+                    linkedinDrafts.map((draft) => {
+                      const selected = linkedinDraftId === draft.id;
+                      return (
+                        <li
+                          key={draft.id}
+                          id={`linkedin-draft-${draft.id}`}
+                          className={`rounded-lg border p-3 text-sm ${
+                            selected
+                              ? "border-cyan-500 bg-cyan-950/30 ring-1 ring-cyan-500/40"
+                              : "border-slate-800 bg-slate-950/50"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-cyan-300">
+                                  {draft.slotLabel}
+                                </span>
+                                <span className="font-medium text-slate-100">{draft.title}</span>
+                              </div>
+                              <div className="mt-1 font-mono text-[10px] text-slate-500">
+                                {draft.slug}
+                              </div>
+                              {draft.summary ? (
+                                <p className="mt-1 text-xs text-slate-400 line-clamp-2">
+                                  {draft.summary}
+                                </p>
+                              ) : null}
                             </div>
-                            <div className="mt-1 font-mono text-[10px] text-slate-500">{draft.slug}</div>
-                            {draft.summary ? (
-                              <p className="mt-1 text-xs text-slate-400 line-clamp-2">{draft.summary}</p>
-                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => selectLinkedinDraft(draft.id)}
+                              className={`shrink-0 text-xs hover:underline ${
+                                selected ? "font-semibold text-cyan-200" : "text-cyan-300"
+                              }`}
+                              aria-pressed={selected}
+                            >
+                              {selected ? "Selected" : "Select"}
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => selectLinkedinDraft(draft.id)}
-                            className={`shrink-0 text-xs hover:underline ${
-                              selected ? "font-semibold text-cyan-200" : "text-cyan-300"
-                            }`}
-                            aria-pressed={selected}
-                          >
-                            {selected ? "Selected" : "Select"}
-                          </button>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest text-slate-500">
-                          <span>{draft.bodyLength} chars</span>
-                          <span className={draft.citationCount > 0 ? "text-emerald-400" : "text-amber-400"}>
-                            {draft.citationCount} citation{draft.citationCount === 1 ? "" : "s"}
-                          </span>
-                          {draft.updatedAt ? (
-                            <span>saved {new Date(draft.updatedAt).toLocaleString()}</span>
-                          ) : null}
-                        </div>
-                      </li>
-                    );
-                  })
-                )}
-              </ul>
-            </section>
+                          <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest text-slate-500">
+                            <span>{draft.bodyLength} chars</span>
+                            <span
+                              className={
+                                draft.citationCount > 0 ? "text-emerald-400" : "text-amber-400"
+                              }
+                            >
+                              {draft.citationCount} citation
+                              {draft.citationCount === 1 ? "" : "s"}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              </section>
+
+              <section
+                id="linkedin-published"
+                className="rounded-xl border border-slate-800 bg-slate-900/60 p-5"
+              >
+                <h2 className="text-lg font-semibold text-white">Published</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Calendar Done ({linkedinDraftCounts.posted}) — same role as Published briefings /
+                  newsletter editions. Open only to reuse copy; work happens in Drafts on the left.
+                </p>
+                <ul className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+                  {linkedinPostedArchive.length === 0 ? (
+                    <li className="text-sm text-slate-500">
+                      Nothing published yet — slots move here after Ops Calendar Done.
+                    </li>
+                  ) : (
+                    linkedinPostedArchive.map((draft) => {
+                      const selected = linkedinDraftId === draft.id;
+                      return (
+                        <li
+                          key={draft.id}
+                          id={`linkedin-published-${draft.id}`}
+                          className={`rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-sm ${
+                            selected ? "ring-1 ring-slate-500" : ""
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded bg-emerald-950/80 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-emerald-300">
+                                  {draft.slotLabel}
+                                </span>
+                                <span className="font-medium text-slate-200">{draft.title}</span>
+                              </div>
+                              {draft.calendarOutcome ? (
+                                <p className="mt-1 text-xs text-slate-500 line-clamp-2">
+                                  {draft.calendarOutcome}
+                                </p>
+                              ) : null}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => selectLinkedinDraft(draft.id)}
+                              className="shrink-0 text-xs text-slate-400 hover:text-cyan-300 hover:underline"
+                              aria-pressed={selected}
+                            >
+                              {selected ? "Viewing" : "View"}
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+                <div className="mt-4 space-y-2">
+                  <Link
+                    href={PUBLISHING_LINKEDIN_CADENCE_HREF}
+                    className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
+                  >
+                    Founder LinkedIn cadence
+                  </Link>
+                  <Link
+                    href="/dashboard/operations?tab=calendar"
+                    className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
+                  >
+                    Ops Calendar
+                  </Link>
+                </div>
+              </section>
+            </div>
 
             <div className="grid gap-6 xl:grid-cols-2">
               <section className="rounded-xl border border-cyan-900/50 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">LinkedIn publication desk</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Editing{" "}
-                  <span className="font-mono text-cyan-300">{linkedinDraftId}</span>. Research &amp;
-                  citations live in the panel next to it — they never go to LinkedIn.
-                </p>
+                {linkedinSelectedIsPublished ? (
+                  <p className="mt-2 rounded-md border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-100/90">
+                    Viewing a <span className="font-medium">Published</span> slot (read / reuse). For
+                    the next post, Select an item under <span className="font-medium">Drafts
+                    awaiting paste</span>.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-400">
+                    Editing{" "}
+                    <span className="font-mono text-cyan-300">{linkedinDraftId}</span>. Research
+                    &amp; citations stay on this desk — never paste them to LinkedIn.
+                  </p>
+                )}
                 {linkedinUpdatedAt ? (
                   <p className="mt-3 font-mono text-[10px] text-slate-500">
                     Last saved {new Date(linkedinUpdatedAt).toLocaleString()}
@@ -1000,7 +1105,7 @@ export default function PublishingDeskClient() {
                   <textarea
                     value={linkedinBody}
                     onChange={(e) => setLinkedinBody(e.target.value)}
-                    rows={18}
+                    rows={14}
                     disabled={linkedinLoading}
                     placeholder="Loading LinkedIn draft…"
                     className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm leading-relaxed text-slate-100"
@@ -1022,20 +1127,29 @@ export default function PublishingDeskClient() {
                   </button>
                   <button
                     type="button"
-                    disabled={linkedinLoading || linkedinBody.trim().length < 1}
+                    disabled={
+                      linkedinLoading ||
+                      linkedinBody.trim().length < 1 ||
+                      linkedinSelectedIsPublished
+                    }
                     onClick={() => void handleCopyLinkedinDraft()}
                     className="rounded-lg border border-slate-600 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-100 hover:border-cyan-700 disabled:opacity-50"
+                    title={
+                      linkedinSelectedIsPublished
+                        ? "Published slot — Select an open draft to copy"
+                        : undefined
+                    }
                   >
                     Copy body
                   </button>
                   <button
                     type="button"
-                    disabled={linkedinLoading || linkedinSaving}
+                    disabled={linkedinLoading || linkedinSaving || linkedinSelectedIsPublished}
                     onClick={() => {
                       linkedinLoadedRef.current = false;
                       void loadLinkedinDraft({ id: linkedinDraftId, resetTemplate: true });
                     }}
-                    className="rounded-lg border border-amber-800/80 bg-amber-950/40 px-4 py-2 text-sm font-medium text-amber-100 hover:border-amber-500 disabled:opacity-50"
+                    className="rounded-lg border border-violet-800/80 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 hover:border-violet-500 disabled:opacity-50"
                   >
                     {linkedinLoading ? "Loading…" : "Reset to template"}
                   </button>
@@ -1051,27 +1165,24 @@ export default function PublishingDeskClient() {
               <section className="rounded-xl border border-amber-800/60 bg-amber-950/20 p-5">
                 <h2 className="text-lg font-semibold text-amber-50">Research &amp; citations</h2>
                 <p className="mt-1 text-sm text-amber-100/80">
-                  Proof desk for every pain you state publicly. For each claim: what the source
-                  actually supports → citation URL → how Ironframe GRC SaaS relieves that pain
-                  (product truth only — Mandate 16).
+                  Claim → source URL → Ironframe relief (Mandate 16). Operator only.
                 </p>
                 <label className="mt-4 block text-xs text-amber-200/70">
-                  Claim map (operator only — not copied to LinkedIn)
+                  Claim map (not copied to LinkedIn)
                   <textarea
                     value={linkedinResearch}
                     onChange={(e) => {
                       setLinkedinResearch(e.target.value);
                       setLinkedinCitationsConfirmed(false);
                     }}
-                    rows={16}
-                    disabled={linkedinLoading}
+                    rows={14}
+                    disabled={linkedinLoading || linkedinSelectedIsPublished}
                     placeholder={
                       "Post claim | What research supports | Citation URL | How Ironframe relieves it"
                     }
                     className="mt-1 w-full rounded border border-amber-900/50 bg-slate-950 px-3 py-2 font-mono text-sm leading-relaxed text-slate-100"
                   />
                 </label>
-
                 <div className="mt-4 rounded-lg border border-amber-900/40 bg-slate-950/70 p-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-amber-200/90">
                     Detected citation URLs ({linkedinCitationUrls.length})
@@ -1081,7 +1192,7 @@ export default function PublishingDeskClient() {
                       No http(s) URLs found. Add at least one openable source before Save or Copy.
                     </p>
                   ) : (
-                    <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto text-sm">
+                    <ul className="mt-2 max-h-32 space-y-1.5 overflow-y-auto text-sm">
                       {linkedinCitationUrls.map((url) => (
                         <li key={url} className="truncate">
                           <a
@@ -1102,122 +1213,25 @@ export default function PublishingDeskClient() {
                       type="checkbox"
                       className="mt-1"
                       checked={linkedinCitationsConfirmed}
-                      disabled={linkedinCitationUrls.length < 1}
+                      disabled={
+                        linkedinCitationUrls.length < 1 || linkedinSelectedIsPublished
+                      }
                       onChange={(e) => setLinkedinCitationsConfirmed(e.target.checked)}
                     />
                     <span>
                       I opened each citation URL and confirmed the post paraphrase matches the
-                      source (and Ironframe relief is honest product truth).
+                      source.
                     </span>
                   </label>
                 </div>
+                <ol className="mt-4 list-decimal space-y-1.5 pl-5 text-sm text-slate-400">
+                  <li>Select a draft on the left.</li>
+                  <li>Open citations; check the box.</li>
+                  <li>Copy body → LinkedIn (Wil → Page).</li>
+                  <li>Mark Ops Calendar Done — slot moves to Published.</li>
+                </ol>
               </section>
             </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-                <h2 className="text-lg font-semibold text-white">How to publish</h2>
-                <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-300">
-                  <li>Fill Research &amp; citations — claim → source URL → Ironframe relief.</li>
-                  <li>Open every detected citation link; check the confirmation box.</li>
-                  <li>Confirm Title + post body still match what the sources support.</li>
-                  <li>Save draft, then Copy body → paste into LinkedIn (Wil).</li>
-                  <li>Mark the Ops Calendar card Done with the post URL.</li>
-                </ol>
-                <p className="mt-4 text-sm text-slate-400">
-                  Not GF quarantine. No Approve / Deny / promote on this desk.
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-                <h2 className="text-lg font-semibold text-white">Cadence &amp; calendar</h2>
-                <ul className="mt-4 space-y-2">
-                  <li>
-                    <Link
-                      href={PUBLISHING_LINKEDIN_CADENCE_HREF}
-                      className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
-                    >
-                      Founder LinkedIn cadence
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/dashboard/operations?tab=calendar"
-                      className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
-                    >
-                      Ops Calendar
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href={
-                        [...linkedinDrafts, ...linkedinPostedArchive].find(
-                          (d) => d.id === linkedinDraftId,
-                        )?.docsHref ?? PUBLISHING_LINKEDIN_DRAFTS_HREF
-                      }
-                      className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
-                    >
-                      Docs reader (after Save)
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <section
-              id="linkedin-published"
-              className="rounded-xl border border-emerald-900/40 bg-emerald-950/15 p-5"
-            >
-              <h2 className="text-lg font-semibold text-emerald-50">Published</h2>
-              <p className="mt-1 text-sm text-emerald-100/70">
-                Shipments whose Ops Calendar card is Done ({linkedinDraftCounts.posted}). Kept for
-                reuse and citations — not mixed with open drafts above.
-              </p>
-              <ul className="mt-4 space-y-3">
-                {linkedinPostedArchive.length === 0 ? (
-                  <li className="text-sm text-slate-500">
-                    Nothing published yet — posts move here after you mark the calendar card Done.
-                  </li>
-                ) : (
-                  linkedinPostedArchive.map((draft) => {
-                    const selected = linkedinDraftId === draft.id;
-                    return (
-                      <li
-                        key={draft.id}
-                        id={`linkedin-published-${draft.id}`}
-                        className={`rounded-lg border border-emerald-900/30 bg-slate-950/50 p-3 text-sm ${
-                          selected ? "ring-1 ring-emerald-600/50" : ""
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded bg-emerald-950 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-emerald-300">
-                                {draft.slotLabel}
-                              </span>
-                              <span className="font-medium text-slate-200">{draft.title}</span>
-                            </div>
-                            <div className="mt-1 font-mono text-[10px] text-slate-600">{draft.slug}</div>
-                            {draft.calendarOutcome ? (
-                              <p className="mt-1 text-xs text-slate-400 line-clamp-2">
-                                {draft.calendarOutcome}
-                              </p>
-                            ) : null}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => selectLinkedinDraft(draft.id)}
-                            className="shrink-0 text-xs text-emerald-300/80 hover:text-emerald-200 hover:underline"
-                            aria-pressed={selected}
-                          >
-                            {selected ? "Selected" : "Open"}
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })
-                )}
-              </ul>
-            </section>
           </div>
         ) : null}
 

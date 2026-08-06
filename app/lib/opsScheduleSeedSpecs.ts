@@ -622,29 +622,31 @@ export function ironframeRollout2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "Rollout — Partner client provisioning (1D) walkthrough",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "CANCELLED",
       dueAt: "2026-07-28T17:00:00.000Z",
       sourceRef: "rollout/partner-client-provisioning-1d",
       synopsis:
         "Walk the 1D partner→client provisioning path so first design partners can be onboarded cleanly.",
+      outcome:
+        "DEFERRED 2026-08-06 — Local eng PA-PART.A/B PASS; PA-PART.C assign-provisioner + prod walkthrough waits on a real partner email. Re-seed / reopen when ready for ops:assign-partner-provisioner.",
     },
     {
       title: "Rollout — First SalesTeam DISPATCH batch",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-07-29T17:00:00.000Z",
+      dueAt: "2026-08-17T15:00:00.000Z",
       sourceRef: "rollout/first-salesteam-dispatch",
       synopsis:
-        "Board-first HITL outbound batch to the Path B design-partner cohort.",
+        "Board-first HITL outbound batch to the Path B design-partner cohort. Rescheduled to Mon Aug 17 (after cold outreach gate Aug 10).",
     },
     {
       title: "Rollout — 2A Stripe subscription lifecycle PASS",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-08T17:00:00.000Z",
+      dueAt: "2026-09-28T17:00:00.000Z",
       sourceRef: "rollout/fl2-2a-stripe-lifecycle",
       synopsis:
-        "FL2 commercial gate: prove Stripe subscription create/update/cancel lifecycle PASS.",
+        "FL2 commercial gate: prove Stripe subscription create/update/cancel lifecycle PASS. Rescheduled to Mon Sep 28 (was Aug 8).",
     },
     {
       title: "Rollout — 2B entitlement matrix PASS",
@@ -718,20 +720,24 @@ export function researchPaper2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "GF-2026-001 — Editorial + regulatory-scope review",
       kind: "RESEARCH_PAPER",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-07-28T17:00:00.000Z",
       sourceRef: "research/GF-2026-001#editorial-review",
       synopsis:
         "Editorial and regulatory-scope review of the Evolution of GRC research paper before product-boundary check.",
+      outcome:
+        "PASS 2026-08-05 — Editorial + regulatory-scope re-read OK per revision-history.md 1.5-review. Calendar catch-up 2026-08-06.",
     },
     {
       title: "GF-2026-001 — Product-boundary review",
       kind: "RESEARCH_PAPER",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-08-01T17:00:00.000Z",
       sourceRef: "research/GF-2026-001#product-boundary",
       synopsis:
         "Ensure the public paper stays institutional GRC analysis — no Ironframe product CTA leakage.",
+      outcome:
+        "PASS 2026-08-05 — No Ironframe/Path B/product CTA leakage (grep). Boundary PASS with editorial in 1.5-review. Calendar catch-up 2026-08-06.",
     },
     {
       title: "GF-2026-001 — Operator Approve / publish",
@@ -773,11 +779,13 @@ export function queueBacklog2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "Queue — Review stakeholder benefit-map draft",
       kind: "BRIEFING_REVIEW",
-      status: "IN_REVIEW",
+      status: "CANCELLED",
       dueAt: "2026-07-24T17:00:00.000Z",
       sourceRef: "2026-07-15-draft-research-stakeholder-benefit-map.md",
       synopsis:
         "Stakeholder benefit-map draft is product-boundary heavy — review carefully before any promote.",
+      outcome:
+        "CANCELLED 2026-08-05 — Product-boundary heavy (Ironframe capability mapping). Kept as quarantined internal research; not promoted to GF public ledger. Re-open only after institutional rewrite strips product CTA/alleviation frames. Calendar catch-up 2026-08-06.",
     },
     {
       title: "Queue — Review auto-newsletter: tenant sovereignty",
@@ -857,14 +865,20 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
         "PASS 2026-07-19 — A2: Stripe test Checkout Session minted for throwaway slug via scripts/dev/a2-pathb-activation-dry-run.mjs ($4,999 Path B); live refused; never send PENDING to generic /pricing.",
     },
     {
-      title: "LinkedIn Mon — GRC problem post (heatmap vs dollars)",
+      title: "LinkedIn Mon — Heatmap theater vs dollar-risk clarity",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
-      dueAt: "2026-08-09T15:00:00.000Z",
-      sourceRef: "marketing/linkedin-2026-07-21",
+      status: "IN_PROGRESS",
+      dueAt: "2026-08-06T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-08-06-heatmap",
+      href: "/dashboard/operations/publishing?desk=linkedin",
       priorityHint: 5,
       synopsis:
-        "Founder LinkedIn: Monday problem post contrasting heatmap theater vs dollar-risk clarity.",
+        "Founder LinkedIn (catch-up): paste heatmap vs estimated whole-cent exposure post from Publishing Desk → LinkedIn tab (or docs/marketing-strategy/linkedin-drafts-week-1.md). Mark Done with LinkedIn URL.",
+      nextActions: [
+        "Open Publishing Desk → LinkedIn; confirm paste-ready body",
+        "Publish from Wil personal profile (company amplify after)",
+        "Mark Done with public LinkedIn post URL in outcome",
+      ],
     },
     {
       title: "LinkedIn Wed — point to /product-demo (pre-video)",
@@ -872,19 +886,26 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       status: "PLANNED",
       dueAt: "2026-08-11T15:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-07-23",
+      href: "/dashboard/operations/publishing?desk=linkedin",
       priorityHint: 6,
       synopsis:
         "Founder LinkedIn: Wednesday post to /product-demo ahead of rescheduled video demo publishes.",
     },
     {
-      title: "LinkedIn Fri — GF control lesson",
+      title: "LinkedIn Fri — Collection is not verification",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-13T15:00:00.000Z",
-      sourceRef: "marketing/linkedin-2026-07-25",
+      dueAt: "2026-08-08T15:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-08-08-collection",
+      href: "/dashboard/operations/publishing?desk=linkedin",
       priorityHint: 7,
       synopsis:
-        "Founder LinkedIn: Friday Governance Frame control lesson (rescheduled; 2-day cadence preserved).",
+        "Founder LinkedIn: Friday control lesson — collection ≠ verification; hard tenant boundaries vs tag-only soft tenancy. CTA workflow review.",
+      nextActions: [
+        "Paste Friday body from chat / desk draft",
+        "Publish Fri from personal profile",
+        "Mark Done with LinkedIn URL",
+      ],
     },
     {
       title: "Marketing — Warm network / advisor asks (before cold)",
@@ -902,21 +923,24 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Marketing — Cold outreach gate (after free marketing)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-07-28T17:00:00.000Z",
+      dueAt: "2026-08-10T15:00:00.000Z",
       sourceRef: "marketing/cold-outreach-gate",
       priorityHint: 11,
       synopsis:
-        "Do not start cold Path B DISPATCH until LinkedIn week-1 + pre-outreach checklist + live surfaces pass.",
+        "Do not start cold Path B DISPATCH until LinkedIn week-1 + pre-outreach checklist + live surfaces pass. Rescheduled to Mon Aug 10.",
     },
     {
       title: "Control-First GRC founder newsletter — next edition outline",
       kind: "NEWSLETTER_DRAFT",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-08-01T17:00:00.000Z",
       sourceRef: "marketing/control-first-newsletter-aug",
       priorityHint: 40,
       synopsis:
         "Outline the next Control-First GRC founder newsletter companion to published Parts 1–3.",
+      outcome:
+        "PASS 2026-08-06 — Outline + draft: docs/marketing-strategy/control-first-newsletter-aug-2026-outline.md; staged quarantine docs/briefing-queue/2026-08-06-draft-newsletter-control-first-evidence-theater.md. Subject: When evidence collection becomes evidence theater. Awaiting human Approve before Ironcast promote.",
+      href: "/docs/marketing-strategy/control-first-newsletter-aug-2026-outline",
     },
     {
       title: "Companion story bank — schedule Friday lessons (post style freeze)",
@@ -995,20 +1019,24 @@ export function regulatoryEng2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "Eng — EU AI Act product/claim alignment check",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-07-31T17:00:00.000Z",
       sourceRef: "eng/eu-ai-act-claim-alignment",
       synopsis:
         "Internal product/claim alignment to EU AI Act obligations — pairs with the public GF briefing.",
+      outcome:
+        "PASS 2026-08-05 — Internal claim alignment recorded in docs/ops/eu-ai-act-claim-alignment-2026-08.md. No AI Act certification claims; transparency-threshold framing for 2 Aug 2026; public GF draft stays quarantined until Approve. Calendar catch-up 2026-08-06.",
     },
     {
       title: "Board packet — Aug AI Act + evidence posture",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-08-02T17:00:00.000Z",
       sourceRef: "eng/board-packet-ai-act-aug",
       synopsis:
         "Internal board packet on Aug AI Act applicability and evidence posture (not the public GF piece).",
+      outcome:
+        "PASS 2026-08-05 — Board packet substance captured in docs/ops/eu-ai-act-claim-alignment-2026-08.md (Aug threshold, inventory/role map/oversight questions). Not a public GF promote. Calendar catch-up 2026-08-06.",
     },
     {
       title: "Eng — NYDFS MFA readiness review",

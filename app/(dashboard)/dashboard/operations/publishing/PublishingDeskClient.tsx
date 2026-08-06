@@ -103,6 +103,7 @@ export default function PublishingDeskClient() {
   const [linkedinSaving, setLinkedinSaving] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState<string | null>(null);
   const [linkedinError, setLinkedinError] = useState<string | null>(null);
+  const [linkedinCitationsConfirmed, setLinkedinCitationsConfirmed] = useState(false);
   const promoteDefaultsSet = useRef(false);
   const promotePanelRef = useRef<HTMLDivElement | null>(null);
   const autoOpenedDraftRef = useRef<string | null>(null);
@@ -294,9 +295,10 @@ export default function PublishingDeskClient() {
       setLinkedinBody(data.body ?? "");
       setLinkedinResearch(data.research ?? "");
       setLinkedinUpdatedAt(data.updatedAt ?? null);
+      setLinkedinCitationsConfirmed(false);
       setLinkedinMessage(
         data.source === "suggested" || data.source === "seeded"
-          ? "Loaded suggested draft + research citations — verify links, then Save."
+          ? "Loaded suggested draft + research citations — open each URL, then Save."
           : null,
       );
       linkedinLoadedRef.current = true;
@@ -312,6 +314,12 @@ export default function PublishingDeskClient() {
     if (linkedinLoadedRef.current && linkedinBody.length > 0) return;
     void loadLinkedinDraft({ seedSuggested: true });
   }, [desk, loadLinkedinDraft, linkedinBody.length]);
+
+  const linkedinCitationUrls = useMemo(() => {
+    const matches = linkedinResearch.match(/https?:\/\/[^\s)|\]>"']+/gi) ?? [];
+    const cleaned = matches.map((u) => u.replace(/[.,;:]+$/, ""));
+    return [...new Set(cleaned)].slice(0, 24);
+  }, [linkedinResearch]);
 
   const handleSaveLinkedinDraft = async () => {
     if (linkedinSaving || linkedinBody.trim().length < 40) return;
@@ -351,9 +359,21 @@ export default function PublishingDeskClient() {
   };
 
   const handleCopyLinkedinDraft = async () => {
+    if (linkedinCitationUrls.length < 1) {
+      setLinkedinError(
+        "Add research citations (http/https URLs) before copying — every pain claim needs a source you can open.",
+      );
+      return;
+    }
+    if (!linkedinCitationsConfirmed) {
+      setLinkedinError(
+        "Confirm you opened each citation URL (checkbox under Research & citations) before copying.",
+      );
+      return;
+    }
     try {
       await navigator.clipboard.writeText(linkedinBody);
-      setLinkedinMessage("Copied post body — paste into LinkedIn (Wil).");
+      setLinkedinMessage("Copied post body only — research/citations stay on this desk.");
       setLinkedinError(null);
     } catch {
       setLinkedinError("Clipboard copy failed — select the body and copy manually.");
@@ -735,95 +755,155 @@ export default function PublishingDeskClient() {
         {loading && !snapshot && !isDocsOnlyDesk ? <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center text-slate-400">Loading publishing snapshot…</div> : null}
 
         {desk === "linkedin" ? (
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-            <section className="rounded-xl border border-cyan-900/50 bg-slate-900/60 p-5">
-              <h2 className="text-lg font-semibold text-white">LinkedIn publication desk</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Same workbench pattern as Governance Frame (title + draft). This never promotes to
-                research.ironframegrc.com. When ready: Copy body → paste into LinkedIn (Wil →
-                optional company amplify).
-              </p>
-              {linkedinUpdatedAt ? (
-                <p className="mt-3 font-mono text-[10px] text-slate-500">
-                  Last saved {new Date(linkedinUpdatedAt).toLocaleString()}
+          <div className="space-y-6">
+            <div className="grid gap-6 xl:grid-cols-2">
+              <section className="rounded-xl border border-cyan-900/50 bg-slate-900/60 p-5">
+                <h2 className="text-lg font-semibold text-white">LinkedIn publication desk</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Draft the public post here. Research &amp; citations live in the panel next to
+                  it — they never go to LinkedIn. This desk does not promote to
+                  research.ironframegrc.com.
                 </p>
-              ) : null}
-              <label className="mt-4 block text-xs text-slate-400">
-                Title
-                <input
-                  value={linkedinTitle}
-                  onChange={(e) => setLinkedinTitle(e.target.value)}
-                  disabled={linkedinLoading}
-                  placeholder="e.g. LinkedIn Mon — Heatmap theater vs dollar-risk clarity"
-                  className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
-                />
-              </label>
-              <label className="mt-3 block text-xs text-slate-400">
-                Post body (paste into LinkedIn)
-                <textarea
-                  value={linkedinBody}
-                  onChange={(e) => setLinkedinBody(e.target.value)}
-                  rows={14}
-                  disabled={linkedinLoading}
-                  placeholder="Loading LinkedIn draft…"
-                  className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm leading-relaxed text-slate-100"
-                />
-              </label>
-              <label className="mt-3 block text-xs text-slate-400">
-                Research &amp; verification (operator only — not copied to LinkedIn)
-                <textarea
-                  value={linkedinResearch}
-                  onChange={(e) => setLinkedinResearch(e.target.value)}
-                  rows={16}
-                  disabled={linkedinLoading}
-                  placeholder="Claim → citation → Ironframe relief…"
-                  className="mt-1 w-full rounded border border-amber-900/40 bg-slate-950 px-3 py-2 font-mono text-sm leading-relaxed text-slate-100"
-                />
-              </label>
-              <p className="mt-2 text-xs text-amber-200/80">
-                Open each citation before posting. Copy body only — research stays on this desk.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={linkedinSaving || linkedinLoading || linkedinBody.trim().length < 40}
-                  onClick={() => void handleSaveLinkedinDraft()}
-                  className="rounded-lg bg-cyan-800 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
-                >
-                  {linkedinSaving ? "Saving…" : "Save draft"}
-                </button>
-                <button
-                  type="button"
-                  disabled={linkedinLoading || linkedinBody.trim().length < 1}
-                  onClick={() => void handleCopyLinkedinDraft()}
-                  className="rounded-lg border border-slate-600 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-100 hover:border-cyan-700 disabled:opacity-50"
-                >
-                  Copy body
-                </button>
-                <button
-                  type="button"
-                  disabled={linkedinLoading || linkedinSaving}
-                  onClick={() => {
-                    linkedinLoadedRef.current = false;
-                    void loadLinkedinDraft({ seedSuggested: true });
-                  }}
-                  className="rounded-lg border border-violet-800/80 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 hover:border-violet-500 disabled:opacity-50"
-                >
-                  {linkedinLoading ? "Loading…" : "Load suggested draft"}
-                </button>
-              </div>
-              {linkedinMessage ? (
-                <p className="mt-3 text-sm text-emerald-300">{linkedinMessage}</p>
-              ) : null}
-              {linkedinError ? (
-                <p className="mt-3 text-sm text-rose-300">{linkedinError}</p>
-              ) : null}
-            </section>
-            <section className="space-y-6">
+                {linkedinUpdatedAt ? (
+                  <p className="mt-3 font-mono text-[10px] text-slate-500">
+                    Last saved {new Date(linkedinUpdatedAt).toLocaleString()}
+                  </p>
+                ) : null}
+                <label className="mt-4 block text-xs text-slate-400">
+                  Title
+                  <input
+                    value={linkedinTitle}
+                    onChange={(e) => setLinkedinTitle(e.target.value)}
+                    disabled={linkedinLoading}
+                    placeholder="e.g. LinkedIn Mon — Heatmap theater vs dollar-risk clarity"
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                  />
+                </label>
+                <label className="mt-3 block text-xs text-slate-400">
+                  Post body (paste into LinkedIn)
+                  <textarea
+                    value={linkedinBody}
+                    onChange={(e) => setLinkedinBody(e.target.value)}
+                    rows={18}
+                    disabled={linkedinLoading}
+                    placeholder="Loading LinkedIn draft…"
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm leading-relaxed text-slate-100"
+                  />
+                </label>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={
+                      linkedinSaving ||
+                      linkedinLoading ||
+                      linkedinBody.trim().length < 40 ||
+                      linkedinCitationUrls.length < 1
+                    }
+                    onClick={() => void handleSaveLinkedinDraft()}
+                    className="rounded-lg bg-cyan-800 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
+                  >
+                    {linkedinSaving ? "Saving…" : "Save draft"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={linkedinLoading || linkedinBody.trim().length < 1}
+                    onClick={() => void handleCopyLinkedinDraft()}
+                    className="rounded-lg border border-slate-600 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-100 hover:border-cyan-700 disabled:opacity-50"
+                  >
+                    Copy body
+                  </button>
+                  <button
+                    type="button"
+                    disabled={linkedinLoading || linkedinSaving}
+                    onClick={() => {
+                      linkedinLoadedRef.current = false;
+                      void loadLinkedinDraft({ seedSuggested: true });
+                    }}
+                    className="rounded-lg border border-violet-800/80 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 hover:border-violet-500 disabled:opacity-50"
+                  >
+                    {linkedinLoading ? "Loading…" : "Load suggested draft"}
+                  </button>
+                </div>
+                {linkedinMessage ? (
+                  <p className="mt-3 text-sm text-emerald-300">{linkedinMessage}</p>
+                ) : null}
+                {linkedinError ? (
+                  <p className="mt-3 text-sm text-rose-300">{linkedinError}</p>
+                ) : null}
+              </section>
+
+              <section className="rounded-xl border border-amber-800/60 bg-amber-950/20 p-5">
+                <h2 className="text-lg font-semibold text-amber-50">Research &amp; citations</h2>
+                <p className="mt-1 text-sm text-amber-100/80">
+                  Proof desk for every pain you state publicly. For each claim: what the source
+                  actually supports → citation URL → how Ironframe GRC SaaS relieves that pain
+                  (product truth only — Mandate 16).
+                </p>
+                <label className="mt-4 block text-xs text-amber-200/70">
+                  Claim map (operator only — not copied to LinkedIn)
+                  <textarea
+                    value={linkedinResearch}
+                    onChange={(e) => {
+                      setLinkedinResearch(e.target.value);
+                      setLinkedinCitationsConfirmed(false);
+                    }}
+                    rows={16}
+                    disabled={linkedinLoading}
+                    placeholder={
+                      "Post claim | What research supports | Citation URL | How Ironframe relieves it"
+                    }
+                    className="mt-1 w-full rounded border border-amber-900/50 bg-slate-950 px-3 py-2 font-mono text-sm leading-relaxed text-slate-100"
+                  />
+                </label>
+
+                <div className="mt-4 rounded-lg border border-amber-900/40 bg-slate-950/70 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-amber-200/90">
+                    Detected citation URLs ({linkedinCitationUrls.length})
+                  </p>
+                  {linkedinCitationUrls.length === 0 ? (
+                    <p className="mt-2 text-sm text-rose-300">
+                      No http(s) URLs found. Add at least one openable source before Save or Copy.
+                    </p>
+                  ) : (
+                    <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto text-sm">
+                      {linkedinCitationUrls.map((url) => (
+                        <li key={url} className="truncate">
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-cyan-300 hover:underline"
+                            title={url}
+                          >
+                            {url}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm text-slate-200">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={linkedinCitationsConfirmed}
+                      disabled={linkedinCitationUrls.length < 1}
+                      onChange={(e) => setLinkedinCitationsConfirmed(e.target.checked)}
+                    />
+                    <span>
+                      I opened each citation URL and confirmed the post paraphrase matches the
+                      source (and Ironframe relief is honest product truth).
+                    </span>
+                  </label>
+                </div>
+              </section>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">How to publish</h2>
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-300">
-                  <li>Read Research &amp; verification — open each citation URL.</li>
+                  <li>Fill Research &amp; citations — claim → source URL → Ironframe relief.</li>
+                  <li>Open every detected citation link; check the confirmation box.</li>
                   <li>Confirm Title + post body still match what the sources support.</li>
                   <li>Save draft, then Copy body → paste into LinkedIn (Wil).</li>
                   <li>Mark the Ops Calendar card Done with the post URL.</li>
@@ -861,7 +941,7 @@ export default function PublishingDeskClient() {
                   </li>
                 </ul>
               </div>
-            </section>
+            </div>
           </div>
         ) : null}
 

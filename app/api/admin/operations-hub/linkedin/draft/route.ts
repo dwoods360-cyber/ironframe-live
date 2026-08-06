@@ -9,8 +9,9 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * Operator LinkedIn draft workbench — load paste-ready founder copy (title + body).
- * Pass ?seed=suggested to force-load the heatmap vs dollars draft.
+ * Operator LinkedIn draft workbench — load paste-ready founder copy
+ * (title + body + research/citations). Pass ?seed=suggested to force-load
+ * the heatmap vs dollars draft with claim → citation → Ironframe relief map.
  */
 export async function GET(request: NextRequest) {
   const auth = await requirePerimeterWorkforceOperator();
@@ -31,8 +32,9 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Operator LinkedIn draft workbench — save title + body to APP_DOCS.
- * Does not promote to Governance Frame or auto-post to LinkedIn.
+ * Operator LinkedIn draft workbench — save title + body + research/citations
+ * to APP_DOCS. Requires at least one citation URL. Does not promote to
+ * Governance Frame or auto-post to LinkedIn.
  */
 export async function PUT(request: NextRequest) {
   const auth = await requirePerimeterWorkforceOperator();
@@ -62,8 +64,8 @@ export async function PUT(request: NextRequest) {
         ...result,
         operator: auth.userId,
         message: result.repoSynced
-          ? "Saved title + draft to APP_DOCS and local repo file."
-          : "Saved title + draft to APP_DOCS. Copy body into LinkedIn when ready.",
+          ? "Saved title + body + research/citations to APP_DOCS and local repo file."
+          : "Saved title + body + research/citations to APP_DOCS. Copy body into LinkedIn when ready.",
       },
       { status: 200 },
     );

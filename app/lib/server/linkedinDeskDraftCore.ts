@@ -48,6 +48,34 @@ Also: https://ironframegrc.com/marketing/heatmap-amnesty
 #GRC #RiskQuantification #CyberRisk #BoardRisk #Governance`;
 
 /**
+ * Blank operator research skeleton when starting a new LinkedIn claim set.
+ * Forces claim → evidence → Ironframe relief before posting.
+ */
+export const LINKEDIN_RESEARCH_TEMPLATE = `Use this section to verify that each public claim is real and that Ironframe can relieve the pain — not as LinkedIn copy.
+
+### Claim map (post line → proof → Ironframe relief)
+
+| Post claim (paraphrase) | What the research actually supports | Citation (full URL — open before post) | How Ironframe relieves it (product truth only) |
+|---|---|---|---|
+| [Paste claim from post] | [What source actually says — no stretch] | [https://…] | [Specific Ironframe control/workflow — Mandate 16 safe] |
+| | | | |
+
+### Ironframe product truth (what we can honestly offer)
+
+- Relief path: Controls → evidence → scenarios → estimated financial exposure (ranges) → mitigation cost → residual.
+- Campaign / product page: …
+- Copy locks / bans: Mandate 16 — never invent regulator mandates or competitor incapability.
+- Integrity: dollar figures only when estimated exposure is stored as whole-cent integers.
+
+### Pre-post checklist
+
+- [ ] Opened each citation URL and confirmed the claim paraphrase still matches the source.
+- [ ] Post body avoids Mandate 16 ban phrases.
+- [ ] Any number, CAGR, or customer outcome removed unless separately verified.
+- [ ] Copy body only (not this research block) into LinkedIn.
+- [ ] Calendar card Done with post URL after publish.`;
+
+/**
  * Operator-only research pack: claim → citation → Ironframe relief.
  * Verify each link before posting. Do not paste this block into LinkedIn.
  */
@@ -55,7 +83,7 @@ export const LINKEDIN_SUGGESTED_DRAFT_RESEARCH = `Use this section to verify tha
 
 ### Claim map (post line → proof → Ironframe relief)
 
-| Post claim (paraphrase) | What the research actually supports | Citation (verify) | How Ironframe relieves it |
+| Post claim (paraphrase) | What the research actually supports | Citation (full URL — open before post) | How Ironframe relieves it (product truth only) |
 |---|---|---|---|
 | Color/heatmap alone is a weak decision layer | Risk matrices often have poor resolution, ranking errors, and do not support effective resource allocation; they can even be worse than random under some conditions | Cox, L. A. Jr. (2008). "What's Wrong with Risk Matrices?" *Risk Analysis*, 28(2), 497–512. https://doi.org/10.1111/j.1539-6924.2008.01030.x · https://onlinelibrary.wiley.com/doi/10.1111/j.1539-6924.2008.01030.x | Treat heatmaps as optional context; decision loop is scenarios → estimated loss exposure (whole cents) → mitigation cost → residual (Heatmap Amnesty / Control-to-Capital). |
 | Boards/finance need financial exposure, not only ordinal colors | Board cyber oversight guidance pushes reporting in business/financial terms and quantified potential financial impacts / probable loss ranges — not tech-only or color-only packs | NACD–ISA (2026). *Director's Handbook on Cyber-Risk Oversight* (5th ed.), Principle 5 (measurement & reporting). https://www.nacdonline.org/all-governance/governance-resources/governance-research/director-handbooks/2026-cyber-risk-oversight/ · Principle 5: https://www.nacdonline.org/all-governance/governance-resources/governance-research/director-handbooks/2026-cyber-risk-oversight/cyber-risk-handbook-principles-2026/principle-5-guide-cybersecurity-risk-measurement-reporting/ · PDF: https://www.nacdonline.org/globalassets/public-pdfs/2026_directors-handbook-cyber-risk_accessible.pdf | Path B Command Design Partner makes estimated dollar exposure + evidence + enclaves the daily operating loop, not a quarterly color chart. |
@@ -78,6 +106,12 @@ export const LINKEDIN_SUGGESTED_DRAFT_RESEARCH = `Use this section to verify tha
 - [ ] Copy body only (not this research block) into LinkedIn.
 - [ ] Calendar card Done with post URL after publish.`;
 
+/** Extract http(s) citation URLs from operator research markdown (deduped, max 24). */
+export function extractLinkedInResearchCitationUrls(research: string): string[] {
+  const matches = research.match(/https?:\/\/[^\s)|\]>"']+/gi) ?? [];
+  const cleaned = matches.map((u) => u.replace(/[.,;:]+$/, ""));
+  return [...new Set(cleaned)].slice(0, 24);
+}
 export function composeLinkedInDeskMarkdown(
   title: string,
   body: string,
@@ -250,7 +284,22 @@ export async function saveLinkedInDeskDraftCore(input: {
   }
 
   if (!title) title = LINKEDIN_SUGGESTED_DRAFT_TITLE;
-  if (!research) research = LINKEDIN_SUGGESTED_DRAFT_RESEARCH;
+  if (!research.trim()) {
+    return {
+      ok: false,
+      error:
+        "Research & citations required — map each pain claim to a source URL and an Ironframe relief before saving.",
+      status: 400,
+    };
+  }
+  if (extractLinkedInResearchCitationUrls(research).length < 1) {
+    return {
+      ok: false,
+      error:
+        "Research & citations must include at least one http(s) URL proving a post claim before save.",
+      status: 400,
+    };
+  }
   if (body.length < 40) {
     return {
       ok: false,

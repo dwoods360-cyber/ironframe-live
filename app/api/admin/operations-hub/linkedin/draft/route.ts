@@ -40,7 +40,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }
 
-  let body: { title?: string; body?: string; markdown?: string };
+  let body: { title?: string; body?: string; research?: string; markdown?: string };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -51,6 +51,7 @@ export async function PUT(request: NextRequest) {
     const result = await saveLinkedInDeskDraftCore({
       title: body.title,
       body: body.body,
+      research: body.research,
       markdown: body.markdown,
     });
     if (!result.ok) {

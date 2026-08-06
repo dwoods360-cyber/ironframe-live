@@ -18,10 +18,14 @@ const REPO_RELATIVE = path.join(
   "linkedin-drafts-week-1.md",
 );
 
+const RESEARCH_HEADING =
+  "## Research & verification (operator only — do not paste to LinkedIn)";
+
 /** Suggested Mon slot — heatmap vs dollars (calendar `marketing/linkedin-2026-07-21`). */
 export const LINKEDIN_SUGGESTED_DRAFT_TITLE =
   "LinkedIn Mon — Heatmap theater vs dollar-risk clarity";
 
+/** Paste-ready LinkedIn body only (Mandate 16 safe — no “boards reject heatmaps” / “SEC requires FAIR”). */
 export const LINKEDIN_SUGGESTED_DRAFT_BODY = `Most GRC programs can color a risk red, amber, or green.
 
 Fewer can answer the board question in dollars: what is the estimated exposure, in whole cents, for this scenario—and what assumptions produced that number?
@@ -43,27 +47,71 @@ Also: https://ironframegrc.com/marketing/heatmap-amnesty
 
 #GRC #RiskQuantification #CyberRisk #BoardRisk #Governance`;
 
-export function composeLinkedInDeskMarkdown(title: string, body: string): string {
+/**
+ * Operator-only research pack: claim → citation → Ironframe relief.
+ * Verify each link before posting. Do not paste this block into LinkedIn.
+ */
+export const LINKEDIN_SUGGESTED_DRAFT_RESEARCH = `Use this section to verify that each public claim is real and that Ironframe can relieve the pain — not as LinkedIn copy.
+
+### Claim map (post line → proof → Ironframe relief)
+
+| Post claim (paraphrase) | What the research actually supports | Citation (verify) | How Ironframe relieves it |
+|---|---|---|---|
+| Color/heatmap alone is a weak decision layer | Risk matrices often have poor resolution, ranking errors, and do not support effective resource allocation; they can even be worse than random under some conditions | Cox, L. A. Jr. (2008). "What's Wrong with Risk Matrices?" *Risk Analysis*, 28(2), 497–512. https://doi.org/10.1111/j.1539-6924.2008.01030.x · https://onlinelibrary.wiley.com/doi/10.1111/j.1539-6924.2008.01030.x | Treat heatmaps as optional context; decision loop is scenarios → estimated loss exposure (whole cents) → mitigation cost → residual (Heatmap Amnesty / Control-to-Capital). |
+| Boards/finance need financial exposure, not only ordinal colors | Board cyber oversight guidance pushes reporting in business/financial terms and quantified potential financial impacts / probable loss ranges — not tech-only or color-only packs | NACD–ISA (2026). *Director's Handbook on Cyber-Risk Oversight* (5th ed.), Principle 5 (measurement & reporting). https://www.nacdonline.org/all-governance/governance-resources/governance-research/director-handbooks/2026-cyber-risk-oversight/ · Principle 5: https://www.nacdonline.org/all-governance/governance-resources/governance-research/director-handbooks/2026-cyber-risk-oversight/cyber-risk-handbook-principles-2026/principle-5-guide-cybersecurity-risk-measurement-reporting/ · PDF: https://www.nacdonline.org/globalassets/public-pdfs/2026_directors-handbook-cyber-risk_accessible.pdf | Path B Command Design Partner makes estimated dollar exposure + evidence + enclaves the daily operating loop, not a quarterly color chart. |
+| Quantification in financial terms is a recognized discipline (not Ironframe inventing “true ALE”) | Open FAIR is a standard model for analyzing information/operational risk in financial terms; complements frameworks that leave “how to quantify” underspecified | The Open Group Open FAIR (O-RT / O-RA). Overview: https://www.fairinstitute.org/what-is-fair · Open Group standards page (confirm current URLs before citing in public). | Ironframe uses **estimated** loss exposure / ranges stored in **whole-cent integers** — not a claim that only Open FAIR is valid, and not “true ALE as accounting dollars” (Mandate 16). |
+| Ordinal board packs under-inform financial impact | Practitioner board-reporting guidance: heatmaps/ordinal scales are common but often fail to show financial impact; quantification is used to support spend/appetite decisions | FAIR Institute summary of Jack Jones / ISACA board-reporting theme: https://www.fairinstitute.org/blog/improving-how-cyber-risk-is-reported-to-the-board (also locate the underlying ISACA Journal piece before quoting page numbers). | Workflow review CTA: walk one evidence → scenario → exposure path in 10–15 minutes. |
+| SEC / disclosure raises accountability for material cyber impact | U.S. public-company cyber disclosure (Item 1.05 / Item 106 regime) increases accountability; materiality includes **quantitative and qualitative** factors — **not** a mandate to use FAIR/ALE | SEC cybersecurity disclosure rules (verify current rule text / adopting release before any absolute claim): start at https://www.sec.gov/ and search “cybersecurity risk management strategy governance and incident disclosure”. Internal claim lock: \`docs/sales/control-to-capital-market-narrative.md\`. | Dollars improve defensibility of board/export artifacts; never claim “SEC requires FAIR.” |
+
+### Ironframe product truth (what we can honestly offer)
+
+- **Relief path:** Controls → evidence → scenarios → estimated financial exposure (ranges) → mitigation cost → residual exposure, with hard tenant isolation (\`docs/sales/control-to-capital-market-narrative.md\`).
+- **Campaign page:** https://ironframegrc.com/marketing/heatmap-amnesty
+- **Copy locks / bans:** \`docs/sales/heatmap-amnesty-campaign.md\`, Mandate 16 in glossary — never “boards are rejecting heatmaps,” “SEC requires FAIR,” “competitors cannot quantify,” or “true ALE.”
+- **Integrity:** exposure stored as whole-cent / BigInt integers — display dollars only as presentation.
+
+### Pre-post checklist
+
+- [ ] Opened each citation URL and confirmed the claim paraphrase still matches the source.
+- [ ] Post body avoids Mandate 16 ban phrases.
+- [ ] Any number, CAGR, or customer outcome removed unless separately verified.
+- [ ] Copy body only (not this research block) into LinkedIn.
+- [ ] Calendar card Done with post URL after publish.`;
+
+export function composeLinkedInDeskMarkdown(
+  title: string,
+  body: string,
+  research: string,
+): string {
   const cleanTitle = title.trim() || LINKEDIN_SUGGESTED_DRAFT_TITLE;
   const cleanBody = body.replace(/\r\n/g, "\n").trim();
-  return `# ${cleanTitle}\n\n${cleanBody}\n`;
+  const cleanResearch = research.replace(/\r\n/g, "\n").trim();
+  return `# ${cleanTitle}\n\n${cleanBody}\n\n---\n\n${RESEARCH_HEADING}\n\n${cleanResearch}\n`;
 }
 
 export function parseLinkedInDeskMarkdown(markdown: string): {
   title: string;
   body: string;
+  research: string;
 } {
   const normalized = markdown.replace(/\r\n/g, "\n").trim();
   const match = normalized.match(/^#\s+(.+)\n+([\s\S]*)$/);
-  if (match) {
+  const title = match?.[1]?.trim() || LINKEDIN_SUGGESTED_DRAFT_TITLE;
+  const rest = (match?.[2] ?? normalized).trim();
+
+  const researchSplit = rest.split(/\n---\n+\s*## Research & verification[^\n]*\n+/i);
+  if (researchSplit.length >= 2) {
     return {
-      title: match[1].trim(),
-      body: match[2].trim(),
+      title,
+      body: researchSplit[0].trim(),
+      research: researchSplit.slice(1).join("\n---\n").trim(),
     };
   }
+
   return {
-    title: LINKEDIN_SUGGESTED_DRAFT_TITLE,
-    body: normalized,
+    title,
+    body: rest,
+    research: LINKEDIN_SUGGESTED_DRAFT_RESEARCH,
   };
 }
 
@@ -83,6 +131,7 @@ export type LinkedInDeskDraftResult = {
   slug: string;
   title: string;
   body: string;
+  research: string;
   markdown: string;
   updatedAt: string | null;
   source: "app_document" | "suggested" | "seeded";
@@ -92,10 +141,15 @@ export type LinkedInDeskDraftResult = {
 async function persistDraft(input: {
   title: string;
   body: string;
+  research: string;
   source: LinkedInDeskDraftResult["source"];
   syncRepo: boolean;
 }): Promise<LinkedInDeskDraftResult> {
-  const markdown = composeLinkedInDeskMarkdown(input.title, input.body);
+  const markdown = composeLinkedInDeskMarkdown(
+    input.title,
+    input.body,
+    input.research,
+  );
   const row = await upsertAppDocument({
     slug: LINKEDIN_DRAFTS_APP_DOC_SLUG,
     title: input.title.trim() || LINKEDIN_SUGGESTED_DRAFT_TITLE,
@@ -110,6 +164,7 @@ async function persistDraft(input: {
     slug: row.slug,
     title: parsed.title,
     body: parsed.body,
+    research: parsed.research,
     markdown: row.content,
     updatedAt: row.updatedAt.toISOString(),
     source: input.source,
@@ -118,12 +173,13 @@ async function persistDraft(input: {
 }
 
 /**
- * Force-load the suggested heatmap LinkedIn draft (title + body) into APP_DOCS.
+ * Force-load the suggested heatmap LinkedIn draft (title + body + research) into APP_DOCS.
  */
 export async function seedSuggestedLinkedInDeskDraftCore(): Promise<LinkedInDeskDraftResult> {
   return persistDraft({
     title: LINKEDIN_SUGGESTED_DRAFT_TITLE,
     body: LINKEDIN_SUGGESTED_DRAFT_BODY,
+    research: LINKEDIN_SUGGESTED_DRAFT_RESEARCH,
     source: "seeded",
     syncRepo: true,
   });
@@ -146,8 +202,8 @@ export async function loadLinkedInDeskDraftCore(options?: {
       /Founder-led LinkedIn drafts/i.test(existing.title) ||
       /Alternate Monday/i.test(existing.content) ||
       /USE THIS for the calendar card/i.test(existing.content);
-    if (looksLikeWeek1Archive) {
-      // Upgrade the archive corpus row to the focused suggested Mon draft.
+    const missingResearch = !/Research & verification/i.test(existing.content);
+    if (looksLikeWeek1Archive || missingResearch) {
       return seedSuggestedLinkedInDeskDraftCore();
     }
     const parsed = parseLinkedInDeskMarkdown(existing.content);
@@ -156,6 +212,7 @@ export async function loadLinkedInDeskDraftCore(options?: {
       slug: existing.slug,
       title: existing.title?.trim() || parsed.title,
       body: parsed.body,
+      research: parsed.research,
       markdown: existing.content,
       updatedAt: existing.updatedAt.toISOString(),
       source: "app_document",
@@ -166,6 +223,7 @@ export async function loadLinkedInDeskDraftCore(options?: {
   return persistDraft({
     title: LINKEDIN_SUGGESTED_DRAFT_TITLE,
     body: LINKEDIN_SUGGESTED_DRAFT_BODY,
+    research: LINKEDIN_SUGGESTED_DRAFT_RESEARCH,
     source: "suggested",
     syncRepo: true,
   });
@@ -177,18 +235,22 @@ export async function loadLinkedInDeskDraftCore(options?: {
 export async function saveLinkedInDeskDraftCore(input: {
   title?: string;
   body?: string;
+  research?: string;
   markdown?: string;
 }): Promise<LinkedInDeskDraftResult | { ok: false; error: string; status: number }> {
   let title = (input.title ?? "").trim();
   let body = (input.body ?? "").replace(/\r\n/g, "\n").trim();
+  let research = (input.research ?? "").replace(/\r\n/g, "\n").trim();
 
-  if ((!title || !body) && input.markdown?.trim()) {
+  if ((!title || !body || !research) && input.markdown?.trim()) {
     const parsed = parseLinkedInDeskMarkdown(input.markdown);
     if (!title) title = parsed.title;
     if (!body) body = parsed.body;
+    if (!research) research = parsed.research;
   }
 
   if (!title) title = LINKEDIN_SUGGESTED_DRAFT_TITLE;
+  if (!research) research = LINKEDIN_SUGGESTED_DRAFT_RESEARCH;
   if (body.length < 40) {
     return {
       ok: false,
@@ -200,6 +262,7 @@ export async function saveLinkedInDeskDraftCore(input: {
   return persistDraft({
     title,
     body,
+    research,
     source: "app_document",
     syncRepo: true,
   });

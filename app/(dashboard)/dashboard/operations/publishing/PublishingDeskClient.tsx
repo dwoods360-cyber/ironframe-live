@@ -97,6 +97,7 @@ export default function PublishingDeskClient() {
   const [draftReaderError, setDraftReaderError] = useState<string | null>(null);
   const [linkedinTitle, setLinkedinTitle] = useState("");
   const [linkedinBody, setLinkedinBody] = useState("");
+  const [linkedinResearch, setLinkedinResearch] = useState("");
   const [linkedinUpdatedAt, setLinkedinUpdatedAt] = useState<string | null>(null);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinSaving, setLinkedinSaving] = useState(false);
@@ -281,6 +282,7 @@ export default function PublishingDeskClient() {
       const data = await fetchOpsPortalJson<{
         title?: string;
         body?: string;
+        research?: string;
         updatedAt?: string | null;
         source?: string;
       }>(
@@ -290,10 +292,11 @@ export default function PublishingDeskClient() {
       );
       setLinkedinTitle(data.title ?? "");
       setLinkedinBody(data.body ?? "");
+      setLinkedinResearch(data.research ?? "");
       setLinkedinUpdatedAt(data.updatedAt ?? null);
       setLinkedinMessage(
         data.source === "suggested" || data.source === "seeded"
-          ? "Loaded suggested heatmap draft — edit title/body, then Save."
+          ? "Loaded suggested draft + research citations — verify links, then Save."
           : null,
       );
       linkedinLoadedRef.current = true;
@@ -319,6 +322,7 @@ export default function PublishingDeskClient() {
       const data = await fetchOpsPortalJson<{
         title?: string;
         body?: string;
+        research?: string;
         updatedAt?: string | null;
         message?: string;
       }>(
@@ -326,12 +330,17 @@ export default function PublishingDeskClient() {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: linkedinTitle, body: linkedinBody }),
+          body: JSON.stringify({
+            title: linkedinTitle,
+            body: linkedinBody,
+            research: linkedinResearch,
+          }),
         },
         "Failed to save LinkedIn draft.",
       );
       setLinkedinTitle(data.title ?? linkedinTitle);
       setLinkedinBody(data.body ?? linkedinBody);
+      setLinkedinResearch(data.research ?? linkedinResearch);
       setLinkedinUpdatedAt(data.updatedAt ?? null);
       setLinkedinMessage(data.message ?? "Saved.");
     } catch (err) {
@@ -754,12 +763,26 @@ export default function PublishingDeskClient() {
                 <textarea
                   value={linkedinBody}
                   onChange={(e) => setLinkedinBody(e.target.value)}
-                  rows={18}
+                  rows={14}
                   disabled={linkedinLoading}
                   placeholder="Loading LinkedIn draft…"
                   className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm leading-relaxed text-slate-100"
                 />
               </label>
+              <label className="mt-3 block text-xs text-slate-400">
+                Research &amp; verification (operator only — not copied to LinkedIn)
+                <textarea
+                  value={linkedinResearch}
+                  onChange={(e) => setLinkedinResearch(e.target.value)}
+                  rows={16}
+                  disabled={linkedinLoading}
+                  placeholder="Claim → citation → Ironframe relief…"
+                  className="mt-1 w-full rounded border border-amber-900/40 bg-slate-950 px-3 py-2 font-mono text-sm leading-relaxed text-slate-100"
+                />
+              </label>
+              <p className="mt-2 text-xs text-amber-200/80">
+                Open each citation before posting. Copy body only — research stays on this desk.
+              </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -800,9 +823,9 @@ export default function PublishingDeskClient() {
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">How to publish</h2>
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-300">
-                  <li>Confirm the Title header, then edit the post body if needed.</li>
-                  <li>Save draft (writes APP_DOCS so the docs reader stays in sync).</li>
-                  <li>Copy body → paste into LinkedIn from Wil’s profile.</li>
+                  <li>Read Research &amp; verification — open each citation URL.</li>
+                  <li>Confirm Title + post body still match what the sources support.</li>
+                  <li>Save draft, then Copy body → paste into LinkedIn (Wil).</li>
                   <li>Mark the Ops Calendar card Done with the post URL.</li>
                 </ol>
                 <p className="mt-4 text-sm text-slate-400">

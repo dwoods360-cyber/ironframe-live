@@ -95,9 +95,17 @@ export default function PublishingDeskClient() {
   const [draftReaderValidationOk, setDraftReaderValidationOk] = useState<boolean | null>(null);
   const [draftReaderLoading, setDraftReaderLoading] = useState(false);
   const [draftReaderError, setDraftReaderError] = useState<string | null>(null);
+  const [linkedinMarkdown, setLinkedinMarkdown] = useState("");
+  const [linkedinTitle, setLinkedinTitle] = useState<string | null>(null);
+  const [linkedinUpdatedAt, setLinkedinUpdatedAt] = useState<string | null>(null);
+  const [linkedinLoading, setLinkedinLoading] = useState(false);
+  const [linkedinSaving, setLinkedinSaving] = useState(false);
+  const [linkedinMessage, setLinkedinMessage] = useState<string | null>(null);
+  const [linkedinError, setLinkedinError] = useState<string | null>(null);
   const promoteDefaultsSet = useRef(false);
   const promotePanelRef = useRef<HTMLDivElement | null>(null);
   const autoOpenedDraftRef = useRef<string | null>(null);
+  const linkedinLoadedRef = useRef(false);
 
   const slugFromQueueFilename = useCallback(
     (filename: string) =>
@@ -265,6 +273,78 @@ export default function PublishingDeskClient() {
     void loadSnapshot();
   }, [loadSnapshot]);
 
+  const loadLinkedinDraft = useCallback(async () => {
+    setLinkedinLoading(true);
+    setLinkedinError(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        title?: string;
+        markdown?: string;
+        updatedAt?: string | null;
+        source?: string;
+      }>("/api/admin/operations-hub/linkedin/draft", undefined, "Failed to load LinkedIn draft.");
+      setLinkedinMarkdown(data.markdown ?? "");
+      setLinkedinTitle(data.title ?? null);
+      setLinkedinUpdatedAt(data.updatedAt ?? null);
+      setLinkedinMessage(
+        data.source === "repo_file" || data.source === "fallback"
+          ? "Bootstrapped into APP_DOCS — edit below and Save draft."
+          : null,
+      );
+      linkedinLoadedRef.current = true;
+    } catch (err) {
+      setLinkedinError(err instanceof Error ? err.message : "Failed to load LinkedIn draft.");
+    } finally {
+      setLinkedinLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (desk !== "linkedin") return;
+    if (linkedinLoadedRef.current && linkedinMarkdown.length > 0) return;
+    void loadLinkedinDraft();
+  }, [desk, loadLinkedinDraft, linkedinMarkdown.length]);
+
+  const handleSaveLinkedinDraft = async () => {
+    if (linkedinSaving || linkedinMarkdown.trim().length < 40) return;
+    setLinkedinSaving(true);
+    setLinkedinMessage(null);
+    setLinkedinError(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        title?: string;
+        markdown?: string;
+        updatedAt?: string | null;
+        message?: string;
+      }>(
+        "/api/admin/operations-hub/linkedin/draft",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ markdown: linkedinMarkdown }),
+        },
+        "Failed to save LinkedIn draft.",
+      );
+      setLinkedinMarkdown(data.markdown ?? linkedinMarkdown);
+      setLinkedinTitle(data.title ?? linkedinTitle);
+      setLinkedinUpdatedAt(data.updatedAt ?? null);
+      setLinkedinMessage(data.message ?? "Saved.");
+    } catch (err) {
+      setLinkedinError(err instanceof Error ? err.message : "Failed to save LinkedIn draft.");
+    } finally {
+      setLinkedinSaving(false);
+    }
+  };
+
+  const handleCopyLinkedinDraft = async () => {
+    try {
+      await navigator.clipboard.writeText(linkedinMarkdown);
+      setLinkedinMessage("Copied to clipboard — paste into LinkedIn (Wil).");
+      setLinkedinError(null);
+    } catch {
+      setLinkedinError("Clipboard copy failed — select the text and copy manually.");
+    }
+  };
 
   const newsletterQueueDrafts = useMemo(() => {
     if (!snapshot) return [];
@@ -641,52 +721,109 @@ export default function PublishingDeskClient() {
         {loading && !snapshot && !isDocsOnlyDesk ? <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center text-slate-400">Loading publishing snapshot…</div> : null}
 
         {desk === "linkedin" ? (
-          <div className="grid gap-6 lg:grid-cols-2">
-            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-              <h2 className="text-lg font-semibold text-white">LinkedIn drafts</h2>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <section className="rounded-xl border border-cyan-900/50 bg-slate-900/60 p-5">
+              <h2 className="text-lg font-semibold text-white">LinkedIn publication desk</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Founder paste-ready copy for Mon/Wed/Fri. Edit the draft here, then publish manually
-                from Wil’s LinkedIn (optional company amplify). This is not Governance Frame
-                quarantine — Approve/Deny on Briefings does not apply.
+                Paste and edit founder copy here — same workbench pattern as Governance Frame, but
+                this never promotes to research.ironframegrc.com. When ready: Copy → paste into
+                LinkedIn (Wil → optional company amplify).
               </p>
-              <Link
-                href={PUBLISHING_LINKEDIN_DRAFTS_HREF}
-                className="mt-5 inline-flex items-center rounded-lg bg-cyan-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-700"
-              >
-                Open LinkedIn drafts
-              </Link>
-              <p className="mt-3 font-mono text-[10px] text-slate-500">
-                {PUBLISHING_LINKEDIN_DRAFTS_HREF}
-              </p>
-              <p className="mt-4 text-sm text-slate-400">
-                Current slot theme: <span className="text-slate-200">heatmap vs dollars</span> (see
-                Monday section in the drafts file).
-              </p>
+              {linkedinTitle ? (
+                <p className="mt-3 font-mono text-[10px] text-slate-500">
+                  {linkedinTitle}
+                  {linkedinUpdatedAt ? ` · saved ${new Date(linkedinUpdatedAt).toLocaleString()}` : ""}
+                </p>
+              ) : null}
+              <label className="mt-4 block text-xs text-slate-400">
+                Draft markdown
+                <textarea
+                  value={linkedinMarkdown}
+                  onChange={(e) => setLinkedinMarkdown(e.target.value)}
+                  rows={22}
+                  disabled={linkedinLoading}
+                  placeholder="Loading LinkedIn draft…"
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm leading-relaxed text-slate-100"
+                />
+              </label>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={linkedinSaving || linkedinLoading || linkedinMarkdown.trim().length < 40}
+                  onClick={() => void handleSaveLinkedinDraft()}
+                  className="rounded-lg bg-cyan-800 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
+                >
+                  {linkedinSaving ? "Saving…" : "Save draft"}
+                </button>
+                <button
+                  type="button"
+                  disabled={linkedinLoading || linkedinMarkdown.trim().length < 1}
+                  onClick={() => void handleCopyLinkedinDraft()}
+                  className="rounded-lg border border-slate-600 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-100 hover:border-cyan-700 disabled:opacity-50"
+                >
+                  Copy to clipboard
+                </button>
+                <button
+                  type="button"
+                  disabled={linkedinLoading || linkedinSaving}
+                  onClick={() => {
+                    linkedinLoadedRef.current = false;
+                    void loadLinkedinDraft();
+                  }}
+                  className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-300 hover:border-slate-500 disabled:opacity-50"
+                >
+                  {linkedinLoading ? "Loading…" : "Reload"}
+                </button>
+              </div>
+              {linkedinMessage ? (
+                <p className="mt-3 text-sm text-emerald-300">{linkedinMessage}</p>
+              ) : null}
+              {linkedinError ? (
+                <p className="mt-3 text-sm text-rose-300">{linkedinError}</p>
+              ) : null}
             </section>
-            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-              <h2 className="text-lg font-semibold text-white">Cadence &amp; calendar</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Cadence plan and Ops Calendar checklist. Mark the calendar card Done after posting
-                and put the LinkedIn URL in the outcome.
-              </p>
-              <ul className="mt-4 space-y-2">
-                <li>
-                  <Link
-                    href={PUBLISHING_LINKEDIN_CADENCE_HREF}
-                    className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
-                  >
-                    Founder LinkedIn cadence
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/dashboard/operations?tab=calendar"
-                    className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
-                  >
-                    Ops Calendar
-                  </Link>
-                </li>
-              </ul>
+            <section className="space-y-6">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+                <h2 className="text-lg font-semibold text-white">How to publish</h2>
+                <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-300">
+                  <li>Edit the Monday (heatmap vs dollars) section in the desk on the left.</li>
+                  <li>Save draft (writes APP_DOCS so the docs reader stays in sync).</li>
+                  <li>Copy → paste into LinkedIn from Wil’s profile.</li>
+                  <li>Mark the Ops Calendar card Done with the post URL.</li>
+                </ol>
+                <p className="mt-4 text-sm text-slate-400">
+                  Not GF quarantine. No Approve / Deny / promote on this desk.
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+                <h2 className="text-lg font-semibold text-white">Cadence &amp; calendar</h2>
+                <ul className="mt-4 space-y-2">
+                  <li>
+                    <Link
+                      href={PUBLISHING_LINKEDIN_CADENCE_HREF}
+                      className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
+                    >
+                      Founder LinkedIn cadence
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/dashboard/operations?tab=calendar"
+                      className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
+                    >
+                      Ops Calendar
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href={PUBLISHING_LINKEDIN_DRAFTS_HREF}
+                      className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
+                    >
+                      Docs reader (after Save)
+                    </Link>
+                  </li>
+                </ul>
+              </div>
             </section>
           </div>
         ) : null}

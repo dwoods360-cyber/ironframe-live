@@ -9,14 +9,8 @@ import {
 } from "@/app/lib/server/appDocumentStore";
 import { inferReadingLevelFromSlug } from "@/lib/appDocumentSlug";
 
-/** APP_DOCS slug — same path the /docs reader uses. */
+/** APP_DOCS slug — legacy Fri mirror for the /docs reader deep link. */
 export const LINKEDIN_DRAFTS_APP_DOC_SLUG = "marketing-strategy/linkedin-drafts-week-1";
-
-const REPO_RELATIVE = path.join(
-  "docs",
-  "marketing-strategy",
-  "linkedin-drafts-week-1.md",
-);
 
 const RESEARCH_HEADING =
   "## Research & verification (operator only — do not paste to LinkedIn)";
@@ -106,6 +100,172 @@ export const LINKEDIN_SUGGESTED_DRAFT_RESEARCH = `Use this section to verify tha
 - [ ] Copy body only (not this research block) into LinkedIn.
 - [ ] Calendar card Done with post URL after publish.`;
 
+/** Suggested Fri slot — collection ≠ verification / hard tenant boundaries. */
+export const LINKEDIN_FRI_DRAFT_TITLE =
+  "LinkedIn Fri — Collection is not verification";
+
+export const LINKEDIN_FRI_DRAFT_BODY = `**Collection is not verification.**
+
+A long connector list can look like maturity—until an auditor asks:
+
+**Where did this control assertion come from, which legal entity does it belong to, and who authorized it?**
+
+Weak tenant separation makes that question harder to answer.
+
+Shared evidence repositories divided only by tags can turn “we integrated twelve systems” into blended evidence the moment Client West’s artifact appears inside Client East’s workflow.
+
+A practical control test for this week:
+
+1. Select one evidence item used in a board or client report.
+2. Trace its source system, collection time, entity or client scope, and reviewer.
+3. Determine whether another tenant’s user or agent could place evidence into the same repository or workflow.
+4. Check whether separation is enforced by the system—or represented only by a label.
+
+When tenant scope depends on a tag rather than a hard boundary, you have found the next isolation workflow to redesign.
+
+The control-first pattern is:
+
+**Hard tenant boundaries.
+Quarantine before persistence.
+Human authorization before cross-entity export.**
+
+Not simply more connectors.
+
+I’m happy to walk through one multi-entity evidence workflow with you in 10–15 minutes:
+
+https://ironframegrc.com/register/contact
+
+#GRC #MultiEntity #AuditReadiness #CyberGovernance #CISO #MSSP`;
+
+export const LINKEDIN_FRI_DRAFT_RESEARCH = `Use this section to verify that each public claim is real and that Ironframe can relieve the pain — not as LinkedIn copy.
+
+### Claim map (post line → proof → Ironframe relief)
+
+| Post claim (paraphrase) | What the research actually supports | Citation (full URL — open before post) | How Ironframe relieves it (product truth only) |
+|---|---|---|---|
+| Collection is not verification | Cloud-era GRC improved collection speed; assurance still requires validation, legal-entity scope, durable provenance, access isolation, and human interpretation | GF published briefing: https://research.ironframegrc.com/briefings/2026-05-14-connector-count-sovereign-enclaves · Part 2: https://research.ironframegrc.com/briefings/2026-02-12-market-grc-2009-2018 | Hard tenant enclaves + quarantine-before-persist + HITL before cross-entity export — not connector-count theater. |
+| Auditor asks source / entity / authorization | Assurance asks provenance, scope, and who authorized the assertion — connector count alone does not answer | https://research.ironframegrc.com/briefings/2026-05-14-connector-count-sovereign-enclaves | Evidence objects carry tenant scope; exports require human authorization across entity boundaries. |
+| Tag-only tenancy blends client evidence | Soft separation (labels/tags in a shared repo) can allow cross-client bleed in workflows | Product narrative: https://ironframegrc.com/docs/sales/control-to-capital-market-narrative | System-enforced tenant boundaries (not tag-only); MSSP/multi-entity Path B design. |
+| Hard boundaries + quarantine + human auth | Control-first pattern for multi-entity operators | https://ironframegrc.com/docs/sales/control-to-capital-market-narrative · CTA: https://ironframegrc.com/register/contact | Workflow review walks one multi-entity evidence path in 10–15 minutes. |
+
+### Ironframe product truth (what we can honestly offer)
+
+- **Relief path:** Hard tenant isolation → quarantine before persistence → human authorization before cross-entity export.
+- **Copy locks / bans:** Mandate 16 — no competitor incapability claims; no invented regulator mandates.
+- **CTA:** 10–15 minute workflow review only (not free pilot / Request Demo).
+
+### Pre-post checklist
+
+- [ ] Opened each citation URL and confirmed the claim paraphrase still matches the source.
+- [ ] Post body avoids Mandate 16 ban phrases.
+- [ ] Copy body only (not this research block) into LinkedIn.
+- [ ] Calendar card Done with post URL after publish.
+`;
+
+/** Wed slot — point to /product-demo ahead of video publishes. */
+export const LINKEDIN_WED_DRAFT_TITLE =
+  "LinkedIn Wed — point to /product-demo (pre-video)";
+
+export const LINKEDIN_WED_DRAFT_BODY = `Most product tours show features.
+
+Fewer show the one workflow that removes board-report friction: evidence → scenario → estimated exposure (whole cents, explicit assumptions).
+
+This week I’m pointing operators to a bounded walkthrough:
+
+https://ironframegrc.com/product-demo
+
+If you’d rather walk that path on your own evidence stack, I’m available for 10–15 minutes:
+
+https://ironframegrc.com/register/contact
+
+#GRC #ProductDemo #BoardRisk #CyberGovernance #RiskQuantification`;
+
+export const LINKEDIN_WED_DRAFT_RESEARCH = `Use this section to verify that each public claim is real and that Ironframe can relieve the pain — not as LinkedIn copy.
+
+### Claim map (post line → proof → Ironframe relief)
+
+| Post claim (paraphrase) | What the research actually supports | Citation (full URL — open before post) | How Ironframe relieves it (product truth only) |
+|---|---|---|---|
+| Demo should show evidence→exposure workflow | Founder cadence: Wednesday posts point to a bounded product demonstration | Cadence: https://ironframegrc.com/docs/marketing-strategy/linkedin-founder-cadence | /product-demo is the public bounded walkthrough surface. |
+| CTA is workflow review, not free pilot | Locked commercial CTA | Contact: https://ironframegrc.com/register/contact | 10–15 minute workflow review only. |
+
+### Ironframe product truth (what we can honestly offer)
+
+- **Demo surface:** https://ironframegrc.com/product-demo
+- **CTA:** 10–15 minute workflow review — not Request Demo / free pilot.
+- **Copy locks:** Mandate 16.
+
+### Pre-post checklist
+
+- [ ] Opened each citation URL and confirmed the claim paraphrase still matches the source.
+- [ ] Post body avoids Mandate 16 ban phrases.
+- [ ] Copy body only (not this research block) into LinkedIn.
+- [ ] Calendar card Done with post URL after publish.
+`;
+
+export type LinkedInDraftId = "mon-heatmap" | "wed-product-demo" | "fri-collection";
+
+export type LinkedInDraftCatalogEntry = {
+  id: LinkedInDraftId;
+  slotLabel: "Mon" | "Wed" | "Fri";
+  slug: string;
+  repoFile: string;
+  defaultTitle: string;
+  defaultBody: string;
+  defaultResearch: string;
+};
+
+/** Ordered LinkedIn desk slots — listed like Briefings/Newsletters drafts. */
+export const LINKEDIN_DRAFT_CATALOG: LinkedInDraftCatalogEntry[] = [
+  {
+    id: "mon-heatmap",
+    slotLabel: "Mon",
+    slug: "marketing-strategy/linkedin-drafts/mon-heatmap",
+    repoFile: "docs/marketing-strategy/linkedin-drafts-mon-heatmap.md",
+    defaultTitle: LINKEDIN_SUGGESTED_DRAFT_TITLE,
+    defaultBody: LINKEDIN_SUGGESTED_DRAFT_BODY,
+    defaultResearch: LINKEDIN_SUGGESTED_DRAFT_RESEARCH,
+  },
+  {
+    id: "wed-product-demo",
+    slotLabel: "Wed",
+    slug: "marketing-strategy/linkedin-drafts/wed-product-demo",
+    repoFile: "docs/marketing-strategy/linkedin-drafts-wed-product-demo.md",
+    defaultTitle: LINKEDIN_WED_DRAFT_TITLE,
+    defaultBody: LINKEDIN_WED_DRAFT_BODY,
+    defaultResearch: LINKEDIN_WED_DRAFT_RESEARCH,
+  },
+  {
+    id: "fri-collection",
+    slotLabel: "Fri",
+    slug: "marketing-strategy/linkedin-drafts/fri-collection",
+    repoFile: "docs/marketing-strategy/linkedin-drafts-week-1.md",
+    defaultTitle: LINKEDIN_FRI_DRAFT_TITLE,
+    defaultBody: LINKEDIN_FRI_DRAFT_BODY,
+    defaultResearch: LINKEDIN_FRI_DRAFT_RESEARCH,
+  },
+];
+
+export function linkedInDraftCatalogEntry(
+  id: string | null | undefined,
+): LinkedInDraftCatalogEntry | null {
+  const key = (id ?? "").trim().toLowerCase();
+  if (!key) return null;
+  if (key === "suggested" || key === "friday" || key === "fri") {
+    return LINKEDIN_DRAFT_CATALOG.find((e) => e.id === "fri-collection") ?? null;
+  }
+  if (key === "monday" || key === "mon" || key === "heatmap") {
+    return LINKEDIN_DRAFT_CATALOG.find((e) => e.id === "mon-heatmap") ?? null;
+  }
+  if (key === "wednesday" || key === "wed") {
+    return LINKEDIN_DRAFT_CATALOG.find((e) => e.id === "wed-product-demo") ?? null;
+  }
+  return LINKEDIN_DRAFT_CATALOG.find((e) => e.id === key) ?? null;
+}
+
+/** Default open slot on the LinkedIn desk (active post to publish). */
+export const LINKEDIN_DEFAULT_DRAFT_ID: LinkedInDraftId = "fri-collection";
+
 /** Extract http(s) citation URLs from operator research markdown (deduped, max 24). */
 export function extractLinkedInResearchCitationUrls(research: string): string[] {
   const matches = research.match(/https?:\/\/[^\s)|\]>"']+/gi) ?? [];
@@ -149,9 +309,9 @@ export function parseLinkedInDeskMarkdown(markdown: string): {
   };
 }
 
-function tryWriteRepoMarkdown(markdown: string): boolean {
+function tryWriteRepoMarkdown(markdown: string, repoFile: string): boolean {
   try {
-    const absolute = path.join(process.cwd(), REPO_RELATIVE);
+    const absolute = path.join(process.cwd(), repoFile);
     fs.mkdirSync(path.dirname(absolute), { recursive: true });
     fs.writeFileSync(absolute, markdown, "utf8");
     return true;
@@ -162,6 +322,8 @@ function tryWriteRepoMarkdown(markdown: string): boolean {
 
 export type LinkedInDeskDraftResult = {
   ok: true;
+  id: LinkedInDraftId;
+  slotLabel: "Mon" | "Wed" | "Fri";
   slug: string;
   title: string;
   body: string;
@@ -172,7 +334,20 @@ export type LinkedInDeskDraftResult = {
   repoSynced: boolean;
 };
 
+export type LinkedInDeskDraftListItem = {
+  id: LinkedInDraftId;
+  slotLabel: "Mon" | "Wed" | "Fri";
+  slug: string;
+  title: string;
+  summary: string;
+  bodyLength: number;
+  citationCount: number;
+  updatedAt: string | null;
+  docsHref: string;
+};
+
 async function persistDraft(input: {
+  entry: LinkedInDraftCatalogEntry;
   title: string;
   body: string;
   research: string;
@@ -185,16 +360,31 @@ async function persistDraft(input: {
     input.research,
   );
   const row = await upsertAppDocument({
-    slug: LINKEDIN_DRAFTS_APP_DOC_SLUG,
-    title: input.title.trim() || LINKEDIN_SUGGESTED_DRAFT_TITLE,
+    slug: input.entry.slug,
+    title: input.title.trim() || input.entry.defaultTitle,
     content: markdown,
-    readingLevel: inferReadingLevelFromSlug(LINKEDIN_DRAFTS_APP_DOC_SLUG),
+    readingLevel: inferReadingLevelFromSlug(input.entry.slug),
   });
+
+  // Keep legacy week-1 slug mirrored for Fri (docs reader deep link).
+  if (input.entry.id === "fri-collection") {
+    await upsertAppDocument({
+      slug: LINKEDIN_DRAFTS_APP_DOC_SLUG,
+      title: input.title.trim() || input.entry.defaultTitle,
+      content: markdown,
+      readingLevel: inferReadingLevelFromSlug(LINKEDIN_DRAFTS_APP_DOC_SLUG),
+    });
+  }
+
   const parsed = parseLinkedInDeskMarkdown(row.content);
-  const repoSynced = input.syncRepo ? tryWriteRepoMarkdown(row.content) : false;
+  const repoSynced = input.syncRepo
+    ? tryWriteRepoMarkdown(row.content, input.entry.repoFile)
+    : false;
 
   return {
     ok: true,
+    id: input.entry.id,
+    slotLabel: input.entry.slotLabel,
     slug: row.slug,
     title: parsed.title,
     body: parsed.body,
@@ -206,43 +396,16 @@ async function persistDraft(input: {
   };
 }
 
-/**
- * Force-load the suggested heatmap LinkedIn draft (title + body + research) into APP_DOCS.
- */
-export async function seedSuggestedLinkedInDeskDraftCore(): Promise<LinkedInDeskDraftResult> {
-  return persistDraft({
-    title: LINKEDIN_SUGGESTED_DRAFT_TITLE,
-    body: LINKEDIN_SUGGESTED_DRAFT_BODY,
-    research: LINKEDIN_SUGGESTED_DRAFT_RESEARCH,
-    source: "seeded",
-    syncRepo: true,
-  });
-}
-
-/**
- * Load LinkedIn paste drafts for the Publishing Desk workbench.
- * Prefers APP_DOCS; seeds the suggested heatmap draft when missing.
- */
-export async function loadLinkedInDeskDraftCore(options?: {
-  seedSuggested?: boolean;
-}): Promise<LinkedInDeskDraftResult> {
-  if (options?.seedSuggested) {
-    return seedSuggestedLinkedInDeskDraftCore();
-  }
-
-  const existing = await findAppDocumentBySlug(LINKEDIN_DRAFTS_APP_DOC_SLUG);
-  if (existing) {
-    const looksLikeWeek1Archive =
-      /Founder-led LinkedIn drafts/i.test(existing.title) ||
-      /Alternate Monday/i.test(existing.content) ||
-      /USE THIS for the calendar card/i.test(existing.content);
-    const missingResearch = !/Research & verification/i.test(existing.content);
-    if (looksLikeWeek1Archive || missingResearch) {
-      return seedSuggestedLinkedInDeskDraftCore();
-    }
+async function ensureCatalogDraft(
+  entry: LinkedInDraftCatalogEntry,
+): Promise<LinkedInDeskDraftResult> {
+  const existing = await findAppDocumentBySlug(entry.slug);
+  if (existing && /Research & verification/i.test(existing.content) && existing.content.trim().length > 80) {
     const parsed = parseLinkedInDeskMarkdown(existing.content);
     return {
       ok: true,
+      id: entry.id,
+      slotLabel: entry.slotLabel,
       slug: existing.slug,
       title: existing.title?.trim() || parsed.title,
       body: parsed.body,
@@ -254,24 +417,143 @@ export async function loadLinkedInDeskDraftCore(options?: {
     };
   }
 
+  // Migrate legacy week-1 doc into Fri slot when Fri is empty.
+  if (entry.id === "fri-collection") {
+    const legacy = await findAppDocumentBySlug(LINKEDIN_DRAFTS_APP_DOC_SLUG);
+    if (
+      legacy &&
+      /Collection is not verification/i.test(legacy.content) &&
+      /Research & verification/i.test(legacy.content)
+    ) {
+      const parsed = parseLinkedInDeskMarkdown(legacy.content);
+      return persistDraft({
+        entry,
+        title: parsed.title || entry.defaultTitle,
+        body: parsed.body,
+        research: parsed.research || entry.defaultResearch,
+        source: "app_document",
+        syncRepo: true,
+      });
+    }
+  }
+
   return persistDraft({
-    title: LINKEDIN_SUGGESTED_DRAFT_TITLE,
-    body: LINKEDIN_SUGGESTED_DRAFT_BODY,
-    research: LINKEDIN_SUGGESTED_DRAFT_RESEARCH,
-    source: "suggested",
+    entry,
+    title: entry.defaultTitle,
+    body: entry.defaultBody,
+    research: entry.defaultResearch,
+    source: "seeded",
     syncRepo: true,
   });
+}
+
+/** List Mon/Wed/Fri LinkedIn drafts (seeds defaults when missing). */
+export async function listLinkedInDeskDraftsCore(): Promise<{
+  drafts: LinkedInDeskDraftListItem[];
+  defaultId: LinkedInDraftId;
+}> {
+  const drafts: LinkedInDeskDraftListItem[] = [];
+  for (const entry of LINKEDIN_DRAFT_CATALOG) {
+    const loaded = await ensureCatalogDraft(entry);
+    drafts.push({
+      id: loaded.id,
+      slotLabel: loaded.slotLabel,
+      slug: loaded.slug,
+      title: loaded.title,
+      summary: loaded.body.replace(/\s+/g, " ").trim().slice(0, 180),
+      bodyLength: loaded.body.length,
+      citationCount: extractLinkedInResearchCitationUrls(loaded.research).length,
+      updatedAt: loaded.updatedAt,
+      docsHref: `/docs/${loaded.slug}`,
+    });
+  }
+  return { drafts, defaultId: LINKEDIN_DEFAULT_DRAFT_ID };
+}
+
+/**
+ * Force-load the active suggested draft into APP_DOCS.
+ * Active slot = Friday collection≠verification.
+ */
+export async function seedSuggestedLinkedInDeskDraftCore(): Promise<LinkedInDeskDraftResult> {
+  return seedFridayLinkedInDeskDraftCore();
+}
+
+/** Force-load Friday collection≠verification draft into APP_DOCS. */
+export async function seedFridayLinkedInDeskDraftCore(): Promise<LinkedInDeskDraftResult> {
+  const entry = linkedInDraftCatalogEntry("fri-collection")!;
+  return persistDraft({
+    entry,
+    title: entry.defaultTitle,
+    body: entry.defaultBody,
+    research: entry.defaultResearch,
+    source: "seeded",
+    syncRepo: true,
+  });
+}
+
+/** Force-load Monday heatmap draft into APP_DOCS. */
+export async function seedMondayLinkedInDeskDraftCore(): Promise<LinkedInDeskDraftResult> {
+  const entry = linkedInDraftCatalogEntry("mon-heatmap")!;
+  return persistDraft({
+    entry,
+    title: entry.defaultTitle,
+    body: entry.defaultBody,
+    research: entry.defaultResearch,
+    source: "seeded",
+    syncRepo: true,
+  });
+}
+
+/**
+ * Load LinkedIn paste drafts for the Publishing Desk workbench.
+ * Pass `id` (or legacy seed flags) to select a catalog slot.
+ */
+export async function loadLinkedInDeskDraftCore(options?: {
+  id?: string | null;
+  seedSuggested?: boolean;
+  seedFriday?: boolean;
+  seedMonday?: boolean;
+  resetTemplate?: boolean;
+}): Promise<LinkedInDeskDraftResult> {
+  if (options?.seedMonday) {
+    return seedMondayLinkedInDeskDraftCore();
+  }
+  if (options?.seedFriday || options?.seedSuggested) {
+    return seedFridayLinkedInDeskDraftCore();
+  }
+
+  const fromId =
+    linkedInDraftCatalogEntry(options?.id) ??
+    linkedInDraftCatalogEntry(LINKEDIN_DEFAULT_DRAFT_ID)!;
+
+  if (options?.resetTemplate) {
+    return persistDraft({
+      entry: fromId,
+      title: fromId.defaultTitle,
+      body: fromId.defaultBody,
+      research: fromId.defaultResearch,
+      source: "seeded",
+      syncRepo: true,
+    });
+  }
+
+  return ensureCatalogDraft(fromId);
 }
 
 /**
  * Save LinkedIn paste drafts from the Publishing Desk workbench.
  */
 export async function saveLinkedInDeskDraftCore(input: {
+  id?: string | null;
   title?: string;
   body?: string;
   research?: string;
   markdown?: string;
 }): Promise<LinkedInDeskDraftResult | { ok: false; error: string; status: number }> {
+  const entry =
+    linkedInDraftCatalogEntry(input.id) ??
+    linkedInDraftCatalogEntry(LINKEDIN_DEFAULT_DRAFT_ID)!;
+
   let title = (input.title ?? "").trim();
   let body = (input.body ?? "").replace(/\r\n/g, "\n").trim();
   let research = (input.research ?? "").replace(/\r\n/g, "\n").trim();
@@ -283,7 +565,7 @@ export async function saveLinkedInDeskDraftCore(input: {
     if (!research) research = parsed.research;
   }
 
-  if (!title) title = LINKEDIN_SUGGESTED_DRAFT_TITLE;
+  if (!title) title = entry.defaultTitle;
   if (!research.trim()) {
     return {
       ok: false,
@@ -309,6 +591,7 @@ export async function saveLinkedInDeskDraftCore(input: {
   }
 
   return persistDraft({
+    entry,
     title,
     body,
     research,

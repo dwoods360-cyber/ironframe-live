@@ -104,6 +104,22 @@ export default function PublishingDeskClient() {
   const [linkedinMessage, setLinkedinMessage] = useState<string | null>(null);
   const [linkedinError, setLinkedinError] = useState<string | null>(null);
   const [linkedinCitationsConfirmed, setLinkedinCitationsConfirmed] = useState(false);
+  const [linkedinDraftId, setLinkedinDraftId] = useState<string>(
+    () => searchParams.get("li")?.trim() || "fri-collection",
+  );
+  const [linkedinDrafts, setLinkedinDrafts] = useState<
+    Array<{
+      id: string;
+      slotLabel: string;
+      slug: string;
+      title: string;
+      summary: string;
+      bodyLength: number;
+      citationCount: number;
+      updatedAt: string | null;
+      docsHref: string;
+    }>
+  >([]);
   const promoteDefaultsSet = useRef(false);
   const promotePanelRef = useRef<HTMLDivElement | null>(null);
   const autoOpenedDraftRef = useRef<string | null>(null);
@@ -275,45 +291,108 @@ export default function PublishingDeskClient() {
     void loadSnapshot();
   }, [loadSnapshot]);
 
-  const loadLinkedinDraft = useCallback(async (opts?: { seedSuggested?: boolean }) => {
+  const loadLinkedinDraftList = useCallback(async () => {
+    try {
+      const data = await fetchOpsPortalJson<{
+        drafts?: Array<{
+          id: string;
+          slotLabel: string;
+          slug: string;
+          title: string;
+          summary: string;
+          bodyLength: number;
+          citationCount: number;
+          updatedAt: string | null;
+          docsHref: string;
+        }>;
+        defaultId?: string;
+      }>(
+        "/api/admin/operations-hub/linkedin/drafts",
+        undefined,
+        "Failed to list LinkedIn drafts.",
+      );
+      setLinkedinDrafts(data.drafts ?? []);
+      return data.defaultId ?? "fri-collection";
+    } catch (err) {
+      setLinkedinError(err instanceof Error ? err.message : "Failed to list LinkedIn drafts.");
+      return "fri-collection";
+    }
+  }, []);
+
+  const loadLinkedinDraft = useCallback(async (opts?: { id?: string; resetTemplate?: boolean }) => {
+    const id = (opts?.id ?? linkedinDraftId ?? "fri-collection").trim();
     setLinkedinLoading(true);
     setLinkedinError(null);
     try {
-      const qs = opts?.seedSuggested ? "?seed=suggested" : "";
+      const params = new URLSearchParams();
+      params.set("id", id);
+      if (opts?.resetTemplate) params.set("reset", "1");
       const data = await fetchOpsPortalJson<{
+        id?: string;
+        slotLabel?: string;
         title?: string;
         body?: string;
         research?: string;
         updatedAt?: string | null;
         source?: string;
       }>(
-        `/api/admin/operations-hub/linkedin/draft${qs}`,
+        `/api/admin/operations-hub/linkedin/draft?${params.toString()}`,
         undefined,
         "Failed to load LinkedIn draft.",
       );
+      const resolvedId = data.id ?? id;
+      setLinkedinDraftId(resolvedId);
       setLinkedinTitle(data.title ?? "");
       setLinkedinBody(data.body ?? "");
       setLinkedinResearch(data.research ?? "");
       setLinkedinUpdatedAt(data.updatedAt ?? null);
       setLinkedinCitationsConfirmed(false);
       setLinkedinMessage(
-        data.source === "suggested" || data.source === "seeded"
-          ? "Loaded suggested draft + research citations — open each URL, then Save."
+        opts?.resetTemplate
+          ? `Reset ${data.slotLabel ?? "draft"} to template — review citations, then Save.`
           : null,
       );
       linkedinLoadedRef.current = true;
+
+      const next = new URLSearchParams(searchParams.toString());
+      next.set("desk", "linkedin");
+      next.set("li", resolvedId);
+      const query = next.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     } catch (err) {
       setLinkedinError(err instanceof Error ? err.message : "Failed to load LinkedIn draft.");
     } finally {
       setLinkedinLoading(false);
     }
-  }, []);
+  }, [linkedinDraftId, pathname, router, searchParams]);
+
+  const selectLinkedinDraft = useCallback(
+    (id: string) => {
+      linkedinLoadedRef.current = false;
+      void loadLinkedinDraft({ id });
+    },
+    [loadLinkedinDraft],
+  );
 
   useEffect(() => {
     if (desk !== "linkedin") return;
-    if (linkedinLoadedRef.current && linkedinBody.length > 0) return;
-    void loadLinkedinDraft({ seedSuggested: true });
-  }, [desk, loadLinkedinDraft, linkedinBody.length]);
+    let cancelled = false;
+    void (async () => {
+      const defaultId = await loadLinkedinDraftList();
+      if (cancelled) return;
+      const fromUrl = searchParams.get("li")?.trim();
+      const id = fromUrl || linkedinDraftId || defaultId;
+      if (!linkedinLoadedRef.current || linkedinDraftId !== id) {
+        linkedinLoadedRef.current = false;
+        await loadLinkedinDraft({ id });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally run when entering LinkedIn desk / li param changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desk, searchParams.get("li")]);
 
   const linkedinCitationUrls = useMemo(() => {
     const matches = linkedinResearch.match(/https?:\/\/[^\s)|\]>"']+/gi) ?? [];
@@ -328,6 +407,7 @@ export default function PublishingDeskClient() {
     setLinkedinError(null);
     try {
       const data = await fetchOpsPortalJson<{
+        id?: string;
         title?: string;
         body?: string;
         research?: string;
@@ -339,6 +419,7 @@ export default function PublishingDeskClient() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            id: linkedinDraftId,
             title: linkedinTitle,
             body: linkedinBody,
             research: linkedinResearch,
@@ -351,6 +432,8 @@ export default function PublishingDeskClient() {
       setLinkedinResearch(data.research ?? linkedinResearch);
       setLinkedinUpdatedAt(data.updatedAt ?? null);
       setLinkedinMessage(data.message ?? "Saved.");
+      if (data.id) setLinkedinDraftId(data.id);
+      void loadLinkedinDraftList();
     } catch (err) {
       setLinkedinError(err instanceof Error ? err.message : "Failed to save LinkedIn draft.");
     } finally {
@@ -756,13 +839,77 @@ export default function PublishingDeskClient() {
 
         {desk === "linkedin" ? (
           <div className="space-y-6">
+            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+              <h2 className="text-lg font-semibold text-white">LinkedIn drafts</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Founder Mon / Wed / Fri slots — select one to edit. Manual paste to LinkedIn only; no
+                GF Approve / promote on this desk.
+              </p>
+              <ul className="mt-4 space-y-3">
+                {linkedinDrafts.length === 0 ? (
+                  <li className="text-sm text-slate-500">
+                    {linkedinLoading ? "Loading drafts…" : "No LinkedIn drafts yet."}
+                  </li>
+                ) : (
+                  linkedinDrafts.map((draft) => {
+                    const selected = linkedinDraftId === draft.id;
+                    return (
+                      <li
+                        key={draft.id}
+                        id={`linkedin-draft-${draft.id}`}
+                        className={`rounded-lg border p-3 text-sm ${
+                          selected
+                            ? "border-cyan-500 bg-cyan-950/30 ring-1 ring-cyan-500/40"
+                            : "border-slate-800 bg-slate-950/50"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-cyan-300">
+                                {draft.slotLabel}
+                              </span>
+                              <span className="font-medium text-slate-100">{draft.title}</span>
+                            </div>
+                            <div className="mt-1 font-mono text-[10px] text-slate-500">{draft.slug}</div>
+                            {draft.summary ? (
+                              <p className="mt-1 text-xs text-slate-400 line-clamp-2">{draft.summary}</p>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => selectLinkedinDraft(draft.id)}
+                            className={`shrink-0 text-xs hover:underline ${
+                              selected ? "font-semibold text-cyan-200" : "text-cyan-300"
+                            }`}
+                            aria-pressed={selected}
+                          >
+                            {selected ? "Selected" : "Select"}
+                          </button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest text-slate-500">
+                          <span>{draft.bodyLength} chars</span>
+                          <span className={draft.citationCount > 0 ? "text-emerald-400" : "text-amber-400"}>
+                            {draft.citationCount} citation{draft.citationCount === 1 ? "" : "s"}
+                          </span>
+                          {draft.updatedAt ? (
+                            <span>saved {new Date(draft.updatedAt).toLocaleString()}</span>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            </section>
+
             <div className="grid gap-6 xl:grid-cols-2">
               <section className="rounded-xl border border-cyan-900/50 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">LinkedIn publication desk</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Draft the public post here. Research &amp; citations live in the panel next to
-                  it — they never go to LinkedIn. This desk does not promote to
-                  research.ironframegrc.com.
+                  Editing{" "}
+                  <span className="font-mono text-cyan-300">{linkedinDraftId}</span>. Research &amp;
+                  citations live in the panel next to it — they never go to LinkedIn.
                 </p>
                 {linkedinUpdatedAt ? (
                   <p className="mt-3 font-mono text-[10px] text-slate-500">
@@ -775,7 +922,7 @@ export default function PublishingDeskClient() {
                     value={linkedinTitle}
                     onChange={(e) => setLinkedinTitle(e.target.value)}
                     disabled={linkedinLoading}
-                    placeholder="e.g. LinkedIn Mon — Heatmap theater vs dollar-risk clarity"
+                    placeholder="e.g. LinkedIn Fri — Collection is not verification"
                     className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
                   />
                 </label>
@@ -817,11 +964,11 @@ export default function PublishingDeskClient() {
                     disabled={linkedinLoading || linkedinSaving}
                     onClick={() => {
                       linkedinLoadedRef.current = false;
-                      void loadLinkedinDraft({ seedSuggested: true });
+                      void loadLinkedinDraft({ id: linkedinDraftId, resetTemplate: true });
                     }}
-                    className="rounded-lg border border-violet-800/80 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 hover:border-violet-500 disabled:opacity-50"
+                    className="rounded-lg border border-amber-800/80 bg-amber-950/40 px-4 py-2 text-sm font-medium text-amber-100 hover:border-amber-500 disabled:opacity-50"
                   >
-                    {linkedinLoading ? "Loading…" : "Load suggested draft"}
+                    {linkedinLoading ? "Loading…" : "Reset to template"}
                   </button>
                 </div>
                 {linkedinMessage ? (
@@ -933,7 +1080,10 @@ export default function PublishingDeskClient() {
                   </li>
                   <li>
                     <Link
-                      href={PUBLISHING_LINKEDIN_DRAFTS_HREF}
+                      href={
+                        linkedinDrafts.find((d) => d.id === linkedinDraftId)?.docsHref ??
+                        PUBLISHING_LINKEDIN_DRAFTS_HREF
+                      }
                       className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
                     >
                       Docs reader (after Save)

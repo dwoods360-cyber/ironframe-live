@@ -9,9 +9,9 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * Operator LinkedIn draft workbench — load paste-ready founder copy
- * (title + body + research/citations). Pass ?seed=suggested to force-load
- * the heatmap vs dollars draft with claim → citation → Ironframe relief map.
+ * Operator LinkedIn draft workbench — load one catalog slot.
+ * Query: ?id=fri-collection|mon-heatmap|wed-product-demo
+ * Legacy: ?seed=suggested|friday|monday
  */
 export async function GET(request: NextRequest) {
   const auth = await requirePerimeterWorkforceOperator();
@@ -19,11 +19,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }
 
-  const seedSuggested =
-    request.nextUrl.searchParams.get("seed")?.trim().toLowerCase() === "suggested";
+  const seed = request.nextUrl.searchParams.get("seed")?.trim().toLowerCase() ?? "";
+  const id = request.nextUrl.searchParams.get("id")?.trim() ?? "";
+  const resetTemplate =
+    request.nextUrl.searchParams.get("reset")?.trim().toLowerCase() === "1" ||
+    request.nextUrl.searchParams.get("reset")?.trim().toLowerCase() === "true";
+  const seedSuggested = seed === "suggested";
+  const seedFriday = seed === "friday" || seed === "fri";
+  const seedMonday = seed === "monday" || seed === "mon" || seed === "heatmap";
 
   try {
-    const result = await loadLinkedInDeskDraftCore({ seedSuggested });
+    const result = await loadLinkedInDeskDraftCore({
+      id: id || undefined,
+      seedSuggested,
+      seedFriday,
+      seedMonday,
+      resetTemplate,
+    });
     return NextResponse.json(result, { status: 200 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load LinkedIn draft.";
@@ -32,9 +44,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Operator LinkedIn draft workbench — save title + body + research/citations
- * to APP_DOCS. Requires at least one citation URL. Does not promote to
- * Governance Frame or auto-post to LinkedIn.
+ * Save one LinkedIn catalog draft (title + body + research) to APP_DOCS.
  */
 export async function PUT(request: NextRequest) {
   const auth = await requirePerimeterWorkforceOperator();
@@ -42,7 +52,13 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }
 
-  let body: { title?: string; body?: string; research?: string; markdown?: string };
+  let body: {
+    id?: string;
+    title?: string;
+    body?: string;
+    research?: string;
+    markdown?: string;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -51,6 +67,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     const result = await saveLinkedInDeskDraftCore({
+      id: body.id,
       title: body.title,
       body: body.body,
       research: body.research,
@@ -64,8 +81,8 @@ export async function PUT(request: NextRequest) {
         ...result,
         operator: auth.userId,
         message: result.repoSynced
-          ? "Saved title + body + research/citations to APP_DOCS and local repo file."
-          : "Saved title + body + research/citations to APP_DOCS. Copy body into LinkedIn when ready.",
+          ? `Saved ${result.slotLabel} draft to APP_DOCS and local repo file.`
+          : `Saved ${result.slotLabel} draft to APP_DOCS. Copy body into LinkedIn when ready.`,
       },
       { status: 200 },
     );

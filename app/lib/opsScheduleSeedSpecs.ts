@@ -322,7 +322,7 @@ export function nextActionsForSeedSpec(
 export function synopsisForQueueDraft(filename: string): string {
   const base = filename.replace(/\.md$/i, "");
   if (/medshield/i.test(base)) {
-    return "Quarantined Medshield draft — confirm demo-tenant boundary before any public path.";
+    return "Medshield demo-tenant narrate dump — not a public GF promote candidate (auto-calendar skipped).";
   }
   if (/regulatory-delta/i.test(base)) {
     return "Legacy fixture name — should not appear in queue (moved to docs/governance-frame/fixtures/).";

@@ -383,6 +383,8 @@ export function defaultReviewDueAt(from = new Date()): Date {
 
 /**
  * When a draft is staged into briefing-queue, ensure an open REVIEW activity exists.
+ * Skips Medshield demo-tenant narrate dumps (not public GF candidates) and does not
+ * reopen a sourceRef that was already DONE/CANCELLED.
  */
 export async function ensureQueueReviewActivity(args: {
   filename: string;
@@ -391,16 +393,21 @@ export async function ensureQueueReviewActivity(args: {
   const filename = args.filename.trim();
   if (!filename) return null;
 
+  // Demo-tenant Medshield narrate output is illustrative only — never auto-queue for promote.
+  if (/medshield/i.test(filename)) {
+    return null;
+  }
+
   const isNewsletter = /newsletter/i.test(filename) || /ironcast/i.test(filename);
   const kind: OpsActivityKind = isNewsletter ? "NEWSLETTER_REVIEW" : "BRIEFING_REVIEW";
   const existing = await prisma.opsActivity.findFirst({
-    where: {
-      sourceRef: filename,
-      kind,
-      status: { in: OPEN_STATUSES },
-    },
+    where: { sourceRef: filename, kind },
+    orderBy: { updatedAt: "desc" },
   });
-  if (existing) return toSummary(existing);
+  if (existing) {
+    // Open → reuse. Closed → do not spawn a duplicate review card.
+    return toSummary(existing);
+  }
 
   const title =
     args.title?.trim() ||

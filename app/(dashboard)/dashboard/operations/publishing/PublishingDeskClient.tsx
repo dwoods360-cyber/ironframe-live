@@ -118,8 +118,32 @@ export default function PublishingDeskClient() {
       citationCount: number;
       updatedAt: string | null;
       docsHref: string;
+      posted?: boolean;
+      calendarStatus?: string | null;
+      calendarOutcome?: string | null;
     }>
   >([]);
+  const [linkedinPostedArchive, setLinkedinPostedArchive] = useState<
+    Array<{
+      id: string;
+      slotLabel: string;
+      slug: string;
+      title: string;
+      summary: string;
+      bodyLength: number;
+      citationCount: number;
+      updatedAt: string | null;
+      docsHref: string;
+      posted?: boolean;
+      calendarStatus?: string | null;
+      calendarOutcome?: string | null;
+    }>
+  >([]);
+  const [linkedinDraftCounts, setLinkedinDraftCounts] = useState<{
+    total: number;
+    active: number;
+    posted: number;
+  }>({ total: 0, active: 0, posted: 0 });
   const promoteDefaultsSet = useRef(false);
   const promotePanelRef = useRef<HTMLDivElement | null>(null);
   const autoOpenedDraftRef = useRef<string | null>(null);
@@ -304,14 +328,56 @@ export default function PublishingDeskClient() {
           citationCount: number;
           updatedAt: string | null;
           docsHref: string;
+          posted?: boolean;
+          calendarStatus?: string | null;
+          calendarOutcome?: string | null;
+        }>;
+        activeDrafts?: Array<{
+          id: string;
+          slotLabel: string;
+          slug: string;
+          title: string;
+          summary: string;
+          bodyLength: number;
+          citationCount: number;
+          updatedAt: string | null;
+          docsHref: string;
+          posted?: boolean;
+          calendarStatus?: string | null;
+          calendarOutcome?: string | null;
+        }>;
+        postedArchive?: Array<{
+          id: string;
+          slotLabel: string;
+          slug: string;
+          title: string;
+          summary: string;
+          bodyLength: number;
+          citationCount: number;
+          updatedAt: string | null;
+          docsHref: string;
+          posted?: boolean;
+          calendarStatus?: string | null;
+          calendarOutcome?: string | null;
         }>;
         defaultId?: string;
+        counts?: { total: number; active: number; posted: number };
       }>(
         "/api/admin/operations-hub/linkedin/drafts",
         undefined,
         "Failed to list LinkedIn drafts.",
       );
-      setLinkedinDrafts(data.drafts ?? []);
+      const active = data.activeDrafts ?? (data.drafts ?? []).filter((d) => !d.posted);
+      const archived = data.postedArchive ?? (data.drafts ?? []).filter((d) => d.posted);
+      setLinkedinDrafts(active);
+      setLinkedinPostedArchive(archived);
+      setLinkedinDraftCounts(
+        data.counts ?? {
+          total: active.length + archived.length,
+          active: active.length,
+          posted: archived.length,
+        },
+      );
       return data.defaultId ?? "fri-collection";
     } catch (err) {
       setLinkedinError(err instanceof Error ? err.message : "Failed to list LinkedIn drafts.");
@@ -842,13 +908,20 @@ export default function PublishingDeskClient() {
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
               <h2 className="text-lg font-semibold text-white">LinkedIn drafts</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Founder Mon / Wed / Fri slots — select one to edit. Manual paste to LinkedIn only; no
-                GF Approve / promote on this desk.
+                {linkedinDraftCounts.total} catalog slots · {linkedinDraftCounts.active} active ·{" "}
+                {linkedinDraftCounts.posted} posted (archived). Manual paste to LinkedIn only; no GF
+                Approve / promote on this desk.
               </p>
-              <ul className="mt-4 space-y-3">
+
+              <h3 className="mt-5 font-mono text-[10px] uppercase tracking-widest text-cyan-400">
+                Active ({linkedinDraftCounts.active})
+              </h3>
+              <ul className="mt-2 space-y-3">
                 {linkedinDrafts.length === 0 ? (
                   <li className="text-sm text-slate-500">
-                    {linkedinLoading ? "Loading drafts…" : "No LinkedIn drafts yet."}
+                    {linkedinLoading
+                      ? "Loading drafts…"
+                      : "No active LinkedIn drafts — all slots are in Posted archive."}
                   </li>
                 ) : (
                   linkedinDrafts.map((draft) => {
@@ -895,6 +968,59 @@ export default function PublishingDeskClient() {
                           {draft.updatedAt ? (
                             <span>saved {new Date(draft.updatedAt).toLocaleString()}</span>
                           ) : null}
+                        </div>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+
+              <h3 className="mt-6 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                Posted archive ({linkedinDraftCounts.posted})
+              </h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Moves here when the matching Ops Calendar card is Done. Still editable for reuse —
+                not deleted.
+              </p>
+              <ul className="mt-2 space-y-3">
+                {linkedinPostedArchive.length === 0 ? (
+                  <li className="text-sm text-slate-600">No posted slots yet.</li>
+                ) : (
+                  linkedinPostedArchive.map((draft) => {
+                    const selected = linkedinDraftId === draft.id;
+                    return (
+                      <li
+                        key={draft.id}
+                        id={`linkedin-draft-${draft.id}`}
+                        className={`rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-sm opacity-80 ${
+                          selected ? "ring-1 ring-slate-500" : ""
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded bg-emerald-950 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-emerald-300">
+                                Posted · {draft.slotLabel}
+                              </span>
+                              <span className="font-medium text-slate-300">{draft.title}</span>
+                            </div>
+                            <div className="mt-1 font-mono text-[10px] text-slate-600">{draft.slug}</div>
+                            {draft.calendarOutcome ? (
+                              <p className="mt-1 text-xs text-slate-500 line-clamp-2">
+                                {draft.calendarOutcome}
+                              </p>
+                            ) : draft.summary ? (
+                              <p className="mt-1 text-xs text-slate-500 line-clamp-2">{draft.summary}</p>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => selectLinkedinDraft(draft.id)}
+                            className="shrink-0 text-xs text-slate-400 hover:text-cyan-300 hover:underline"
+                            aria-pressed={selected}
+                          >
+                            {selected ? "Selected" : "Open"}
+                          </button>
                         </div>
                       </li>
                     );
@@ -1081,8 +1207,9 @@ export default function PublishingDeskClient() {
                   <li>
                     <Link
                       href={
-                        linkedinDrafts.find((d) => d.id === linkedinDraftId)?.docsHref ??
-                        PUBLISHING_LINKEDIN_DRAFTS_HREF
+                        [...linkedinDrafts, ...linkedinPostedArchive].find(
+                          (d) => d.id === linkedinDraftId,
+                        )?.docsHref ?? PUBLISHING_LINKEDIN_DRAFTS_HREF
                       }
                       className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
                     >

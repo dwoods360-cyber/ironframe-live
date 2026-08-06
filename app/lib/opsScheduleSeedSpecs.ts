@@ -869,18 +869,15 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "LinkedIn Mon — Heatmap theater vs dollar-risk clarity",
       kind: "OPS_GENERAL",
-      status: "IN_PROGRESS",
+      status: "DONE",
       dueAt: "2026-08-06T20:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-08-06-heatmap",
-      href: "/dashboard/operations/publishing?desk=linkedin",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=mon-heatmap",
       priorityHint: 5,
       synopsis:
-        "Founder LinkedIn (catch-up): paste heatmap vs estimated whole-cent exposure post from Publishing Desk → LinkedIn tab (or docs/marketing-strategy/linkedin-drafts-week-1.md). Mark Done with LinkedIn URL.",
-      nextActions: [
-        "Open Publishing Desk → LinkedIn; confirm paste-ready body",
-        "Publish from Wil personal profile (company amplify after)",
-        "Mark Done with public LinkedIn post URL in outcome",
-      ],
+        "Founder LinkedIn (catch-up): paste heatmap vs estimated whole-cent exposure post from Publishing Desk → LinkedIn tab.",
+      outcome:
+        "DONE 2026-08-06 — Posted from Wil personal profile: LinkedIn Mon — Heatmap theater vs dollar-risk clarity. Add public LinkedIn URL when available; company page amplify next.",
     },
     {
       title: "LinkedIn Wed — point to /product-demo (pre-video)",
@@ -888,7 +885,7 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       status: "PLANNED",
       dueAt: "2026-08-11T15:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-07-23",
-      href: "/dashboard/operations/publishing?desk=linkedin",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=wed-product-demo",
       priorityHint: 6,
       synopsis:
         "Founder LinkedIn: Wednesday post to /product-demo ahead of rescheduled video demo publishes.",
@@ -899,7 +896,7 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       status: "PLANNED",
       dueAt: "2026-08-08T15:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-08-08-collection",
-      href: "/dashboard/operations/publishing?desk=linkedin",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=fri-collection",
       priorityHint: 7,
       synopsis:
         "Founder LinkedIn: Friday control lesson — collection ≠ verification; hard tenant boundaries vs tag-only soft tenancy. CTA workflow review.",

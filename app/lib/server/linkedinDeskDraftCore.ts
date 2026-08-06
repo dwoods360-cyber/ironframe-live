@@ -8,6 +8,7 @@ import {
   upsertAppDocument,
 } from "@/app/lib/server/appDocumentStore";
 import { inferReadingLevelFromSlug } from "@/lib/appDocumentSlug";
+import prisma from "@/lib/prisma";
 
 /** APP_DOCS slug — legacy Fri mirror for the /docs reader deep link. */
 export const LINKEDIN_DRAFTS_APP_DOC_SLUG = "marketing-strategy/linkedin-drafts-week-1";
@@ -210,6 +211,8 @@ export type LinkedInDraftCatalogEntry = {
   slotLabel: "Mon" | "Wed" | "Fri";
   slug: string;
   repoFile: string;
+  /** Ops calendar sourceRef that marks this slot posted when DONE/CANCELLED. */
+  opsSourceRef: string;
   defaultTitle: string;
   defaultBody: string;
   defaultResearch: string;
@@ -222,6 +225,7 @@ export const LINKEDIN_DRAFT_CATALOG: LinkedInDraftCatalogEntry[] = [
     slotLabel: "Mon",
     slug: "marketing-strategy/linkedin-drafts/mon-heatmap",
     repoFile: "docs/marketing-strategy/linkedin-drafts-mon-heatmap.md",
+    opsSourceRef: "marketing/linkedin-2026-08-06-heatmap",
     defaultTitle: LINKEDIN_SUGGESTED_DRAFT_TITLE,
     defaultBody: LINKEDIN_SUGGESTED_DRAFT_BODY,
     defaultResearch: LINKEDIN_SUGGESTED_DRAFT_RESEARCH,
@@ -231,6 +235,7 @@ export const LINKEDIN_DRAFT_CATALOG: LinkedInDraftCatalogEntry[] = [
     slotLabel: "Wed",
     slug: "marketing-strategy/linkedin-drafts/wed-product-demo",
     repoFile: "docs/marketing-strategy/linkedin-drafts-wed-product-demo.md",
+    opsSourceRef: "marketing/linkedin-2026-07-23",
     defaultTitle: LINKEDIN_WED_DRAFT_TITLE,
     defaultBody: LINKEDIN_WED_DRAFT_BODY,
     defaultResearch: LINKEDIN_WED_DRAFT_RESEARCH,
@@ -240,6 +245,7 @@ export const LINKEDIN_DRAFT_CATALOG: LinkedInDraftCatalogEntry[] = [
     slotLabel: "Fri",
     slug: "marketing-strategy/linkedin-drafts/fri-collection",
     repoFile: "docs/marketing-strategy/linkedin-drafts-week-1.md",
+    opsSourceRef: "marketing/linkedin-2026-08-08-collection",
     defaultTitle: LINKEDIN_FRI_DRAFT_TITLE,
     defaultBody: LINKEDIN_FRI_DRAFT_BODY,
     defaultResearch: LINKEDIN_FRI_DRAFT_RESEARCH,
@@ -344,7 +350,14 @@ export type LinkedInDeskDraftListItem = {
   citationCount: number;
   updatedAt: string | null;
   docsHref: string;
+  /** True when the matching Ops calendar card is DONE or CANCELLED. */
+  posted: boolean;
+  /** Ops calendar status for this slot, if any. */
+  calendarStatus: "PLANNED" | "IN_PROGRESS" | "IN_REVIEW" | "DONE" | "CANCELLED" | null;
+  opsSourceRef: string;
+  calendarOutcome: string | null;
 };
+
 
 async function persistDraft(input: {
   entry: LinkedInDraftCatalogEntry;
@@ -450,11 +463,28 @@ async function ensureCatalogDraft(
 /** List Mon/Wed/Fri LinkedIn drafts (seeds defaults when missing). */
 export async function listLinkedInDeskDraftsCore(): Promise<{
   drafts: LinkedInDeskDraftListItem[];
+  activeDrafts: LinkedInDeskDraftListItem[];
+  postedArchive: LinkedInDeskDraftListItem[];
   defaultId: LinkedInDraftId;
+  counts: { total: number; active: number; posted: number };
 }> {
+  const sourceRefs = LINKEDIN_DRAFT_CATALOG.map((e) => e.opsSourceRef);
+  const calendarRows = await prisma.opsActivity.findMany({
+    where: { sourceRef: { in: sourceRefs } },
+    orderBy: { updatedAt: "desc" },
+  });
+  const calendarByRef = new Map<string, (typeof calendarRows)[number]>();
+  for (const row of calendarRows) {
+    if (!row.sourceRef || calendarByRef.has(row.sourceRef)) continue;
+    calendarByRef.set(row.sourceRef, row);
+  }
+
   const drafts: LinkedInDeskDraftListItem[] = [];
   for (const entry of LINKEDIN_DRAFT_CATALOG) {
     const loaded = await ensureCatalogDraft(entry);
+    const cal = calendarByRef.get(entry.opsSourceRef) ?? null;
+    const calendarStatus = (cal?.status ?? null) as LinkedInDeskDraftListItem["calendarStatus"];
+    const posted = calendarStatus === "DONE" || calendarStatus === "CANCELLED";
     drafts.push({
       id: loaded.id,
       slotLabel: loaded.slotLabel,
@@ -465,9 +495,29 @@ export async function listLinkedInDeskDraftsCore(): Promise<{
       citationCount: extractLinkedInResearchCitationUrls(loaded.research).length,
       updatedAt: loaded.updatedAt,
       docsHref: `/docs/${loaded.slug}`,
+      posted,
+      calendarStatus,
+      opsSourceRef: entry.opsSourceRef,
+      calendarOutcome: cal?.outcome?.trim() || null,
     });
   }
-  return { drafts, defaultId: LINKEDIN_DEFAULT_DRAFT_ID };
+
+  const activeDrafts = drafts.filter((d) => !d.posted);
+  const postedArchive = drafts.filter((d) => d.posted);
+  const defaultId =
+    activeDrafts[0]?.id ?? postedArchive[0]?.id ?? LINKEDIN_DEFAULT_DRAFT_ID;
+
+  return {
+    drafts,
+    activeDrafts,
+    postedArchive,
+    defaultId,
+    counts: {
+      total: drafts.length,
+      active: activeDrafts.length,
+      posted: postedArchive.length,
+    },
+  };
 }
 
 /**

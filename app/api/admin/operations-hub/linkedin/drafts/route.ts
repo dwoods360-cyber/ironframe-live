@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * List LinkedIn founder drafts (Mon / Wed / Fri) for the Publishing Desk.
+ * Returns active vs posted-archive buckets (posted = matching Ops calendar DONE).
  * Seeds catalog defaults when a slot has never been saved. Does not promote
  * or post to LinkedIn.
  */

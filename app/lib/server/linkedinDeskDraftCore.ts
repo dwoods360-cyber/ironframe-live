@@ -109,7 +109,7 @@ export const LINKEDIN_FRI_DRAFT_BODY = `**Collection is not verification.**
 
 A long connector list can look like maturity—until an auditor asks:
 
-**Where did this control assertion come from, which legal entity does it belong to, and who authorized it?**
+"Where did this control assertion come from, which legal entity does it belong to, and who authorized it?"
 
 Weak tenant separation makes that question harder to answer.
 
@@ -126,17 +126,16 @@ When tenant scope depends on a tag rather than a hard boundary, you have found t
 
 The control-first pattern is:
 
-**Hard tenant boundaries.
-Quarantine before persistence.
-Human authorization before cross-entity export.**
+• Hard tenant boundaries
+• Quarantine before persistence
+• Human authorization before cross-entity export
 
 Not simply more connectors.
 
-I’m happy to walk through one multi-entity evidence workflow with you in 10–15 minutes:
-
+I'm happy to walk one multi-entity evidence path with you in 10–15 minutes:
 https://ironframegrc.com/register/contact
 
-#GRC #MultiEntity #AuditReadiness #CyberGovernance #CISO #MSSP`;
+#GRC #MultiTenant #CyberSecurity #MSSP #RiskGovernance`;
 
 export const LINKEDIN_FRI_DRAFT_RESEARCH = `Use this section to verify that each public claim is real and that Ironframe can relieve the pain — not as LinkedIn copy.
 

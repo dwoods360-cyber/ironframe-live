@@ -5,6 +5,7 @@ import type { Prisma } from "@prisma/client";
 import { normalizeAccountDomain } from "@/app/lib/ingress/ironleadsSuspectIdentity";
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import { isSalesDispatchHoldCompany } from "@/app/lib/approvalDispatchValidation";
+import { emailMatchesAccountDomain } from "@/app/lib/server/ironleadsAccountResearchBrief";
 import {
   enrichPersonWithProspeo,
   isProspeoConfigured,
@@ -171,42 +172,84 @@ export async function enrichIronleadsSuspectWithProspeo(
     Boolean(person?.email) &&
     person?.emailStatus !== "INVALID" &&
     person?.emailStatus !== "unavailable";
+  const employerEmailOk =
+    emailOk && emailMatchesAccountDomain(person?.email ?? null, domain);
+  if (person?.email && emailOk && !employerEmailOk) {
+    notes.push(
+      `Rejected Prospeo email ${person.email} — not on employer domain ${domain}`,
+    );
+    nextMeta.prospeoRejectedEmail = {
+      at: now,
+      email: person.email,
+      titleReturned: person.title ?? null,
+      domainExpected: domain,
+      reason: "wrong_employer_domain",
+      source: "prospeo_enrich-person",
+    };
+  }
 
-  if (apply && person?.email && emailOk && placeholderEmail) {
+  if (apply && person?.email && employerEmailOk && placeholderEmail) {
     contactUpdate.email = person.email.toLowerCase();
     appliedEmail = true;
     notes.push(`Applied work email ${person.email}`);
-  } else if (person?.email && emailOk && !placeholderEmail) {
+  } else if (person?.email && employerEmailOk && !placeholderEmail) {
     notes.push("Contact already has a non-placeholder email — left unchanged");
   }
 
   if (apply && person?.fullName && /ironleads|prospect|suspect/i.test(contact.fullName)) {
     contactUpdate.fullName = person.fullName;
   }
-  if (apply && person?.title) {
+  // Only adopt Prospeo title when the email (or match) is on the employer domain —
+  // prevents "Board Member" / side-org titles from overwriting Kyber President, etc.
+  if (apply && person?.title && employerEmailOk) {
     contactUpdate.title = person.title;
   }
 
   if (person) {
+    const priorBuyerEmail =
+      typeof namedBuyer.email === "string" ? namedBuyer.email : null;
+    const keepPriorEmployerEmail =
+      priorBuyerEmail && emailMatchesAccountDomain(priorBuyerEmail, domain)
+        ? priorBuyerEmail
+        : null;
     nextMeta.namedBuyer = {
       ...namedBuyer,
       fullName: person.fullName || buyerName,
-      title:
-        person.title ||
-        (typeof namedBuyer.title === "string" ? namedBuyer.title : undefined) ||
-        null,
-      email: person.email || (typeof namedBuyer.email === "string" ? namedBuyer.email : null),
-      emailStatus:
-        person.emailStatus ||
-        (typeof namedBuyer.emailStatus === "string" ? namedBuyer.emailStatus : null),
+      title: employerEmailOk
+        ? person.title ||
+          (typeof namedBuyer.title === "string" ? namedBuyer.title : undefined) ||
+          null
+        : (typeof namedBuyer.title === "string" ? namedBuyer.title : null) ||
+          contact.title ||
+          null,
+      email: employerEmailOk
+        ? person.email
+        : keepPriorEmployerEmail,
+      emailStatus: employerEmailOk
+        ? person.emailStatus ||
+          (typeof namedBuyer.emailStatus === "string" ? namedBuyer.emailStatus : null)
+        : keepPriorEmployerEmail
+          ? (typeof namedBuyer.emailStatus === "string" ? namedBuyer.emailStatus : null)
+          : "rejected_wrong_domain",
       linkedinUrl:
         person.linkedinUrl ||
         (typeof namedBuyer.linkedinUrl === "string" ? namedBuyer.linkedinUrl : null),
       source: "prospeo_enrich-person",
-      verifiedAt: person.email ? now : namedBuyer.verifiedAt ?? null,
+      verifiedAt: employerEmailOk && person.email ? now : namedBuyer.verifiedAt ?? null,
+      ...(employerEmailOk
+        ? {}
+        : {
+            rejectedEnrichment: {
+              at: now,
+              email: person.email,
+              titleReturned: person.title ?? null,
+              verdict: "REJECTED_WRONG_EMPLOYER_DOMAIN",
+              domainExpected: domain,
+            },
+          }),
     };
 
-    if (person.email) {
+    if (person.email && employerEmailOk) {
       const prior = Array.isArray(nextMeta.prospeoVerifiedEmails)
         ? [...nextMeta.prospeoVerifiedEmails]
         : [];

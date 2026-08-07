@@ -8,6 +8,26 @@ function errorText(error: unknown): string {
   return String(error ?? "");
 }
 
+/** True after the one automatic hard-reload for this tab session already ran. */
+export function hasClientDriftReloadAlreadyAttempted(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(CHUNK_RELOAD_SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Clear the one-shot latch (e.g. after a successful fresh login). */
+export function clearClientDriftReloadLatch(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(CHUNK_RELOAD_SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Stale JS after deploy/HMR — chunk load failures. */
 export function isChunkLoadError(error: unknown): boolean {
   const text = errorText(error);
@@ -23,22 +43,13 @@ export function isChunkLoadError(error: unknown): boolean {
  */
 export function isStaleDeploymentClientError(error: unknown): boolean {
   const text = errorText(error);
+  // Only explicit deploy/action-id / chunk-adjacent drift — NOT generic
+  // "An error occurred in the Server Components render" (that is every RSC bug).
   if (
     /failed to find server action/i.test(text) ||
     /older or newer deployment/i.test(text) ||
     (/reading ['"]workers['"]/i.test(text) && /server action|deployment/i.test(text)) ||
-    /cannot read properties of undefined \(reading ['"]workers['"]\)/i.test(text) ||
-    /server components render/i.test(text) ||
-    /error.*server component/i.test(text)
-  ) {
-    return true;
-  }
-  // Client global-error often receives an Error with empty/generic message + digest only.
-  if (
-    error instanceof Error &&
-    typeof (error as Error & { digest?: string }).digest === "string" &&
-    (error as Error & { digest?: string }).digest!.length > 0 &&
-    (!error.message || /^(an error occurred|application error)/i.test(error.message.trim()))
+    /cannot read properties of undefined \(reading ['"]workers['"]\)/i.test(text)
   ) {
     return true;
   }

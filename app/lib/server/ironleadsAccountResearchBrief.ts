@@ -189,6 +189,35 @@ export function isPromoteReadyWorkEmail(email: string | null | undefined): boole
   return true;
 }
 
+/**
+ * Employer-domain ownership check — blocks Prospeo board/side-gig inboxes
+ * (e.g. mikeg@marciacourageinaction.org on a kybersecure.com SUSPECT).
+ * When accountDomain is missing, returns true so legacy rows are not blocked.
+ */
+export function emailMatchesAccountDomain(
+  email: string | null | undefined,
+  accountDomain: string | null | undefined,
+): boolean {
+  const host = (email ?? "").trim().toLowerCase().split("@")[1] ?? "";
+  const domain = (accountDomain ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("/")[0]
+    ?.replace(/\.$/, "");
+  if (!host || !domain) return !domain;
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+/** Promote-ready person inbox that also belongs to the deal's employer domain. */
+export function isPromoteReadyEmployerEmail(
+  email: string | null | undefined,
+  accountDomain: string | null | undefined,
+): boolean {
+  return isPromoteReadyWorkEmail(email) && emailMatchesAccountDomain(email, accountDomain);
+}
+
 export type BuildAccountResearchBriefInput = {
   company: string;
   websiteUrl: string | null;
@@ -225,6 +254,8 @@ export type BuildAccountResearchBriefInput = {
    * Company intakes (info@/hello@) keep Email UNKNOWN even when hasRealEmail is true.
    */
   contactEmail?: string | null;
+  /** Deal account domain — Email PASS requires employer-domain ownership when set. */
+  accountDomain?: string | null;
   /**
    * Operator HOLD archive / channel_competitor — forces Path B FAIL/HOLD even when
    * the company is not on the static SALES_DISPATCH_HOLD_COMPANIES list.
@@ -256,6 +287,8 @@ export function mergeNamedBuyerIntoBriefMembers(input: {
   /** Contact-level email when namedBuyer.email is absent. */
   contactEmail?: string | null;
   contactTitle?: string | null;
+  /** Deal account domain — wrong-employer Prospeo hits are not merged as promote-ready. */
+  accountDomain?: string | null;
 }): BriefCommitteeMemberInput[] {
   const members = [...input.members];
   const buyer = input.namedBuyer;
@@ -264,9 +297,20 @@ export function mergeNamedBuyerIntoBriefMembers(input: {
   if (!isPlausiblePersonName(buyer.fullName)) return members;
 
   const nameKey = buyer.fullName.trim().toLowerCase();
+  const buyerEmail = buyer.email?.trim().toLowerCase() || null;
+  const contactEmail = input.contactEmail?.trim().toLowerCase() || null;
   const email =
-    (buyer.email?.trim() || input.contactEmail?.trim() || "").toLowerCase() || null;
-  const emailStatus = buyer.emailStatus?.trim() || (email ? "operator_verified" : null);
+    (buyerEmail && emailMatchesAccountDomain(buyerEmail, input.accountDomain)
+      ? buyerEmail
+      : null) ||
+    (contactEmail && emailMatchesAccountDomain(contactEmail, input.accountDomain)
+      ? contactEmail
+      : null);
+  const emailStatus = email
+    ? buyerEmail && email === buyerEmail
+      ? buyer.emailStatus?.trim() || "operator_verified"
+      : "contact_email"
+    : null;
   const role =
     buyer.role?.trim() ||
     inferBriefRoleFromTitle(buyer.title || input.contactTitle) ||
@@ -485,14 +529,18 @@ export function buildAccountResearchBrief(
   const memberPromoteReadyEmail = namedMembers.some((m) =>
     m.emails.some(
       (e) =>
-        isPromoteReadyWorkEmail(e.email) &&
+        isPromoteReadyEmployerEmail(e.email, input.accountDomain) &&
         e.status !== "pattern_guess" &&
         e.status !== "INVALID" &&
-        e.status !== "unavailable",
+        e.status !== "unavailable" &&
+        e.status !== "rejected_wrong_domain",
     ),
   );
-  const contactPromoteReady = isPromoteReadyWorkEmail(input.contactEmail);
-  /** Email gate PASS — person/work seat, not company intake alone. */
+  const contactPromoteReady = isPromoteReadyEmployerEmail(
+    input.contactEmail,
+    input.accountDomain,
+  );
+  /** Email gate PASS — person/work seat on employer domain, not company intake alone. */
   const hasPromoteReadyEmail = memberPromoteReadyEmail || contactPromoteReady;
 
   const fitHaystack = [

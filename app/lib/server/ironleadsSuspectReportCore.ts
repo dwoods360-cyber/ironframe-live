@@ -315,6 +315,7 @@ export async function buildIronleadsSuspectReport(
       : null,
     contactEmail: hasRealEmail ? contact.email : null,
     contactTitle: contact.title,
+    accountDomain: deal?.accountDomain ?? null,
   });
   const reportCorpus = [
     contact.company,
@@ -359,6 +360,7 @@ export async function buildIronleadsSuspectReport(
     socialProfiles: location.buyingCommittee?.socialProfiles ?? [],
     hasRealEmail,
     contactEmail: hasRealEmail ? contact.email : null,
+    accountDomain: deal?.accountDomain ?? null,
     pathBHold,
     hasPhone,
     generatedAt: new Date().toISOString(),

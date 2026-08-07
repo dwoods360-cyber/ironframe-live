@@ -29,8 +29,44 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/** Operator dossier patches may omit builder-only arrays — never throw on .length. */
+function normalizeBriefForPanel(brief: AccountResearchBrief): AccountResearchBrief {
+  return {
+    ...brief,
+    triggerEvidence: Array.isArray(brief.triggerEvidence) ? brief.triggerEvidence : [],
+    sourceLedger: Array.isArray(brief.sourceLedger) ? brief.sourceLedger : [],
+    buyerMap: Array.isArray(brief.buyerMap) ? brief.buyerMap : [],
+    linkedInIntelligence: brief.linkedInIntelligence ?? {
+      urls: [],
+      operatorPrompt:
+        "Open company LinkedIn in a browser (link-only). Note hiring/posts for Path B timing — do not scrape.",
+    },
+    youtubeIntelligence: brief.youtubeIntelligence ?? {
+      urls: [],
+      operatorPrompt: "No YouTube channel URL found yet.",
+    },
+    outreach: {
+      ...brief.outreach,
+      claimsToAvoid: Array.isArray(brief.outreach?.claimsToAvoid)
+        ? brief.outreach.claimsToAvoid
+        : [],
+    },
+    snapshot: {
+      ...brief.snapshot,
+      relevantServices: Array.isArray(brief.snapshot?.relevantServices)
+        ? brief.snapshot.relevantServices
+        : [],
+      existingGrcProducts: Array.isArray(brief.snapshot?.existingGrcProducts)
+        ? brief.snapshot.existingGrcProducts
+        : [],
+    },
+  };
+}
+
 export default function AccountResearchBriefPanel({ brief }: { brief: AccountResearchBrief }) {
-  const { snapshot, gates, outreach, competitiveConflict } = brief;
+  const safe = normalizeBriefForPanel(brief);
+  const { snapshot, gates, outreach, competitiveConflict } = safe;
+  brief = safe;
 
   return (
     <section className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-5">

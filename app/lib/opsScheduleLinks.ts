@@ -88,6 +88,8 @@ export function hrefForOpsSourceRef(
   if (base.startsWith("eng/eu-ai-act") || base.startsWith("eng/board-packet-ai-act")) {
     return "/dashboard/operations/publishing?desk=research&draft=2026-08-02-draft-research-eu-ai-act-august.md";
   }
+  // NYDFS / CMMC eng readiness cards → stakeholder-deck index (board corpus landing).
+  // Child docs: /docs/stakeholder-deck/product-vision, …/ironframe-monetization-market-blueprint-2026-q2, etc.
   if (base.startsWith("eng/nydfs") || base.startsWith("eng/cmmc")) {
     return "/docs/stakeholder-deck";
   }

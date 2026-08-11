@@ -4,6 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
+  extractIndependentLinkedInCitationUrls,
+  extractLinkedInResearchCitationUrls,
   isLinkedInOpsSourceRef,
   linkedInDeskAppDocSlug,
   linkedInDeskIdFromSourceRef,
@@ -58,7 +60,7 @@ export const LINKEDIN_RESEARCH_TEMPLATE = `Use this section to verify that each 
 
 | Post claim (paraphrase) | What the research actually supports | Citation (full URL — open before post) | How Ironframe relieves it (product truth only) |
 |---|---|---|---|
-| [Paste claim from post] | [What source actually says — no stretch] | [https://…] | [Specific Ironframe control/workflow — Mandate 16 safe] |
+| [Paste claim from post] | [What source actually says — no stretch] | [Independent https://… required] · [GF https://research.ironframegrc.com/briefings/… when published] | [Specific Ironframe control/workflow — Mandate 16 safe] |
 | | | | |
 
 ### Ironframe product truth (what we can honestly offer)
@@ -71,6 +73,8 @@ export const LINKEDIN_RESEARCH_TEMPLATE = `Use this section to verify that each 
 ### Pre-post checklist
 
 - [ ] Opened each citation URL and confirmed the claim paraphrase still matches the source.
+- [ ] At least one **outside/independent** citation (not *.ironframegrc.com).
+- [ ] When a published GF briefing maps the theme, include it as a **secondary** cite (research.ironframegrc.com/briefings/…) — does not replace independent.
 - [ ] Post body avoids Mandate 16 ban phrases.
 - [ ] Any number, CAGR, or customer outcome removed unless separately verified.
 - [ ] Copy body only (not this research block) into LinkedIn.
@@ -90,6 +94,7 @@ export const LINKEDIN_SUGGESTED_DRAFT_RESEARCH = `Use this section to verify tha
 | Boards/finance need financial exposure, not only ordinal colors | Board cyber oversight guidance pushes reporting in business/financial terms and quantified potential financial impacts / probable loss ranges — not tech-only or color-only packs | NACD–ISA (2026). *Director's Handbook on Cyber-Risk Oversight* (5th ed.), Principle 5 (measurement & reporting). https://www.nacdonline.org/all-governance/governance-resources/governance-research/director-handbooks/2026-cyber-risk-oversight/ · Principle 5: https://www.nacdonline.org/all-governance/governance-resources/governance-research/director-handbooks/2026-cyber-risk-oversight/cyber-risk-handbook-principles-2026/principle-5-guide-cybersecurity-risk-measurement-reporting/ · PDF: https://www.nacdonline.org/globalassets/public-pdfs/2026_directors-handbook-cyber-risk_accessible.pdf | Path B Command Design Partner makes estimated dollar exposure + evidence + enclaves the daily operating loop, not a quarterly color chart. |
 | Quantification in financial terms is a recognized discipline (not Ironframe inventing “true ALE”) | Open FAIR is a standard model for analyzing information/operational risk in financial terms; complements frameworks that leave “how to quantify” underspecified | The Open Group Open FAIR (O-RT / O-RA). Overview: https://www.fairinstitute.org/what-is-fair · Open Group standards page (confirm current URLs before citing in public). | Ironframe uses **estimated** loss exposure / ranges stored in **whole-cent integers** — not a claim that only Open FAIR is valid, and not “true ALE as accounting dollars” (Mandate 16). |
 | Ordinal board packs under-inform financial impact | Practitioner board-reporting guidance: heatmaps/ordinal scales are common but often fail to show financial impact; quantification is used to support spend/appetite decisions | FAIR Institute summary of Jack Jones / ISACA board-reporting theme: https://www.fairinstitute.org/blog/improving-how-cyber-risk-is-reported-to-the-board (also locate the underlying ISACA Journal piece before quoting page numbers). | Workflow review CTA: walk one evidence → scenario → exposure path in 10–15 minutes. |
+| Color dashboards / point-in-time packs under-answer decision provenance | GF published: quantitative risk without false precision; color dashboards alone cannot establish evidence integrity or decision provenance | Secondary GF: https://research.ironframegrc.com/briefings/2026-03-12-market-grc-2019-today · Current pain themes: https://research.ironframegrc.com/briefings/2026-07-15-research-grc-current-pain | Same Heatmap Amnesty / Control-to-Capital relief path (Mandate 16). |
 | SEC / disclosure raises accountability for material cyber impact | U.S. public-company cyber disclosure (Item 1.05 / Item 106 regime) increases accountability; materiality includes **quantitative and qualitative** factors — **not** a mandate to use FAIR/ALE | SEC cybersecurity disclosure rules (verify current rule text / adopting release before any absolute claim): start at https://www.sec.gov/ and search “cybersecurity risk management strategy governance and incident disclosure”. Internal claim lock: \`docs/sales/control-to-capital-market-narrative.md\`. | Dollars improve defensibility of board/export artifacts; never claim “SEC requires FAIR.” |
 
 ### Ironframe product truth (what we can honestly offer)
@@ -102,6 +107,8 @@ export const LINKEDIN_SUGGESTED_DRAFT_RESEARCH = `Use this section to verify tha
 ### Pre-post checklist
 
 - [ ] Opened each citation URL and confirmed the claim paraphrase still matches the source.
+- [ ] At least one **outside/independent** citation (not *.ironframegrc.com).
+- [ ] When a published GF briefing maps the theme, include it as a **secondary** cite (research.ironframegrc.com/briefings/…) — does not replace independent.
 - [ ] Post body avoids Mandate 16 ban phrases.
 - [ ] Any number, CAGR, or customer outcome removed unless separately verified.
 - [ ] Copy body only (not this research block) into LinkedIn.
@@ -149,10 +156,10 @@ export const LINKEDIN_FRI_DRAFT_RESEARCH = `Use this section to verify that each
 
 | Post claim (paraphrase) | What the research actually supports | Citation (full URL — open before post) | How Ironframe relieves it (product truth only) |
 |---|---|---|---|
-| Collection is not verification | Cloud-era GRC improved collection speed; assurance still requires validation, legal-entity scope, durable provenance, access isolation, and human interpretation | GF published briefing: https://research.ironframegrc.com/briefings/2026-05-14-connector-count-sovereign-enclaves · Part 2: https://research.ironframegrc.com/briefings/2026-02-12-market-grc-2009-2018 | Hard tenant enclaves + quarantine-before-persist + HITL before cross-entity export — not connector-count theater. |
-| Auditor asks source / entity / authorization | Assurance asks provenance, scope, and who authorized the assertion — connector count alone does not answer | https://research.ironframegrc.com/briefings/2026-05-14-connector-count-sovereign-enclaves | Evidence objects carry tenant scope; exports require human authorization across entity boundaries. |
-| Tag-only tenancy blends client evidence | Soft separation (labels/tags in a shared repo) can allow cross-client bleed in workflows | Product narrative: https://ironframegrc.com/docs/sales/control-to-capital-market-narrative | System-enforced tenant boundaries (not tag-only); MSSP/multi-entity Path B design. |
-| Hard boundaries + quarantine + human auth | Control-first pattern for multi-entity operators | https://ironframegrc.com/docs/sales/control-to-capital-market-narrative · CTA: https://ironframegrc.com/register/contact | Workflow review walks one multi-entity evidence path in 10–15 minutes. |
+| Collection is not verification | Cloud-era GRC improved collection speed; assurance still requires validation, legal-entity scope, durable provenance, access isolation, and human interpretation | NIST SP 800-53 Rev. 5 emphasizes system and communications protection / access control boundaries — collection alone is not assurance: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final · GF published briefing (secondary): https://research.ironframegrc.com/briefings/2026-05-14-connector-count-sovereign-enclaves · Part 2: https://research.ironframegrc.com/briefings/2026-02-12-market-grc-2009-2018 | Hard tenant enclaves + quarantine-before-persist + HITL before cross-entity export — not connector-count theater. |
+| Auditor asks source / entity / authorization | Assurance asks provenance, scope, and who authorized the assertion — connector count alone does not answer | Same NIST SP 800-53 Rev. 5 link · https://research.ironframegrc.com/briefings/2026-05-14-connector-count-sovereign-enclaves | Evidence objects carry tenant scope; exports require human authorization across entity boundaries. |
+| Tag-only tenancy blends client evidence | Soft separation (labels/tags in a shared repo) can allow cross-client bleed in workflows | Product narrative (Ironframe): https://ironframegrc.com/docs/sales/control-to-capital-market-narrative | System-enforced tenant boundaries (not tag-only); MSSP/multi-entity Path B design. |
+| Hard boundaries + quarantine + human auth | Control-first pattern for multi-entity operators | CTA: https://ironframegrc.com/register/contact | Workflow review walks one multi-entity evidence path in 10–15 minutes. |
 
 ### Ironframe product truth (what we can honestly offer)
 
@@ -163,6 +170,8 @@ export const LINKEDIN_FRI_DRAFT_RESEARCH = `Use this section to verify that each
 ### Pre-post checklist
 
 - [ ] Opened each citation URL and confirmed the claim paraphrase still matches the source.
+- [ ] At least one **outside/independent** citation (not *.ironframegrc.com).
+- [ ] When a published GF briefing maps the theme, include it as a **secondary** cite (research.ironframegrc.com/briefings/…) — does not replace independent.
 - [ ] Post body avoids Mandate 16 ban phrases.
 - [ ] Copy body only (not this research block) into LinkedIn.
 - [ ] Calendar card Done with post URL after publish.
@@ -197,8 +206,8 @@ https://ironframegrc.com/register/contact
 
 | Post claim (paraphrase) | What the research actually supports | Citation (full URL — open before post) | How Ironframe relieves it (product truth only) |
 |---|---|---|---|
-| Feature lists / color dashboards vs evidence→exposure pipeline | Founder cadence: Wednesday posts point to a bounded product demonstration; Mon heatmap post already attacked qualitative theater | Cadence: https://ironframegrc.com/docs/marketing-strategy/linkedin-founder-cadence | /product-demo is the public bounded walkthrough surface. |
-| One primary link in body (demo); contact in first comment | Cadence: one primary link per post; CTA is workflow review, not free pilot | Contact: https://ironframegrc.com/register/contact | 10–15 minute workflow review only. |
+| Feature lists / color dashboards vs evidence→exposure pipeline | Boards/finance need decision-useful cyber risk in business terms — feature tours and color dashboards alone under-answer financial exposure questions | NACD Principle 5 (measurement & reporting): https://www.nacdonline.org/all-governance/governance-resources/governance-research/director-handbooks/2026-cyber-risk-oversight/cyber-risk-handbook-principles-2026/principle-5-guide-cybersecurity-risk-measurement-reporting/ · FAIR overview: https://www.fairinstitute.org/what-is-fair · Secondary GF: https://research.ironframegrc.com/briefings/2026-03-12-market-grc-2019-today | /product-demo is the public bounded walkthrough surface. |
+| One primary link in body (demo); contact in first comment | Cadence: one primary link per post; CTA is workflow review, not free pilot | Contact: https://ironframegrc.com/register/contact · Cadence: https://ironframegrc.com/docs/marketing-strategy/linkedin-founder-cadence | 10–15 minute workflow review only. |
 
 ### Ironframe product truth (what we can honestly offer)
 
@@ -210,6 +219,8 @@ https://ironframegrc.com/register/contact
 ### Pre-post checklist
 
 - [ ] Opened each citation URL and confirmed the claim paraphrase still matches the source.
+- [ ] At least one **outside/independent** citation (not *.ironframegrc.com).
+- [ ] When a published GF briefing maps the theme, include it as a **secondary** cite (research.ironframegrc.com/briefings/…) — does not replace independent.
 - [ ] Post body avoids Mandate 16 ban phrases.
 - [ ] Copy body only (not this research block) into LinkedIn.
 - [ ] Paste first-comment CTA immediately after publish.
@@ -483,12 +494,14 @@ export async function findLinkedInDeskCatalogEntry(
 /** Default open slot preference when nothing else is active. */
 export const LINKEDIN_DEFAULT_DRAFT_ID: LinkedInDraftId = "fri-collection";
 
-/** Extract http(s) citation URLs from operator research markdown (deduped, max 24). */
-export function extractLinkedInResearchCitationUrls(research: string): string[] {
-  const matches = research.match(/https?:\/\/[^\s)|\]>"']+/gi) ?? [];
-  const cleaned = matches.map((u) => u.replace(/[.,;:]+$/, ""));
-  return [...new Set(cleaned)].slice(0, 24);
-}
+export {
+  extractGovernanceFrameCitationUrls,
+  extractIndependentLinkedInCitationUrls,
+  extractLinkedInResearchCitationUrls,
+  isGovernanceFrameCitationUrl,
+  isIronframeCitationUrl,
+} from "@/app/lib/linkedinDeskIds";
+
 export function composeLinkedInDeskMarkdown(
   title: string,
   body: string,
@@ -914,6 +927,14 @@ export async function saveLinkedInDeskDraftCore(input: {
       ok: false,
       error:
         "Research & citations must include at least one http(s) URL proving a post claim before save.",
+      status: 400,
+    };
+  }
+  if (extractIndependentLinkedInCitationUrls(research).length < 1) {
+    return {
+      ok: false,
+      error:
+        "Research & citations must include at least one outside/independent URL (not *.ironframegrc.com) — e.g. NIST, NACD, FAIR Institute, EUR-Lex, ISACA.",
       status: 400,
     };
   }

@@ -50,9 +50,10 @@ https://ironframegrc.com/register/contact
 
 ## Research & verification (operator only — do not paste)
 
-| Claim | Support | Ironframe relief |
-|---|---|---|
-| AI output ≠ trusted evidence without review | GF evolution research: consequence-proportionate approval; HITL before high-impact / board publication is Ironframe design principle, not a universal legal mandate — https://research.ironframegrc.com/briefings/2026-05-14-connector-count-sovereign-enclaves | Quarantine + human attestation before promote/export |
-| Industry demand | 2026 GRC themes: AI governance, immutable audit trails, human-in-the-loop before acted-on outputs — https://ironframegrc.com/docs/sales/control-to-capital-market-narrative | Same |
+| Post claim (paraphrase) | What the research actually supports | Citation (full URL — open before post) | How Ironframe relieves it (product truth only) |
+|---|---|---|---|
+| AI output ≠ trusted evidence without review | NIST AI RMF treats AI risk management as ongoing; Govern/Map/Measure/Manage expect human accountability and documentation — not “model output = evidence” | NIST AI Risk Management Framework: https://www.nist.gov/itl/ai-risk-management-framework · AI RMF 1.0 PDF: https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf | Quarantine + human attestation before promote/export |
+| HITL before high-impact use is industry practice | AI RMF emphasizes accountability, transparency, and human oversight for AI systems that affect decisions; exact Ironframe gates are product design, not a universal legal mandate | Same NIST AI RMF links above · Secondary GF (governed automation / HITL — not a substitute for independent): https://research.ironframegrc.com/briefings/2026-03-12-market-grc-2019-today · AI oversight pain themes: https://research.ironframegrc.com/briefings/2026-07-15-research-grc-current-pain | Consequence-proportionate approval before board/cross-entity publication |
+| Product narrative (Ironframe only) | Control-to-Capital / Path B operating loop | https://ironframegrc.com/docs/sales/control-to-capital-market-narrative | Same promote-gate story |
 
 **Do not claim:** EU AI Act requires this exact pattern; SOC 2/ISO certification; customer results.

@@ -75,3 +75,60 @@ export function linkedInSlotLabelFromTitleOrDue(
   }
   return "Slot";
 }
+
+/** Extract http(s) citation URLs from operator research markdown (deduped, max 24). */
+export function extractLinkedInResearchCitationUrls(research: string): string[] {
+  const matches = research.match(/https?:\/\/[^\s)|\]>"']+/gi) ?? [];
+  const cleaned = matches.map((u) => u.replace(/[.,;:]+$/, ""));
+  return [...new Set(cleaned)].slice(0, 24);
+}
+
+/** True when a citation URL is Ironframe-owned (product, research, or docs). */
+export function isIronframeCitationUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    return host === "ironframegrc.com" || host.endsWith(".ironframegrc.com");
+  } catch {
+    return /ironframegrc\.com/i.test(url);
+  }
+}
+
+/**
+ * Outside / independent citations only (not *.ironframegrc.com).
+ * Required before Save or Copy on the LinkedIn desk.
+ */
+export function extractIndependentLinkedInCitationUrls(research: string): string[] {
+  return extractLinkedInResearchCitationUrls(research).filter((u) => !isIronframeCitationUrl(u));
+}
+
+/**
+ * Published Governance Frame briefing URLs (secondary cites — never replace independent).
+ * Canonical host: research.ironframegrc.com/briefings/…
+ */
+export function isGovernanceFrameCitationUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
+    const path = u.pathname.toLowerCase();
+    if (host === "research.ironframegrc.com") {
+      return path.includes("/briefings/");
+    }
+    // Internal preview mirror on product host
+    if (host === "ironframegrc.com" || host.endsWith(".ironframegrc.com")) {
+      return path.includes("/gf-research/briefings/");
+    }
+    return false;
+  } catch {
+    return (
+      /research\.ironframegrc\.com\/briefings\//i.test(url) ||
+      /\/gf-research\/briefings\//i.test(url)
+    );
+  }
+}
+
+/** GF published briefing citations present in operator research. */
+export function extractGovernanceFrameCitationUrls(research: string): string[] {
+  return extractLinkedInResearchCitationUrls(research).filter((u) =>
+    isGovernanceFrameCitationUrl(u),
+  );
+}

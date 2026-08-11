@@ -63,10 +63,20 @@ function normalizeBriefForPanel(brief: AccountResearchBrief): AccountResearchBri
   };
 }
 
-export default function AccountResearchBriefPanel({ brief }: { brief: AccountResearchBrief }) {
+export default function AccountResearchBriefPanel({
+  brief,
+  contactId,
+}: {
+  brief: AccountResearchBrief;
+  contactId?: string;
+}) {
   const safe = normalizeBriefForPanel(brief);
   const { snapshot, gates, outreach, competitiveConflict } = safe;
   brief = safe;
+  const harvestThin =
+    gates.buyer.result === "FAIL" &&
+    (gates.email?.result ?? "UNKNOWN") !== "PASS" &&
+    /^Public site signals:/i.test(gates.fit.finding);
 
   return (
     <section className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-5">
@@ -138,6 +148,13 @@ export default function AccountResearchBriefPanel({ brief }: { brief: AccountRes
       <div className="mt-4 overflow-x-auto rounded-lg border border-slate-800">
         <p className="border-b border-slate-800 bg-slate-950/60 px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">
           2 · Fit · Pain · Buyer · Email
+        </p>
+        <p className="border-b border-slate-800 bg-slate-950/40 px-3 py-1.5 font-mono text-[10px] text-slate-400">
+          Account: {snapshot.company}
+          {contactId ? ` | id ${contactId.slice(0, 8)}` : ""}
+          {harvestThin
+            ? " | thin harvest brief (no promote-ready dossier on this contact)"
+            : ""}
         </p>
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-950/40 text-slate-500">

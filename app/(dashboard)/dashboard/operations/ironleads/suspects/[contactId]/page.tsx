@@ -218,7 +218,7 @@ export default async function IronleadsSuspectReportPage({
         ) : null}
 
         {report.accountResearchBrief ? (
-          <AccountResearchBriefPanel brief={report.accountResearchBrief} />
+          <AccountResearchBriefPanel brief={report.accountResearchBrief} contactId={report.contactId} />
         ) : null}
 
         <SuspectOperatorEditPanel contactId={report.contactId} report={report} />

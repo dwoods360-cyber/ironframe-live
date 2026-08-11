@@ -947,15 +947,6 @@ export function selectAccountResearchBriefForReport(
     return { brief: persistedBrief, shouldPersist: false, reasons };
   }
 
-  // Schema repair: legacy briefs without Email gate need the full rebuilt shape.
-  if (emailMissing && !emailImproved && !buyerImproved) {
-    return {
-      brief: rebuiltBrief,
-      shouldPersist: true,
-      reasons,
-    };
-  }
-
   // HOLD/competitor rebuilds may deliberately degrade PASS → FAIL.
   // Thin report-corpus rebuilds must NOT wipe operator/Prospeo Buyer·Email PASS
   // (common when namedBuyer briefly fails to merge or contact.email is mid-write).
@@ -964,6 +955,30 @@ export function selectAccountResearchBriefForReport(
     rebuiltBrief.competitiveConflict.classification === "competitor" ||
     rebuiltBrief.competitiveConflict.classification === "hold" ||
     rebuiltBrief.snapshot.status === "HOLD";
+
+  const persistedPromoteReady =
+    persistedBrief.gates.buyer.result === "PASS" &&
+    persistedBrief.gates.email?.result === "PASS";
+
+  // Absolute keep: operator/Prospeo promote gates + dossier Fit/Pain corpus win over any
+  // thin report rebuild unless HOLD/competitor deliberately forces degrade.
+  if (persistedPromoteReady && !rebuiltForcesHold) {
+    return {
+      brief: persistedBrief,
+      shouldPersist: false,
+      reasons: [...reasons, "kept_persisted_promote_ready"],
+    };
+  }
+
+  // Schema repair: legacy briefs without Email gate need the full rebuilt shape —
+  // but never replace an already promote-ready dossier (handled above).
+  if (emailMissing && !emailImproved && !buyerImproved) {
+    return {
+      brief: rebuiltBrief,
+      shouldPersist: true,
+      reasons,
+    };
+  }
 
   const thinDegradeOnly =
     !rebuiltForcesHold &&
@@ -1000,10 +1015,13 @@ export function selectAccountResearchBriefForReport(
       : rebuiltBrief.buyerMap.length > 0
         ? rebuiltBrief.buyerMap
         : persistedBrief.buyerMap;
+  const persistedOutreachPromote =
+    persistedBrief.outreach.status === "promote" ||
+    persistedBrief.outreach.status === "promote_ready";
   const outreach =
     (buyerDegraded || emailDegraded) &&
     !rebuiltForcesHold &&
-    persistedBrief.outreach.status === "promote"
+    persistedOutreachPromote
       ? persistedBrief.outreach
       : rebuiltBrief.outreach;
 

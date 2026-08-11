@@ -82,5 +82,65 @@ describe("TechHeights gate regression", () => {
     expect(report!.namedBuyer?.fullName).toBe("Shuchipan Sharma");
     expect(report!.accountResearchBrief?.gates.buyer.result).toBe("PASS");
     expect(report!.accountResearchBrief?.gates.email.result).toBe("PASS");
+    // Must keep dossier corpus — harvest rebuild Fit text means selection returned thin rebuild.
+    expect(report!.accountResearchBrief?.gates.fit.finding).toMatch(/TechHeights, LLC/i);
+    expect(report!.accountResearchBrief?.gates.buyer.finding).toMatch(/Shuchipan Sharma/i);
+    expect(report!.accountResearchBrief?.gates.fit.finding).not.toMatch(
+      /^Public site signals:/,
+    );
   }, 30000);
+
+  it("keeps promote-ready persisted brief even when rebuild is thin FAIL", () => {
+    const persisted = buildAccountResearchBrief({
+      company: "TechHeights",
+      websiteUrl: "https://techheights.com",
+      detectedTrigger: "COMPLIANCE_JOB_POST",
+      industrySector: "MSSP",
+      dealStage: "SUSPECT",
+      corpus: "MSSP vCISO managed compliance CMMC aerospace",
+      sourceUrls: ["https://techheights.com/who-we-are/"],
+      members: mergeNamedBuyerIntoBriefMembers({
+        members: [],
+        namedBuyer: {
+          fullName: "Shuchipan Sharma",
+          title: "Founder & CEO",
+          role: "FOUNDER_CEO",
+          email: "ssharma@techheights.com",
+          emailStatus: "VERIFIED",
+        },
+        contactEmail: "ssharma@techheights.com",
+        accountDomain: "techheights.com",
+      }),
+      socialProfiles: [],
+      hasRealEmail: true,
+      contactEmail: "ssharma@techheights.com",
+      accountDomain: "techheights.com",
+      hasPhone: true,
+    });
+    persisted.gates.fit.finding =
+      "TechHeights, LLC (Irvine CA): MSP/MSSP since 2007 — managed IT.";
+    persisted.outreach.status = "promote_ready";
+
+    const thinRebuild = buildAccountResearchBrief({
+      company: "TechHeights",
+      websiteUrl: "https://techheights.com",
+      detectedTrigger: "COMPLIANCE_JOB_POST",
+      industrySector: "MSSP",
+      dealStage: "SUSPECT",
+      corpus: "MSSP vCISO compliance advisory cybersecurity",
+      sourceUrls: [],
+      members: [],
+      socialProfiles: [],
+      hasRealEmail: false,
+      contactEmail: null,
+      hasPhone: true,
+    });
+
+    const selected = selectAccountResearchBriefForReport(persisted, thinRebuild);
+    expect(selected.brief.gates.buyer.result).toBe("PASS");
+    expect(selected.brief.gates.email.result).toBe("PASS");
+    expect(selected.brief.gates.fit.finding).toMatch(/TechHeights, LLC/i);
+    expect(selected.shouldPersist).toBe(false);
+    expect(selected.reasons).toContain("kept_persisted_promote_ready");
+  });
 });

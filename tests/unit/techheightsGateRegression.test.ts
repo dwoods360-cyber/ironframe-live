@@ -119,7 +119,8 @@ describe("TechHeights gate regression", () => {
     });
     persisted.gates.fit.finding =
       "TechHeights, LLC (Irvine CA): MSP/MSSP since 2007 — managed IT.";
-    persisted.outreach.status = "promote_ready";
+    // Operator dossiers may persist promote_ready; builder union is promote|hold|…
+    (persisted.outreach as { status: string }).status = "promote_ready";
 
     const thinRebuild = buildAccountResearchBrief({
       company: "TechHeights",

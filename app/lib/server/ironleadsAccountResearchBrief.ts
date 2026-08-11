@@ -1015,9 +1015,10 @@ export function selectAccountResearchBriefForReport(
       : rebuiltBrief.buyerMap.length > 0
         ? rebuiltBrief.buyerMap
         : persistedBrief.buyerMap;
+  const persistedOutreachStatus = String(persistedBrief.outreach.status);
   const persistedOutreachPromote =
-    persistedBrief.outreach.status === "promote" ||
-    persistedBrief.outreach.status === "promote_ready";
+    persistedOutreachStatus === "promote" ||
+    persistedOutreachStatus === "promote_ready";
   const outreach =
     (buyerDegraded || emailDegraded) &&
     !rebuiltForcesHold &&

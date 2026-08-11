@@ -8,4 +8,4 @@
  */
 export type MarketingHeroVariant = "v2" | "legacy";
 
-export const MARKETING_HERO_VARIANT: MarketingHeroVariant = "v2";
+export const MARKETING_HERO_VARIANT: MarketingHeroVariant = "legacy";

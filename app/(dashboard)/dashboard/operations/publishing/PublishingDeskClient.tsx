@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  isDeskNotesDeskDraft,
   isNewslettersDeskDraft,
   isResearchDeskDraft,
   isStrictNewsletterQueueDraft,
@@ -512,6 +513,41 @@ export default function PublishingDeskClient() {
     return [...new Set(cleaned)].slice(0, 24);
   }, [linkedinResearch]);
 
+  const linkedinIndependentCitationUrls = useMemo(
+    () =>
+      linkedinCitationUrls.filter((url) => {
+        try {
+          const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+          return host !== "ironframegrc.com" && !host.endsWith(".ironframegrc.com");
+        } catch {
+          return !/ironframegrc\.com/i.test(url);
+        }
+      }),
+    [linkedinCitationUrls],
+  );
+
+  const linkedinGfCitationUrls = useMemo(
+    () =>
+      linkedinCitationUrls.filter((url) => {
+        try {
+          const u = new URL(url);
+          const host = u.hostname.toLowerCase().replace(/^www\./, "");
+          const path = u.pathname.toLowerCase();
+          if (host === "research.ironframegrc.com") return path.includes("/briefings/");
+          if (host === "ironframegrc.com" || host.endsWith(".ironframegrc.com")) {
+            return path.includes("/gf-research/briefings/");
+          }
+          return false;
+        } catch {
+          return (
+            /research\.ironframegrc\.com\/briefings\//i.test(url) ||
+            /\/gf-research\/briefings\//i.test(url)
+          );
+        }
+      }),
+    [linkedinCitationUrls],
+  );
+
   const handleSaveLinkedinDraft = async () => {
     if (linkedinSaving || linkedinBody.trim().length < 40) return;
     setLinkedinSaving(true);
@@ -560,6 +596,12 @@ export default function PublishingDeskClient() {
       );
       return;
     }
+    if (linkedinIndependentCitationUrls.length < 1) {
+      setLinkedinError(
+        "Add at least one outside/independent citation (not *.ironframegrc.com) before copying — e.g. NIST, NACD, FAIR Institute, EUR-Lex, ISACA.",
+      );
+      return;
+    }
     if (!linkedinCitationsConfirmed) {
       setLinkedinError(
         "Confirm you opened each citation URL (checkbox under Research & citations) before copying.",
@@ -596,13 +638,22 @@ export default function PublishingDeskClient() {
     );
   }, [snapshot]);
 
-  /** Briefings desk: exclude Ironcast newsletters and research-paper queue drafts. */
+  const deskNotesQueueDrafts = useMemo(() => {
+    if (!snapshot) return [];
+    return snapshot.briefings.queueDrafts.filter((draft) =>
+      isDeskNotesDeskDraft(draft.filename),
+    );
+  }, [snapshot]);
+
+  /** Briefings desk: exclude newsletters, research, and desk-note queue drafts. */
   const briefingQueueDrafts = useMemo(() => {
     if (!snapshot) return [];
     return snapshot.briefings.queueDrafts.filter(
       (draft) =>
         !isStrictNewsletterQueueDraft(draft.filename) &&
-        !isResearchDeskDraft(draft.filename),
+        !isNewslettersDeskDraft(draft.filename) &&
+        !isResearchDeskDraft(draft.filename) &&
+        !isDeskNotesDeskDraft(draft.filename),
     );
   }, [snapshot]);
 
@@ -611,7 +662,9 @@ export default function PublishingDeskClient() {
       ? researchQueueDrafts
       : desk === "newsletters"
         ? newsletterQueueDrafts
-        : briefingQueueDrafts;
+        : desk === "desk-notes"
+          ? deskNotesQueueDrafts
+          : briefingQueueDrafts;
 
   const handlePromote = async (filenameOverride?: string, slugOverride?: string) => {
     const file = (filenameOverride ?? promoteFile).trim();
@@ -714,6 +767,7 @@ export default function PublishingDeskClient() {
             mode: "author",
             title: deskTitle.trim() || undefined,
             requestPrompt: deskPrompt.trim(),
+            draftKind: desk === "desk-notes" ? "desk-note" : "briefing",
             overwrite: true,
             tenantSlug: "ironframe-sandbox",
           }),
@@ -870,6 +924,12 @@ export default function PublishingDeskClient() {
   };
   const tabs: Array<{ id: DeskTab; label: string; href: string; active: boolean }> = [
     {
+      id: "desk-notes",
+      label: "Desk notes",
+      href: publishingDeskHref("desk-notes"),
+      active: desk === "desk-notes",
+    },
+    {
       id: "briefings",
       label: "Briefings",
       href: publishingDeskHref("briefings"),
@@ -901,7 +961,8 @@ export default function PublishingDeskClient() {
     },
   ];
 
-  const isBriefingsOrResearchDesk = desk === "briefings" || desk === "research";
+  const isBriefingsOrResearchDesk =
+    desk === "briefings" || desk === "research" || desk === "desk-notes";
   const isDocsOnlyDesk = desk === "video" || desk === "linkedin";
 
   return (
@@ -1157,7 +1218,8 @@ export default function PublishingDeskClient() {
                       linkedinSaving ||
                       linkedinLoading ||
                       linkedinBody.trim().length < 40 ||
-                      linkedinCitationUrls.length < 1
+                      linkedinCitationUrls.length < 1 ||
+                      linkedinIndependentCitationUrls.length < 1
                     }
                     onClick={() => void handleSaveLinkedinDraft()}
                     className="rounded-lg bg-cyan-800 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
@@ -1204,7 +1266,8 @@ export default function PublishingDeskClient() {
               <section className="rounded-xl border border-amber-800/60 bg-amber-950/20 p-5">
                 <h2 className="text-lg font-semibold text-amber-50">Research &amp; citations</h2>
                 <p className="mt-1 text-sm text-amber-100/80">
-                  Claim → source URL → Ironframe relief (Mandate 16). Operator only.
+                  Claim → source URL → Ironframe relief (Mandate 16). Require ≥1 outside/independent
+                  citation; add a published GF briefing URL when available (secondary). Operator only.
                 </p>
                 <label className="mt-4 block text-xs text-amber-200/70">
                   Claim map (not copied to LinkedIn)
@@ -1224,42 +1287,69 @@ export default function PublishingDeskClient() {
                 </label>
                 <div className="mt-4 rounded-lg border border-amber-900/40 bg-slate-950/70 p-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-amber-200/90">
-                    Detected citation URLs ({linkedinCitationUrls.length})
+                    Detected citation URLs ({linkedinCitationUrls.length}) · independent{" "}
+                    ({linkedinIndependentCitationUrls.length}) · GF ({linkedinGfCitationUrls.length})
                   </p>
                   {linkedinCitationUrls.length === 0 ? (
                     <p className="mt-2 text-sm text-rose-300">
                       No http(s) URLs found. Add at least one openable source before Save or Copy.
                     </p>
-                  ) : (
+                  ) : linkedinIndependentCitationUrls.length < 1 ? (
+                    <p className="mt-2 text-sm text-rose-300">
+                      Only Ironframe hosts detected. Add ≥1 outside/independent URL (NIST, NACD,
+                      FAIR Institute, EUR-Lex, ISACA, etc.) before Save or Copy.
+                    </p>
+                  ) : linkedinGfCitationUrls.length < 1 ? (
+                    <p className="mt-2 text-sm text-amber-200/90">
+                      No GF briefing URL detected. If a published{" "}
+                      research.ironframegrc.com/briefings/… piece covers this theme, add it as a
+                      secondary cite (does not replace independent).
+                    </p>
+                  ) : null}
+                  {linkedinCitationUrls.length > 0 ? (
                     <ul className="mt-2 max-h-32 space-y-1.5 overflow-y-auto text-sm">
-                      {linkedinCitationUrls.map((url) => (
-                        <li key={url} className="truncate">
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-cyan-300 hover:underline"
-                            title={url}
-                          >
-                            {url}
-                          </a>
-                        </li>
-                      ))}
+                      {linkedinCitationUrls.map((url) => {
+                        const independent = linkedinIndependentCitationUrls.includes(url);
+                        const gf = linkedinGfCitationUrls.includes(url);
+                        const badge = independent ? "Independent" : gf ? "GF" : "Ironframe";
+                        const badgeClass = independent
+                          ? "mr-2 rounded bg-emerald-950/80 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300"
+                          : gf
+                            ? "mr-2 rounded bg-sky-950/80 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-sky-300"
+                            : "mr-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-400";
+                        return (
+                          <li key={url} className="truncate">
+                            <span className={badgeClass}>{badge}</span>
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-cyan-300 hover:underline"
+                              title={url}
+                            >
+                              {url}
+                            </a>
+                          </li>
+                        );
+                      })}
                     </ul>
-                  )}
+                  ) : null}
                   <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm text-slate-200">
                     <input
                       type="checkbox"
                       className="mt-1"
                       checked={linkedinCitationsConfirmed}
                       disabled={
-                        linkedinCitationUrls.length < 1 || linkedinSelectedIsPublished
+                        linkedinCitationUrls.length < 1 ||
+                        linkedinIndependentCitationUrls.length < 1 ||
+                        linkedinSelectedIsPublished
                       }
                       onChange={(e) => setLinkedinCitationsConfirmed(e.target.checked)}
                     />
                     <span>
-                      I opened each citation URL and confirmed the post paraphrase matches the
-                      source.
+                      I opened each citation URL (including ≥1 independent source
+                      {linkedinGfCitationUrls.length > 0 ? " and GF briefing" : ""}) and confirmed
+                      the post paraphrase matches the source.
                     </span>
                   </label>
                 </div>
@@ -1338,7 +1428,11 @@ export default function PublishingDeskClient() {
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
               <h2 className="text-lg font-semibold text-white">
-                {desk === "research" ? "Research paper drafts" : "Quarantined drafts"}
+                {desk === "research"
+                  ? "Research paper drafts"
+                  : desk === "desk-notes"
+                    ? "Desk note drafts"
+                    : "Quarantined drafts"}
               </h2>
               <p className="mt-1 text-sm text-slate-400">
                 {desk === "research" ? (
@@ -1347,6 +1441,13 @@ export default function PublishingDeskClient() {
                     <span className="font-mono text-slate-300">*-draft-research-*</span>
                     ). Use <span className="text-slate-300">Read</span> for the full manuscript.
                     Nothing publishes until you Approve (promote) or Deny.
+                  </>
+                ) : desk === "desk-notes" ? (
+                  <>
+                    Weekly GF signals (
+                    <span className="font-mono text-slate-300">*-draft-desk-note-*</span> /{" "}
+                    <span className="font-mono text-slate-300">*-draft-signal-*</span>
+                    ). Short, dated, one development. Nothing publishes until you Approve or Deny.
                   </>
                 ) : (
                   <>
@@ -1358,6 +1459,13 @@ export default function PublishingDeskClient() {
                       className="text-cyan-300 hover:underline"
                     >
                       Research papers
+                    </Link>
+                    ; weekly signals under{" "}
+                    <Link
+                      href={publishingDeskHref("desk-notes")}
+                      className="text-cyan-300 hover:underline"
+                    >
+                      Desk notes
                     </Link>
                     .
                   </>
@@ -1381,6 +1489,12 @@ export default function PublishingDeskClient() {
                       <>
                         No research drafts awaiting review. Look for{" "}
                         <span className="font-mono text-slate-400">*-draft-research-*</span>.
+                      </>
+                    ) : desk === "desk-notes" ? (
+                      <>
+                        No desk-note drafts awaiting review. Stage as{" "}
+                        <span className="font-mono text-slate-400">*-draft-desk-note-*</span> or{" "}
+                        <span className="font-mono text-slate-400">*-draft-signal-*</span>.
                       </>
                     ) : (
                       <>
@@ -1434,6 +1548,9 @@ export default function PublishingDeskClient() {
                           ) : null}
                           {isResearchDeskDraft(draft.filename) ? (
                             <span className="text-teal-300">research</span>
+                          ) : null}
+                          {isDeskNotesDeskDraft(draft.filename) ? (
+                            <span className="text-amber-300">desk note</span>
                           ) : null}
                           {/gf-desk/i.test(draft.filename) ? (
                             <span className="text-cyan-300">gf desk</span>
@@ -1504,17 +1621,25 @@ export default function PublishingDeskClient() {
                   <input
                     value={deskTitle}
                     onChange={(e) => setDeskTitle(e.target.value)}
-                    placeholder="e.g. Evidence defensibility after the AI Act"
+                    placeholder={
+                      desk === "desk-notes"
+                        ? "e.g. Desk Note — SEC Item 1.05 timing"
+                        : "e.g. Evidence defensibility after the AI Act"
+                    }
                     className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
                   />
                 </label>
                 <label className="mt-3 block text-xs text-slate-400">
-                  Research brief
+                  {desk === "desk-notes" ? "Signal brief" : "Research brief"}
                   <textarea
                     value={deskPrompt}
                     onChange={(e) => setDeskPrompt(e.target.value)}
                     rows={6}
-                    placeholder="Define the governance question, jurisdictions, and primary sources to pursue (quarantine only)…"
+                    placeholder={
+                      desk === "desk-notes"
+                        ? "One live development, primary sources, and the single claim to publish (quarantine only)…"
+                        : "Define the governance question, jurisdictions, and primary sources to pursue (quarantine only)…"
+                    }
                     className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
                   />
                 </label>
@@ -1614,7 +1739,11 @@ export default function PublishingDeskClient() {
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">
-                  {desk === "research" ? "Published research briefs" : "Published briefings"}
+                  {desk === "research"
+                    ? "Published research briefs"
+                    : desk === "desk-notes"
+                      ? "Published desk notes"
+                      : "Published briefings"}
                 </h2>
                 {desk === "research" ? (
                   <p className="mt-1 text-sm text-slate-400">
@@ -1629,15 +1758,39 @@ export default function PublishingDeskClient() {
                     </a>
                     .
                   </p>
+                ) : desk === "desk-notes" ? (
+                  <p className="mt-1 text-sm text-slate-400">
+                    Live on{" "}
+                    <a
+                      href="https://research.ironframegrc.com/desk-notes"
+                      className="text-cyan-300 hover:underline"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      research.ironframegrc.com/desk-notes
+                    </a>
+                    .
+                  </p>
                 ) : null}
                 <ul className="mt-4 space-y-2">
                   {(desk === "research"
                     ? snapshot.briefings.published.filter((row) =>
                         /^Industry Research Brief\b/i.test(row.title),
                       )
-                    : snapshot.briefings.published.filter(
-                        (row) => !/^Industry Research Brief\b/i.test(row.title),
-                      )
+                    : desk === "desk-notes"
+                      ? snapshot.briefings.published.filter(
+                          (row) =>
+                            /desk-note|desk_note|\bsignal\b/i.test(row.slug) ||
+                            /^Desk Note\b/i.test(row.title) ||
+                            /^Signal\b/i.test(row.title),
+                        )
+                      : snapshot.briefings.published.filter(
+                          (row) =>
+                            !/^Industry Research Brief\b/i.test(row.title) &&
+                            !/desk-note|desk_note|\bsignal\b/i.test(row.slug) &&
+                            !/^Desk Note\b/i.test(row.title) &&
+                            !/^Signal\b/i.test(row.title),
+                        )
                   ).map((briefing) => (
                     <li key={briefing.slug} className="flex items-center justify-between gap-3 text-sm">
                       <span className="text-slate-200">{briefing.title}</span>
@@ -1826,6 +1979,9 @@ export default function PublishingDeskClient() {
                   </a>
                   <Link href="/governance-frame" className="text-cyan-300 hover:underline">
                     Governance Frame reader
+                  </Link>
+                  <Link href="/dashboard/operations/publishing?desk=desk-notes" className="text-cyan-300 hover:underline">
+                    Desk notes queue
                   </Link>
                   <Link href="/dashboard/operations/publishing?desk=briefings" className="text-cyan-300 hover:underline">
                     Briefings queue

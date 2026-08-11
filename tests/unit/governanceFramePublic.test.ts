@@ -33,6 +33,7 @@ describe("governanceFramePublic", () => {
     expect(isGovernanceFrameResearchInternalPath("/gf-research")).toBe(true);
     expect(isGovernanceFrameResearchInternalPath("/gf-research/about")).toBe(true);
     expect(isGovernanceFramePublicPath("/briefings/demo")).toBe(true);
+    expect(isGovernanceFramePublicPath("/desk-notes")).toBe(true);
     expect(isGovernanceFramePublicPath("/governance-frame/demo")).toBe(true);
     expect(isGovernanceFramePublicPath("/training")).toBe(true);
     expect(isGovernanceFramePublicPath("/dashboard")).toBe(false);

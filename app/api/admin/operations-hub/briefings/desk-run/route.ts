@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     filename?: string;
     requestPrompt?: string;
     title?: string;
+    draftKind?: "briefing" | "desk-note";
     tenantSlug?: string;
     overwrite?: boolean;
   };
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
     filename: body.filename,
     requestPrompt: body.requestPrompt,
     title: body.title,
+    draftKind: body.draftKind === "desk-note" ? "desk-note" : "briefing",
     tenantId: tenant.id,
     tenantSlug: tenant.slug,
     overwrite: body.overwrite === true,

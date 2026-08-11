@@ -8,6 +8,7 @@ import {
 
 const NAV = [
   { path: "/research-papers", label: "Research papers" },
+  { path: "/desk-notes", label: "Desk notes" },
   { path: "/briefings", label: "Briefings" },
   { path: "/series", label: "Series" },
   { path: "/newsletters", label: "Newsletters" },

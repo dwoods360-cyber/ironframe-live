@@ -33,7 +33,18 @@ export function hrefForOpsSourceRef(
       kind === "NEWSLETTER_DRAFT" ||
       kind === "NEWSLETTER_SYNDICATE";
     const isResearch = /-draft-research-/i.test(file) || /^draft-research-/i.test(file);
-    const desk = isNewsletter ? "newsletters" : isResearch ? "research" : "briefings";
+    const isDeskNote =
+      /-draft-desk-note-/i.test(file) ||
+      /-draft-signal-/i.test(file) ||
+      /^draft-desk-note-/i.test(file) ||
+      /^draft-signal-/i.test(file);
+    const desk = isNewsletter
+      ? "newsletters"
+      : isResearch
+        ? "research"
+        : isDeskNote
+          ? "desk-notes"
+          : "briefings";
     return `/dashboard/operations/publishing?desk=${desk}&draft=${encodeURIComponent(file)}`;
   }
 

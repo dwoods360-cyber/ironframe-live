@@ -5,6 +5,7 @@ import { listBriefingArchiveEntries, partitionHomeBriefings } from "@/app/lib/go
 import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
 import {
   classifyPublishedLedgerItem,
+  isDeskNoteLedgerItem,
 } from "@/app/lib/governanceFrame/publishedLedgerKind";
 import {
   listPublicResearchPapers,
@@ -48,6 +49,10 @@ export default async function GovernanceFrameResearchHomePage() {
   ].slice(0, 5);
 
   const recentNewsletters = newslettersOnly.slice(-5).reverse();
+  const deskNotesOnly = ledger.filter((item) =>
+    isDeskNoteLedgerItem(item.markdown, item.slug, item.title),
+  );
+  const recentDeskNotes = deskNotesOnly.slice(-5).reverse();
 
   const showArchive = overflowBriefings.length > 0;
 
@@ -89,6 +94,12 @@ export default async function GovernanceFrameResearchHomePage() {
               className="inline-flex items-center rounded-md bg-[var(--gf-accent-deep)] px-4 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-white no-underline transition hover:bg-[var(--gf-accent)]"
             >
               Research papers
+            </ResearchLink>
+            <ResearchLink
+              href="/desk-notes"
+              className="inline-flex items-center rounded-md border-2 border-[var(--gf-accent)] bg-[var(--gf-paper-elevated)] px-4 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-[var(--gf-accent-deep)] no-underline transition hover:bg-[color-mix(in_srgb,var(--gf-accent)_12%,white)]"
+            >
+              Desk notes
             </ResearchLink>
             <ResearchLink
               href="/briefings"
@@ -149,6 +160,52 @@ export default async function GovernanceFrameResearchHomePage() {
                         {paper.meta}
                       </p>
                     ) : null}
+                  </ResearchLink>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section aria-labelledby="gf-desk-notes-heading" className="space-y-5">
+          <div className="flex items-baseline justify-between gap-4">
+            <h3
+              id="gf-desk-notes-heading"
+              className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
+            >
+              Desk notes
+            </h3>
+            <ResearchLink
+              href="/desk-notes"
+              className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
+            >
+              View all
+            </ResearchLink>
+          </div>
+          {recentDeskNotes.length === 0 ? (
+            <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
+              No published desk notes yet. Weekly signals appear here after Approve.
+            </p>
+          ) : (
+            <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
+              {recentDeskNotes.map((note) => (
+                <li key={note.slug}>
+                  <ResearchLink
+                    href={`/briefings/${note.slug}`}
+                    className="block py-5 no-underline transition hover:bg-white/40"
+                  >
+                    <time
+                      dateTime={note.publishedAt}
+                      className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]"
+                    >
+                      {new Intl.DateTimeFormat("en-US", {
+                        dateStyle: "medium",
+                        timeZone: "UTC",
+                      }).format(new Date(note.publishedAt))}
+                    </time>
+                    <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                      {note.title}
+                    </p>
                   </ResearchLink>
                 </li>
               ))}

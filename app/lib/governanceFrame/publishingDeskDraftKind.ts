@@ -1,9 +1,10 @@
 /**
  * Publishing Desk tab classification for quarantined queue filenames.
- * Keeps Briefings / Newsletters / Research papers lists mutually exclusive.
+ * Keeps Desk notes / Briefings / Newsletters / Research papers lists mutually exclusive.
  */
 
 export type PublishingDeskTab =
+  | "desk-notes"
   | "briefings"
   | "newsletters"
   | "research"
@@ -11,6 +12,7 @@ export type PublishingDeskTab =
   | "linkedin";
 
 export const PUBLISHING_DESK_TAB_IDS: PublishingDeskTab[] = [
+  "desk-notes",
   "briefings",
   "newsletters",
   "research",
@@ -42,9 +44,20 @@ export function isResearchDeskDraft(filename: string): boolean {
   return /-draft-research-/i.test(filename) || /^draft-research-/i.test(filename);
 }
 
+/** Weekly GF desk notes / signals (`*-draft-desk-note-*` or `*-draft-signal-*`). */
+export function isDeskNotesDeskDraft(filename: string): boolean {
+  return (
+    /-draft-desk-note-/i.test(filename) ||
+    /-draft-signal-/i.test(filename) ||
+    /^draft-desk-note-/i.test(filename) ||
+    /^draft-signal-/i.test(filename)
+  );
+}
+
 export function publishingDeskTabForQueueDraft(filename: string): PublishingDeskTab {
   if (isNewslettersDeskDraft(filename)) return "newsletters";
   if (isResearchDeskDraft(filename)) return "research";
+  if (isDeskNotesDeskDraft(filename)) return "desk-notes";
   return "briefings";
 }
 
@@ -85,6 +98,14 @@ export const PUBLISHING_VIDEO_NARRATIVE_LINKS: Array<{
       {
         label: "Budget and production",
         href: `${VIDEO_SERIES_DOCS_PREFIX}/budget-and-production`,
+      },
+      {
+        label: "V1 kickoff — Phase 0 + shot list",
+        href: `${VIDEO_SERIES_DOCS_PREFIX}/v1-kickoff-phase0-shotlist`,
+      },
+      {
+        label: "V1 production script — shots + AI prompts",
+        href: `${VIDEO_SERIES_DOCS_PREFIX}/v1-production-script`,
       },
     ],
   },

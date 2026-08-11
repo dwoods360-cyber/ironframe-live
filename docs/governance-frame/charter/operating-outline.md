@@ -15,7 +15,7 @@ Companion documents:
 - [What Governance Frame Is](/what-governance-frame-is) — mission and identity
 - [Editorial standards](/editorial-standards) — binding editorial standards §§1–20
 
-**Core cadence:** Plan quarterly, research and publish monthly, review weekly, verify every claim, and require human approval before release.
+**Core cadence:** Plan quarterly; publish desk notes weekly (or event-driven); research and publish monthly briefings/newsletters; review weekly; verify every claim; and require human approval before release.
 
 **Implemented desk agents:** `publication-desk-agents.md` (`gf-researcher` … `gf-operator`) — quarantine + advisory review only; human Publisher Approve remains required.
 
@@ -175,6 +175,10 @@ Formal research papers:
 Briefing packages:
 
 - `docs/governance-frame/briefings/`
+
+Desk note packages:
+
+- `docs/governance-frame/desk-notes/`
 
 Newsletter packages:
 
@@ -413,6 +417,17 @@ The briefing should be durable and narrowly focused.
 The newsletter should be time-sensitive and explain current developments through governance rather than simply repeat headlines.
 
 Each month should have distinct subject ownership so the briefing and newsletter do not share the same lead topic.
+
+### Weekly cadence — desk notes (published)
+
+In addition to the weekly editorial *process* below, Governance Frame publishes **desk notes** as the timely public surface:
+
+- short, dated signal on **one** live development;
+- weekly when verified, or event-driven when a primary source moves faster than the monthly slate;
+- quarantine → human Approve (same ledger as briefings);
+- if depth is required, graduate to the monthly briefing — do not inflate the desk note.
+
+Queue filenames: `*-draft-desk-note-*` or `*-draft-signal-*`. Public index: `/desk-notes`.
 
 ### Weekly cadence
 

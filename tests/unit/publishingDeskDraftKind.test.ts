@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isDeskNotesDeskDraft,
   isResearchDeskDraft,
   publishingDeskTabForQueueDraft,
 } from "@/app/lib/governanceFrame/publishingDeskDraftKind";
@@ -11,6 +12,13 @@ describe("publishingDeskDraftKind", () => {
     expect(
       publishingDeskTabForQueueDraft("2026-07-15-draft-research-grc-evolution.md"),
     ).toBe("research");
+  });
+
+  it("routes desk-note queue drafts to the desk-notes desk", () => {
+    expect(isDeskNotesDeskDraft("2026-08-11-draft-desk-note-sec-105.md")).toBe(true);
+    expect(
+      publishingDeskTabForQueueDraft("2026-08-11-draft-signal-eu-ai-act.md"),
+    ).toBe("desk-notes");
   });
 
   it("keeps newsletters off the research desk", () => {

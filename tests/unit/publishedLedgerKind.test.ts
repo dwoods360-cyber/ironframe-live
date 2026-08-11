@@ -23,6 +23,23 @@ describe("classifyPublishedLedgerItem", () => {
     ).toBe("industry_research");
   });
 
+  it("classifies desk notes by category and title", () => {
+    expect(
+      classifyPublishedLedgerItem(
+        '---\ncategory: desk-note\ntitle: "Desk Note — SEC Item 1.05 timing"\n---\n',
+        "2026-08-11-desk-note-sec-105",
+        "Desk Note — SEC Item 1.05 timing",
+      ),
+    ).toBe("desk_note");
+    expect(
+      classifyPublishedLedgerItem(
+        '---\ntitle: "Signal — EU AI Act August gate"\n---\n',
+        "2026-08-12-signal-eu-ai-act",
+        "Signal — EU AI Act August gate",
+      ),
+    ).toBe("desk_note");
+  });
+
   it("keeps ordinary research-named briefings under briefing", () => {
     expect(
       classifyPublishedLedgerItem(

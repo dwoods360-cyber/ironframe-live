@@ -48,6 +48,8 @@ export type RunGovernanceFramePublicationDeskInput = {
   requestPrompt?: string;
   /** Author mode: short title. */
   title?: string;
+  /** Author mode: queue kind — desk-note stages as `*-draft-desk-note-*`. */
+  draftKind?: "briefing" | "desk-note";
   tenantId: string;
   tenantSlug: string;
   overwrite?: boolean;
@@ -80,10 +82,11 @@ function slugify(input: string): string {
     .slice(0, 48);
 }
 
-function buildAuthorFilename(title: string): string {
+function buildAuthorFilename(title: string, draftKind: "briefing" | "desk-note" = "briefing"): string {
   const date = new Date().toISOString().slice(0, 10);
-  const slug = slugify(title) || "governance-briefing";
-  return `${date}-draft-gf-desk-${slug}.md`;
+  const slug = slugify(title) || (draftKind === "desk-note" ? "desk-note" : "governance-briefing");
+  const kindToken = draftKind === "desk-note" ? "draft-desk-note" : "draft-gf-desk";
+  return `${date}-${kindToken}-${slug}.md`;
 }
 
 function researcherSystemPrompt(): string {
@@ -116,6 +119,7 @@ async function generateResearchDraft(input: {
   tenantId: string;
   tenantSlug: string;
   filename: string;
+  draftKind?: "briefing" | "desk-note";
 }): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) {
@@ -125,6 +129,7 @@ async function generateResearchDraft(input: {
     };
   }
 
+  const isDeskNote = input.draftKind === "desk-note";
   const google = createGoogleGenerativeAI({ apiKey });
   try {
     const { text } = await generateText({
@@ -136,7 +141,7 @@ TITLE: ${input.title}
 OUTPUT FILENAME: ${input.filename}
 FRONTMATTER tenantId: ${input.tenantId}
 FRONTMATTER tenantSlug: ${input.tenantSlug}
-
+${isDeskNote ? "FRONTMATTER category: desk-note\nPUBLICATION TYPE: weekly desk note (short, dated, one live development — not a full briefing).\n" : ""}
 RESEARCH BRIEF:
 ${input.requestPrompt}
 
@@ -265,7 +270,12 @@ export async function runGovernanceFramePublicationDesk(
 
   if (input.mode === "author") {
     const requestPrompt = String(input.requestPrompt ?? "").trim();
-    const title = String(input.title ?? "").trim() || "Governance Frame institutional briefing";
+    const draftKind = input.draftKind === "desk-note" ? "desk-note" : "briefing";
+    const title =
+      String(input.title ?? "").trim() ||
+      (draftKind === "desk-note"
+        ? "Desk Note — Governance Frame signal"
+        : "Governance Frame institutional briefing");
     if (requestPrompt.length < 40) {
       return {
         ok: false,
@@ -279,7 +289,7 @@ export async function runGovernanceFramePublicationDesk(
         pipelineLog,
       };
     }
-    filename = filename || buildAuthorFilename(title);
+    filename = filename || buildAuthorFilename(title, draftKind);
     pipelineLog.push(`gf-researcher authoring → ${filename}`);
     const generated = await generateResearchDraft({
       title,
@@ -287,6 +297,7 @@ export async function runGovernanceFramePublicationDesk(
       tenantId: input.tenantId,
       tenantSlug: input.tenantSlug,
       filename,
+      draftKind,
     });
     if (!generated.ok) {
       return {

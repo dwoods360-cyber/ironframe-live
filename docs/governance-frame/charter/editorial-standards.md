@@ -165,6 +165,15 @@ Terms such as “heatmap theater,” “spreadsheet theater,” “checklist ind
 - Briefings may be shorter and more practical, but citation standards remain the same.
 - Briefings remain quarantined until operator approval.
 
+## 12a. Desk note standards
+
+- Desk notes are short, dated signals on one live development (weekly or event-driven).
+- They must not substitute for monthly briefings or newsletters when depth is required.
+- Distinguish what has happened from what is proposed or expected.
+- Single-claim preference; graduate to a briefing when the topic needs durable analysis.
+- Frontmatter category `desk-note` (or title prefix `Desk Note —` / `Signal —`).
+- Desk notes remain quarantined until operator approval.
+
 ## 13. Newsletter standards
 
 - Newsletters should interpret current developments through governance rather than merely repeat headlines.

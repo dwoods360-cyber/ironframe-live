@@ -1,0 +1,23 @@
+# Desk notes (weekly signals)
+
+Short, dated Governance Frame publications on **one** live development.
+
+## Cadence
+
+- **Weekly** when the desk has a verified signal worth publishing
+- **Event-driven** when a primary source moves faster than the monthly slate
+- Not a substitute for monthly **briefings** or **newsletters**
+
+## Rules
+
+1. Single claim / single development — stay short.
+2. Always dated; distinguish what happened from what is proposed.
+3. Quarantine → human Approve (same ledger path as briefings).
+4. If depth is required, graduate the topic to the monthly briefing — do not inflate the desk note.
+5. Frontmatter: `category: desk-note` (or title prefix `Desk Note —` / `Signal —`).
+6. Queue filenames: `*-draft-desk-note-*` or `*-draft-signal-*`.
+
+## Public surface
+
+- Index: `research.ironframegrc.com/desk-notes`
+- Publishing Desk tab: **Desk notes**

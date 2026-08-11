@@ -665,6 +665,7 @@ export default function OperationsHubClient() {
                   title: "Publishing",
                   links: [
                     ["Publishing Desk", "/dashboard/operations/publishing?desk=briefings"],
+                    ["Desk notes desk", "/dashboard/operations/publishing?desk=desk-notes"],
                     ["Newsletters desk", "/dashboard/operations/publishing?desk=newsletters"],
                     ["Research papers desk", "/dashboard/operations/publishing?desk=research"],
                     ["Video desk", "/dashboard/operations/publishing?desk=video"],

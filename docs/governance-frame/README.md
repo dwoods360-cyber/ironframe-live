@@ -72,12 +72,13 @@ However:
 Governance Frame publications may include:
 
 1. Executive briefs
-2. Industry briefings
-3. Research briefs
-4. White papers
-5. Annual or periodic research reports
-6. Newsletters
-7. Methodology and standards documents
+2. Desk notes (weekly / event-driven signals)
+3. Industry briefings
+4. Research briefs
+5. White papers
+6. Annual or periodic research reports
+7. Newsletters
+8. Methodology and standards documents
 
 ## Publication Lifecycle
 

@@ -70,9 +70,10 @@ Shared infrastructure, personnel, or subject-matter expertise does not authorize
 ## Content pillars
 
 1. **Industry research papers** — long-form, source-backed publications that establish authority (example: Evolution of GRC, 2002–2026).
-2. **Industry briefings** — short executive analyses of one governance problem at a time (example: Control-First GRC series).
-3. **Executive storytelling** — governance lessons as executive micro-dramas (example: When Risk Enters the Room; When the Evidence Breaks).
-4. **Newsletters** — current events explained through governance, not headlines (DORA, SEC cyber disclosure, EU AI Act, CSRD, CPS 230, and similar).
+2. **Desk notes** — short, dated weekly (or event-driven) signals on one live development; not a substitute for monthly depth.
+3. **Industry briefings** — short executive analyses of one governance problem at a time (example: Control-First GRC series).
+4. **Executive storytelling** — governance lessons as executive micro-dramas (example: When Risk Enters the Room; When the Evidence Breaks).
+5. **Newsletters** — current events explained through governance, not headlines (DORA, SEC cyber disclosure, EU AI Act, CSRD, CPS 230, and similar).
 
 Longer-term surfaces may include video, conference presentations, training, industry reports, and community — always under the same editorial identity.
 
@@ -112,7 +113,7 @@ Binding operating model: [`operating-outline.md`](./operating-outline.md) (roles
 - **Who writes:** Executive Intelligence Unit drafts; Research Editor structures; Source Verification Reviewer inspects claims. Publisher / Founder remains accountable for direction and independence.
 - **Who decides:** Editorial Review Board / Operator — Approve, Hold, or Deny. Automated checks do not replace this decision.
 - **How sources are verified:** claim-to-source ledgers and reference lists accompany research packages; Section V citations are required before promotion of briefings.
-- **Cadence:** Plan quarterly, research and publish monthly, review weekly, verify every claim, require human approval before release.
+- **Cadence:** Plan quarterly; publish desk notes weekly (or event-driven); research and publish monthly briefings/newsletters; review weekly; verify every claim; require human approval before release.
 - **Control-first governance:** governance that makes control design, evidence defensibility, and quantitative accountability primary — not checklist theatre.
 - **Corrections:** published when primary sources supersede prior citations; see corrections policy and Corrections and Revision Owner role.
 - **Editorial independence:** research conclusions are not determined by Ironframe product requirements.

@@ -57,6 +57,7 @@ export function isGovernanceFramePublicPath(pathname: string): boolean {
 
   const publicRoots = [
     "/research-papers",
+    "/desk-notes",
     "/briefings",
     "/newsletters",
     "/series",

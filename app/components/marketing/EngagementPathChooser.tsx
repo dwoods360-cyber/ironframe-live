@@ -4,9 +4,6 @@ import {
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
-import {
-  INBOUND_LEAD_REPLY_SLA_HOURS,
-} from "@/config/commercialGates";
 
 type EngagementPathChooserProps = {
   /** Optional heading id for aria-labelledby */
@@ -97,8 +94,8 @@ export default function EngagementPathChooser({
           {formatPathBUsd()} ({DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scope)
         </li>
         <li>
-          <span className="text-[var(--text-main)]">•</span> Response SLA: Within{" "}
-          {INBOUND_LEAD_REPLY_SLA_HOURS} business hour (Mon–Fri, 9 AM–5 PM CT)
+          <span className="text-[var(--text-main)]">•</span> Response SLA: Within 1 business day
+          (Mon–Fri, 9 AM–5 PM CT)
         </li>
       </ul>
     </section>

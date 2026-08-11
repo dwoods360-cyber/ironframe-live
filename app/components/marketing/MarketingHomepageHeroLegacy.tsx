@@ -6,9 +6,6 @@ import {
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
-import {
-  INBOUND_LEAD_REPLY_SLA_HOURS,
-} from "@/config/commercialGates";
 import { SALES_CONTACT_PATH } from "@/config/registration";
 
 import MarketingAnimatedLogo from "./MarketingAnimatedLogo";
@@ -64,8 +61,7 @@ export default function MarketingHomepageHeroLegacy() {
         </p>
         <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
           {CUSTOMER_FACING_PATH_B_SKU}: {formatPathBUsd()} / {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}
-          -day engagement. Operator replies within {INBOUND_LEAD_REPLY_SLA_HOURS} business hour
-          (Mon–Fri, 9 AM–5 PM CT).
+          -day engagement. Operator replies within 1 business day (Mon–Fri, 9 AM–5 PM CT).
         </p>
       </header>
     </>

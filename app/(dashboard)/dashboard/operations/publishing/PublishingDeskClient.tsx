@@ -956,8 +956,9 @@ export default function PublishingDeskClient() {
               <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">Drafts awaiting paste</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Open Mon / Wed / Fri slots ({linkedinDraftCounts.active}). Select one, verify
-                  citations, Copy body → LinkedIn. No GF Approve / promote on this desk.
+                  Open LinkedIn slots ({linkedinDraftCounts.active}). Select one, verify
+                  citations, Copy body → LinkedIn. New calendar LinkedIn cards appear here
+                  automatically. No GF Approve / promote on this desk.
                 </p>
                 <ul className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
                   {linkedinDrafts.length === 0 ? (

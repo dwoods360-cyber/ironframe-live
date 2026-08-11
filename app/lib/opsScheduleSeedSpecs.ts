@@ -1,5 +1,6 @@
 import type { OpsActivityKind, OpsActivityStatus } from "@prisma/client";
 
+import { isLinkedInOpsSourceRef, linkedInPublishingDeskHref } from "./linkedinDeskIds";
 import { hrefForOpsSourceRef } from "./opsScheduleLinks";
 
 /**
@@ -32,8 +33,14 @@ export type OpsScheduleSeedSpec = {
   priority?: number;
 };
 
-/** Resolve the link that will be stored/shown for a seed row. */
+/**
+ * Resolve the link that will be stored/shown for a seed row.
+ * LinkedIn cards always deep-link to their Publishing Desk draft slot (`?li=`).
+ */
 export function hrefForSeedSpec(spec: Pick<OpsScheduleSeedSpec, "sourceRef" | "kind" | "href">): string {
+  if (isLinkedInOpsSourceRef(spec.sourceRef)) {
+    return linkedInPublishingDeskHref(spec.sourceRef);
+  }
   return (spec.href?.trim() || hrefForOpsSourceRef(spec.sourceRef, spec.kind)).trim();
 }
 
@@ -143,16 +150,16 @@ export function defaultNextActionsFor(args: {
   }
   if (ref.startsWith("marketing/linkedin-2026-08-11-ai-evidence")) {
     return [
-      "Paste body from docs/marketing-strategy/linkedin-drafts-next-ai-evidence-hitl.md (stop before First comment / Research)",
-      "Publish from Wil personal profile; optional company amplify",
+      "Open Publishing Desk → LinkedIn (this calendar card)",
+      "Verify research citations, Copy body → LinkedIn",
       "Paste first-comment CTA after publish",
       "Mark Done with LinkedIn URL",
     ];
   }
   if (ref.startsWith("marketing/linkedin-2026-08-14-residual")) {
     return [
-      "Paste body from docs/marketing-strategy/linkedin-drafts-next-residual-vs-spend.md (stop before First comment / Research)",
-      "Publish from Wil personal profile; optional company amplify",
+      "Open Publishing Desk → LinkedIn (this calendar card)",
+      "Verify research citations, Copy body → LinkedIn",
       "Paste first-comment CTA after publish",
       "Mark Done with LinkedIn URL",
     ];
@@ -889,7 +896,7 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       status: "DONE",
       dueAt: "2026-08-06T20:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-08-06-heatmap",
-      href: "/dashboard/operations/publishing?desk=linkedin",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=mon-heatmap",
       priorityHint: 5,
       synopsis:
         "Founder LinkedIn (catch-up): paste heatmap vs estimated whole-cent exposure post from Publishing Desk → LinkedIn tab.",
@@ -933,13 +940,13 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       status: "PLANNED",
       dueAt: "2026-08-11T20:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-08-11-ai-evidence",
-      href: "/docs/marketing-strategy/linkedin-drafts-next-ai-evidence-hitl",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-11-ai-evidence",
       priorityHint: 2,
       synopsis:
         "Founder LinkedIn (Tue): AI/agent output ≠ trusted evidence — quarantine + human promote gates. Complements Fri collection≠verification without repeating soft tenancy.",
       nextActions: [
-        "Paste body from docs/marketing-strategy/linkedin-drafts-next-ai-evidence-hitl.md (stop before First comment / Research)",
-        "Publish from Wil personal profile; optional company amplify",
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Verify research citations, Copy body → LinkedIn",
         "Paste first-comment CTA after publish",
         "Mark Done with LinkedIn URL",
       ],
@@ -950,13 +957,13 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       status: "PLANNED",
       dueAt: "2026-08-14T20:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-08-14-residual",
-      href: "/docs/marketing-strategy/linkedin-drafts-next-residual-vs-spend",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-14-residual",
       priorityHint: 3,
       synopsis:
         "Founder LinkedIn (Fri): Control-to-Capital lesson — spend → residual exposure with signed assumptions. Complements Mon heatmap without repeating color-vs-dollars.",
       nextActions: [
-        "Paste body from docs/marketing-strategy/linkedin-drafts-next-residual-vs-spend.md (stop before First comment / Research)",
-        "Publish from Wil personal profile; optional company amplify",
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Verify research citations, Copy body → LinkedIn",
         "Paste first-comment CTA after publish",
         "Mark Done with LinkedIn URL",
       ],

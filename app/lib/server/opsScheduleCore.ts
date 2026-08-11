@@ -24,6 +24,8 @@ import {
   hrefForQueueDraft,
   normalizeOpsActivityHref,
 } from "@/app/lib/opsScheduleLinks";
+import { isLinkedInOpsSourceRef } from "@/app/lib/linkedinDeskIds";
+import { ensureLinkedInDeskDraftForOpsActivity } from "@/app/lib/server/linkedinDeskDraftCore";
 import { decryptNotificationUrl } from "@/lib/security/notificationEndpointCrypto";
 import { assertWebhookUrlPassesIrongate } from "@/lib/security/irongateOutboundWebhook";
 import prisma from "@/lib/prisma";
@@ -310,7 +312,16 @@ export async function upsertOpsActivity(input: UpsertOpsActivityInput): Promise<
     await persistActivityNextActions(row.id, resolvedActions.filter((i) => i.text));
   }
   const [hydrated] = await hydrateActivityExtras([row]);
-  return toSummary({ ...hydrated, href });
+  const summary = toSummary({ ...hydrated, href });
+  if (sourceRef && isLinkedInOpsSourceRef(sourceRef)) {
+    await ensureLinkedInDeskDraftForOpsActivity({
+      sourceRef,
+      title: data.title,
+      dueAt,
+      href,
+    });
+  }
+  return summary;
 }
 
 /** Toggle one checklist step's completion state. */
@@ -530,6 +541,14 @@ export async function seedAllProjects2026OpsSchedule(): Promise<{
       } else {
         skipped += 1;
       }
+      if (isLinkedInOpsSourceRef(spec.sourceRef)) {
+        await ensureLinkedInDeskDraftForOpsActivity({
+          sourceRef: spec.sourceRef,
+          title: spec.title,
+          dueAt: spec.dueAt,
+          href: nextHref,
+        });
+      }
       continue;
     }
     await upsertOpsActivity({
@@ -545,6 +564,14 @@ export async function seedAllProjects2026OpsSchedule(): Promise<{
       outcome: spec.outcome,
       nextActions: nextActionTexts,
     });
+    if (isLinkedInOpsSourceRef(spec.sourceRef)) {
+      await ensureLinkedInDeskDraftForOpsActivity({
+        sourceRef: spec.sourceRef,
+        title: spec.title,
+        dueAt: spec.dueAt,
+        href: nextHref,
+      });
+    }
     created += 1;
   }
   const activities = await listOpsActivities({ includeDone: true });

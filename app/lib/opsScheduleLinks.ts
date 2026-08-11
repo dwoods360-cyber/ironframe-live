@@ -1,5 +1,10 @@
 import type { OpsActivityKind } from "@prisma/client";
 
+import {
+  isLinkedInOpsSourceRef,
+  linkedInPublishingDeskHref,
+} from "@/app/lib/linkedinDeskIds";
+
 /**
  * Resolve a clickable Ops Hub / docs href for a calendar activity sourceRef.
  * Prefer an explicit seed/API href when present; this is the fallback + default.
@@ -60,8 +65,9 @@ export function hrefForOpsSourceRef(
     return "/docs/governance-frame/research-papers/GF-2026-001-evolution-of-grc/manuscript";
   }
 
-  if (base.startsWith("marketing/linkedin")) {
-    return "/dashboard/operations/publishing?desk=linkedin";
+  // Every LinkedIn calendar card opens its Publishing Desk draft slot.
+  if (isLinkedInOpsSourceRef(base)) {
+    return linkedInPublishingDeskHref(base);
   }
   if (base === "marketing/live-surfaces-credibility-spotcheck") {
     return "/marketing";

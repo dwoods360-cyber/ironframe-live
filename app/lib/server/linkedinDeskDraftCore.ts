@@ -4,6 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
+  isLinkedInOpsSourceRef,
+  linkedInDeskAppDocSlug,
+  linkedInDeskIdFromSourceRef,
+  linkedInSlotLabelFromTitleOrDue,
+} from "@/app/lib/linkedinDeskIds";
+import {
   findAppDocumentBySlug,
   upsertAppDocument,
 } from "@/app/lib/server/appDocumentStore";
@@ -210,11 +216,11 @@ https://ironframegrc.com/register/contact
 - [ ] Calendar card Done with post URL after publish.
 `;
 
-export type LinkedInDraftId = "mon-heatmap" | "wed-product-demo" | "fri-collection";
+export type LinkedInDraftId = string;
 
 export type LinkedInDraftCatalogEntry = {
   id: LinkedInDraftId;
-  slotLabel: "Mon" | "Wed" | "Fri";
+  slotLabel: string;
   slug: string;
   repoFile: string;
   /** Ops calendar sourceRef that marks this slot posted when DONE/CANCELLED. */
@@ -222,9 +228,25 @@ export type LinkedInDraftCatalogEntry = {
   defaultTitle: string;
   defaultBody: string;
   defaultResearch: string;
+  /** Optional due date from Ops calendar (ISO) for ordering. */
+  dueAt?: string | null;
 };
 
-/** Ordered LinkedIn desk slots — listed like Briefings/Newsletters drafts. */
+/** Optional repo markdown maps for calendar-created LinkedIn cards. */
+const LINKEDIN_SOURCE_REF_REPO_FILE: Record<string, string> = {
+  "marketing/linkedin-2026-08-06-heatmap":
+    "docs/marketing-strategy/linkedin-drafts-mon-heatmap.md",
+  "marketing/linkedin-2026-07-23":
+    "docs/marketing-strategy/linkedin-drafts-wed-product-demo.md",
+  "marketing/linkedin-2026-08-08-collection":
+    "docs/marketing-strategy/linkedin-drafts-week-1.md",
+  "marketing/linkedin-2026-08-11-ai-evidence":
+    "docs/marketing-strategy/linkedin-drafts-next-ai-evidence-hitl.md",
+  "marketing/linkedin-2026-08-14-residual":
+    "docs/marketing-strategy/linkedin-drafts-next-residual-vs-spend.md",
+};
+
+/** Ordered static LinkedIn desk slots (week-1 canon). Dynamic calendar slots merge in. */
 export const LINKEDIN_DRAFT_CATALOG: LinkedInDraftCatalogEntry[] = [
   {
     id: "mon-heatmap",
@@ -258,6 +280,175 @@ export const LINKEDIN_DRAFT_CATALOG: LinkedInDraftCatalogEntry[] = [
   },
 ];
 
+function tryReadRepoMarkdown(repoFile: string): string | null {
+  try {
+    const absolute = path.join(process.cwd(), repoFile);
+    if (!fs.existsSync(absolute)) return null;
+    return fs.readFileSync(absolute, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+/** Parse founder LinkedIn markdown packs (body + research; strip first-comment from paste body). */
+export function parseLinkedInRepoPackMarkdown(markdown: string): {
+  title: string;
+  body: string;
+  research: string;
+} {
+  const normalized = markdown.replace(/\r\n/g, "\n").trim();
+  const titleMatch = normalized.match(/^#\s+(.+)$/m);
+  const title = titleMatch?.[1]?.trim() || "LinkedIn draft";
+  let rest = normalized.replace(/^#\s+.+\n+/, "").trim();
+
+  // Drop YAML-ish metadata blocks before the paste body when present.
+  rest = rest.replace(
+    /^(?:\*\*[^*]+\*\*:[^\n]*\n+)+\n---\n+/m,
+    "",
+  );
+
+  const researchSplit = rest.split(
+    /\n---\n+\s*## Research & verification[^\n]*\n+/i,
+  );
+  let bodyPart = researchSplit[0]?.trim() ?? rest;
+  let research =
+    researchSplit.length >= 2
+      ? researchSplit.slice(1).join("\n---\n").trim()
+      : "";
+
+  // Keep first-comment instructions in research, not in LinkedIn paste body.
+  const firstCommentSplit = bodyPart.split(
+    /\n---\n+\s*## First comment[^\n]*\n+/i,
+  );
+  if (firstCommentSplit.length >= 2) {
+    bodyPart = firstCommentSplit[0].trim();
+    const firstComment = firstCommentSplit.slice(1).join("\n").trim();
+    research = [
+      "### First comment (post immediately after publish — do not put in main body)\n\n" +
+        firstComment,
+      research,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  if (!research.trim()) research = LINKEDIN_RESEARCH_TEMPLATE;
+  // Ensure research heading content is usable as the research pane (no duplicate H1).
+  if (!/^Use this section/i.test(research) && !/^### /m.test(research)) {
+    research = `Use this section to verify that each public claim is real and that Ironframe can relieve the pain — not as LinkedIn copy.\n\n${research}`;
+  }
+
+  return { title, body: bodyPart.trim(), research: research.trim() };
+}
+
+function repoFileForSourceRef(sourceRef: string, hintHref?: string | null): string {
+  const mapped = LINKEDIN_SOURCE_REF_REPO_FILE[sourceRef];
+  if (mapped) return mapped;
+  const href = (hintHref ?? "").trim();
+  if (href.startsWith("/docs/")) {
+    return `${href.slice(1)}.md`.replace(/\.md\.md$/i, ".md");
+  }
+  if (href.startsWith("docs/") && href.endsWith(".md")) return href;
+  const id = linkedInDeskIdFromSourceRef(sourceRef) ?? "slot";
+  return `docs/marketing-strategy/linkedin-drafts-${id}.md`;
+}
+
+function entryFromStaticOrCalendar(input: {
+  opsSourceRef: string;
+  title: string;
+  dueAt?: Date | string | null;
+  href?: string | null;
+}): LinkedInDraftCatalogEntry {
+  const staticHit = LINKEDIN_DRAFT_CATALOG.find(
+    (e) => e.opsSourceRef === input.opsSourceRef,
+  );
+  if (staticHit) {
+    return {
+      ...staticHit,
+      dueAt:
+        typeof input.dueAt === "string"
+          ? input.dueAt
+          : input.dueAt?.toISOString?.() ?? null,
+    };
+  }
+
+  const id = linkedInDeskIdFromSourceRef(input.opsSourceRef);
+  if (!id) {
+    throw new Error(`Not a LinkedIn ops sourceRef: ${input.opsSourceRef}`);
+  }
+  const repoFile = repoFileForSourceRef(input.opsSourceRef, input.href);
+  const fromRepo = tryReadRepoMarkdown(repoFile);
+  const parsed = fromRepo
+    ? parseLinkedInRepoPackMarkdown(fromRepo)
+    : {
+        title: input.title,
+        body:
+          `${input.title}\n\n(Draft body — paste ready copy before publishing.)\n\nhttps://ironframegrc.com/register/contact\n\n#GRC`,
+        research: LINKEDIN_RESEARCH_TEMPLATE,
+      };
+
+  return {
+    id,
+    slotLabel: linkedInSlotLabelFromTitleOrDue(input.title, input.dueAt),
+    slug: linkedInDeskAppDocSlug(id),
+    repoFile,
+    opsSourceRef: input.opsSourceRef,
+    defaultTitle: parsed.title || input.title,
+    defaultBody: parsed.body,
+    defaultResearch: parsed.research || LINKEDIN_RESEARCH_TEMPLATE,
+    dueAt:
+      typeof input.dueAt === "string"
+        ? input.dueAt
+        : input.dueAt?.toISOString?.() ?? null,
+  };
+}
+
+/**
+ * Full desk catalog = static week-1 slots ∪ every Ops `marketing/linkedin*` card.
+ * Creating a LinkedIn calendar activity is enough to surface a Drafts slot.
+ */
+export async function resolveLinkedInDeskCatalog(): Promise<LinkedInDraftCatalogEntry[]> {
+  const rows = await prisma.opsActivity.findMany({
+    where: { sourceRef: { startsWith: "marketing/linkedin" } },
+    orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }],
+  });
+
+  const byRef = new Map<string, LinkedInDraftCatalogEntry>();
+  for (const entry of LINKEDIN_DRAFT_CATALOG) {
+    byRef.set(entry.opsSourceRef, { ...entry });
+  }
+  for (const row of rows) {
+    const ref = (row.sourceRef ?? "").trim();
+    if (!isLinkedInOpsSourceRef(ref)) continue;
+    const built = entryFromStaticOrCalendar({
+      opsSourceRef: ref,
+      title: row.title,
+      dueAt: row.dueAt,
+      href: null,
+    });
+    const prev = byRef.get(ref);
+    byRef.set(ref, {
+      ...built,
+      // Prefer static template defaults when present; keep calendar title/due.
+      defaultTitle: prev?.defaultTitle || built.defaultTitle,
+      defaultBody: prev?.defaultBody || built.defaultBody,
+      defaultResearch: prev?.defaultResearch || built.defaultResearch,
+      repoFile: prev?.repoFile || built.repoFile,
+      slug: prev?.slug || built.slug,
+      id: prev?.id || built.id,
+      slotLabel: linkedInSlotLabelFromTitleOrDue(row.title, row.dueAt),
+      dueAt: row.dueAt.toISOString(),
+    });
+  }
+
+  return [...byRef.values()].sort((a, b) => {
+    const aDue = a.dueAt ? Date.parse(a.dueAt) : Number.POSITIVE_INFINITY;
+    const bDue = b.dueAt ? Date.parse(b.dueAt) : Number.POSITIVE_INFINITY;
+    if (aDue !== bDue) return aDue - bDue;
+    return a.id.localeCompare(b.id);
+  });
+}
+
 export function linkedInDraftCatalogEntry(
   id: string | null | undefined,
 ): LinkedInDraftCatalogEntry | null {
@@ -275,7 +466,18 @@ export function linkedInDraftCatalogEntry(
   return LINKEDIN_DRAFT_CATALOG.find((e) => e.id === key) ?? null;
 }
 
-/** Default open slot on the LinkedIn desk (active post to publish). */
+export async function findLinkedInDeskCatalogEntry(
+  id: string | null | undefined,
+): Promise<LinkedInDraftCatalogEntry | null> {
+  const key = (id ?? "").trim().toLowerCase();
+  if (!key) return null;
+  const legacy = linkedInDraftCatalogEntry(key);
+  if (legacy) return legacy;
+  const catalog = await resolveLinkedInDeskCatalog();
+  return catalog.find((e) => e.id.toLowerCase() === key) ?? null;
+}
+
+/** Default open slot preference when nothing else is active. */
 export const LINKEDIN_DEFAULT_DRAFT_ID: LinkedInDraftId = "fri-collection";
 
 /** Extract http(s) citation URLs from operator research markdown (deduped, max 24). */
@@ -335,7 +537,7 @@ function tryWriteRepoMarkdown(markdown: string, repoFile: string): boolean {
 export type LinkedInDeskDraftResult = {
   ok: true;
   id: LinkedInDraftId;
-  slotLabel: "Mon" | "Wed" | "Fri";
+  slotLabel: string;
   slug: string;
   title: string;
   body: string;
@@ -348,7 +550,7 @@ export type LinkedInDeskDraftResult = {
 
 export type LinkedInDeskDraftListItem = {
   id: LinkedInDraftId;
-  slotLabel: "Mon" | "Wed" | "Fri";
+  slotLabel: string;
   slug: string;
   title: string;
   summary: string;
@@ -362,6 +564,7 @@ export type LinkedInDeskDraftListItem = {
   calendarStatus: "PLANNED" | "IN_PROGRESS" | "IN_REVIEW" | "DONE" | "CANCELLED" | null;
   opsSourceRef: string;
   calendarOutcome: string | null;
+  dueAt?: string | null;
 };
 
 
@@ -466,7 +669,7 @@ async function ensureCatalogDraft(
   });
 }
 
-/** List Mon/Wed/Fri LinkedIn drafts (seeds defaults when missing). */
+/** List all LinkedIn drafts (static ∪ calendar-created). Seeds APP_DOCS when missing. */
 export async function listLinkedInDeskDraftsCore(): Promise<{
   drafts: LinkedInDeskDraftListItem[];
   activeDrafts: LinkedInDeskDraftListItem[];
@@ -474,11 +677,16 @@ export async function listLinkedInDeskDraftsCore(): Promise<{
   defaultId: LinkedInDraftId;
   counts: { total: number; active: number; posted: number };
 }> {
-  const sourceRefs = LINKEDIN_DRAFT_CATALOG.map((e) => e.opsSourceRef);
-  const titles = LINKEDIN_DRAFT_CATALOG.map((e) => e.defaultTitle);
+  const catalog = await resolveLinkedInDeskCatalog();
+  const sourceRefs = catalog.map((e) => e.opsSourceRef);
+  const titles = catalog.map((e) => e.defaultTitle);
   const calendarRows = await prisma.opsActivity.findMany({
     where: {
-      OR: [{ sourceRef: { in: sourceRefs } }, { title: { in: titles } }],
+      OR: [
+        { sourceRef: { in: sourceRefs } },
+        { sourceRef: { startsWith: "marketing/linkedin" } },
+        { title: { in: titles } },
+      ],
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -494,7 +702,7 @@ export async function listLinkedInDeskDraftsCore(): Promise<{
   }
 
   const drafts: LinkedInDeskDraftListItem[] = [];
-  for (const entry of LINKEDIN_DRAFT_CATALOG) {
+  for (const entry of catalog) {
     const loaded = await ensureCatalogDraft(entry);
     const cal =
       calendarByRef.get(entry.opsSourceRef) ??
@@ -520,16 +728,30 @@ export async function listLinkedInDeskDraftsCore(): Promise<{
       calendarStatus,
       opsSourceRef: entry.opsSourceRef,
       calendarOutcome: cal?.outcome?.trim() || null,
+      dueAt: entry.dueAt ?? cal?.dueAt?.toISOString?.() ?? null,
     });
   }
 
-  const activeDrafts = drafts.filter((d) => !d.posted);
-  const postedArchive = drafts.filter((d) => d.posted);
+  // Active first (soonest due), then published archive (newest due first).
+  const activeDrafts = drafts
+    .filter((d) => !d.posted)
+    .sort((a, b) => {
+      const aDue = a.dueAt ? Date.parse(a.dueAt) : Number.POSITIVE_INFINITY;
+      const bDue = b.dueAt ? Date.parse(b.dueAt) : Number.POSITIVE_INFINITY;
+      return aDue - bDue;
+    });
+  const postedArchive = drafts
+    .filter((d) => d.posted)
+    .sort((a, b) => {
+      const aDue = a.dueAt ? Date.parse(a.dueAt) : 0;
+      const bDue = b.dueAt ? Date.parse(b.dueAt) : 0;
+      return bDue - aDue;
+    });
   const defaultId =
     activeDrafts[0]?.id ?? postedArchive[0]?.id ?? LINKEDIN_DEFAULT_DRAFT_ID;
 
   return {
-    drafts,
+    drafts: [...activeDrafts, ...postedArchive],
     activeDrafts,
     postedArchive,
     defaultId,
@@ -539,6 +761,26 @@ export async function listLinkedInDeskDraftsCore(): Promise<{
       posted: postedArchive.length,
     },
   };
+}
+
+/**
+ * Creation path: when an Ops LinkedIn calendar card exists/is seeded, ensure
+ * the matching Publishing Desk draft slot (APP_DOCS) is ready.
+ */
+export async function ensureLinkedInDeskDraftForOpsActivity(input: {
+  sourceRef: string;
+  title: string;
+  dueAt?: Date | string | null;
+  href?: string | null;
+}): Promise<LinkedInDeskDraftResult | null> {
+  if (!isLinkedInOpsSourceRef(input.sourceRef)) return null;
+  const entry = entryFromStaticOrCalendar({
+    opsSourceRef: input.sourceRef.trim(),
+    title: input.title,
+    dueAt: input.dueAt,
+    href: input.href,
+  });
+  return ensureCatalogDraft(entry);
 }
 
 /**
@@ -594,8 +836,8 @@ export async function loadLinkedInDeskDraftCore(options?: {
   }
 
   const fromId =
-    linkedInDraftCatalogEntry(options?.id) ??
-    linkedInDraftCatalogEntry(LINKEDIN_DEFAULT_DRAFT_ID)!;
+    (await findLinkedInDeskCatalogEntry(options?.id)) ??
+    (await findLinkedInDeskCatalogEntry(LINKEDIN_DEFAULT_DRAFT_ID))!;
 
   if (options?.resetTemplate) {
     return persistDraft({
@@ -622,8 +864,8 @@ export async function saveLinkedInDeskDraftCore(input: {
   markdown?: string;
 }): Promise<LinkedInDeskDraftResult | { ok: false; error: string; status: number }> {
   const entry =
-    linkedInDraftCatalogEntry(input.id) ??
-    linkedInDraftCatalogEntry(LINKEDIN_DEFAULT_DRAFT_ID)!;
+    (await findLinkedInDeskCatalogEntry(input.id)) ??
+    (await findLinkedInDeskCatalogEntry(LINKEDIN_DEFAULT_DRAFT_ID))!;
 
   let title = (input.title ?? "").trim();
   let body = (input.body ?? "").replace(/\r\n/g, "\n").trim();

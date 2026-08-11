@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Operator LinkedIn draft workbench — load one catalog slot.
- * Query: ?id=fri-collection|mon-heatmap|wed-product-demo
+ * Query: ?id=<desk-id> (legacy: fri-collection|mon-heatmap|wed-product-demo;
+ * dynamic: any marketing/linkedin* calendar card, e.g. 2026-08-11-ai-evidence)
  * Legacy: ?seed=suggested|friday|monday
  */
 export async function GET(request: NextRequest) {

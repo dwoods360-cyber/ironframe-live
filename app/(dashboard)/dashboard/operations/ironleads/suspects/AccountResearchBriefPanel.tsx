@@ -1,4 +1,37 @@
-import type { AccountResearchBrief } from "@/app/lib/server/ironleadsAccountResearchBrief";
+import type {
+  AccountResearchBrief,
+  AccountResearchBriefBuyer,
+  BriefPurchaseRole,
+} from "@/app/lib/server/ironleadsAccountResearchBrief";
+
+function coercePurchaseRole(raw: unknown): BriefPurchaseRole {
+  const s = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (s === "economic_buyer" || s === "economic") return "economic_buyer";
+  if (
+    s === "operational_buyer" ||
+    s === "ops" ||
+    s === "operational" ||
+    s === "technical" ||
+    s === "delivery" ||
+    s === "sales"
+  ) {
+    return "operational_buyer";
+  }
+  if (s === "influencer") return "influencer";
+  return "influencer";
+}
+
+function coerceBuyerConfidence(
+  raw: unknown,
+): AccountResearchBriefBuyer["confidence"] {
+  const s = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (s === "high" || s === "medium" || s === "low") return s;
+  return "low";
+}
 
 function GateBadge({ result }: { result: "PASS" | "FAIL" | "UNKNOWN" }) {
   const cls =
@@ -38,20 +71,23 @@ function normalizeBriefForPanel(brief: AccountResearchBrief): AccountResearchBri
     sourceLedger: Array.isArray(brief.sourceLedger) ? brief.sourceLedger : [],
     buyerMap: Array.isArray(brief.buyerMap)
       ? brief.buyerMap.map((person) => {
-          const row = person as {
-            purchaseRole?: string;
+          const row = person as AccountResearchBriefBuyer & {
             role?: string;
-            name?: string;
-            title?: string;
-            confidence?: number | string;
+            purchaseRole?: string;
           };
           return {
             ...person,
             name: row.name ?? "Unknown",
             title: row.title ?? "",
-            purchaseRole: row.purchaseRole ?? row.role ?? "unknown",
-            confidence: row.confidence ?? "—",
-          };
+            purchaseRole: coercePurchaseRole(row.purchaseRole ?? row.role),
+            confidence: coerceBuyerConfidence(row.confidence),
+            whyOwnsWorkflow: row.whyOwnsWorkflow ?? "",
+            linkedInUrl: row.linkedInUrl ?? null,
+            biographyUrl: row.biographyUrl ?? null,
+            email: row.email ?? null,
+            emailStatus: row.emailStatus ?? null,
+            phone: row.phone ?? null,
+          } satisfies AccountResearchBriefBuyer;
         })
       : [],
     linkedInIntelligence: brief.linkedInIntelligence ?? {

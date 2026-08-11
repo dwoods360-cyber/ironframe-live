@@ -7,6 +7,10 @@ published: "2026-08-02"
 summary: "On 2 August 2026, Article 50 transparency obligations under the EU AI Act (Regulation (EU) 2024/1689) became applicable for providers and deployers of certain AI systems—including interactive systems, synthetic-content generators, emotion recognition / biometric categorisation, and deepfake / public-interest text use cases. This is not a postponement of the whole AI Act; high-risk Annex III timelines may differ."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
+tenantId: "00000000-0000-0000-0000-000000000000"
+tenantSlug: "ironframe-sandbox"
+activeExposureCents: "0"
+requiresImmediatePromotion: false
 ---
 
 > **Signal (2 August 2026):** Article **50** transparency duties under the EU Artificial Intelligence Act apply. Providers must ensure people know when they interact directly with an AI system and, for in-scope generative systems, mark synthetic outputs in a machine-readable, detectable way (with a limited transitional runway for marking/detection on systems already on the market—commonly described through **2 December 2026** in Commission/guidance explainers). Deployers face disclosure duties for emotion recognition / biometric categorisation exposure and for deepfakes / AI-generated public-interest text unless substantive human editorial responsibility applies.

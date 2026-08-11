@@ -7,6 +7,10 @@ published: "2026-08-03"
 summary: "In early August 2026 CISA added N-able N-central authentication-bypass vulnerabilities to the KEV catalog (including CVE-2026-18577 and related CVE-2026-18556). Public reporting describes an incomplete first fix that required a second patch—an MSP-critical reminder that ‘ticket closed: patched’ is not the same control as ‘exploit path closed and validated.’"
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
+tenantId: "00000000-0000-0000-0000-000000000000"
+tenantSlug: "ironframe-sandbox"
+activeExposureCents: "0"
+requiresImmediatePromotion: false
 ---
 
 > **Signal (3–5 August 2026):** CISA KEV activity around **N-able N-central** authentication bypasses put managed-service remote-monitoring platforms on a short clock. Practitioner reporting describes a first remediation that proved bypassable, followed by a second patch—both CVEs treated as exploited. Federal remediation pressure in the same window (commonly cited around **7 August 2026** for the early-August KEV cluster) is a benchmark signal for private operators, not automatic private law.

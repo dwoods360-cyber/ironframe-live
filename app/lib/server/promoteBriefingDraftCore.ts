@@ -128,9 +128,38 @@ export async function promoteBriefingDraftCore(
     };
   }
 
-  const parsedFrontmatter = parseBriefingDraftFrontmatter(markdown, slug);
+  let parsedFrontmatter = parseBriefingDraftFrontmatter(markdown, slug);
   if (!parsedFrontmatter) {
-    return { ok: false, error: "Promotion blocked — frontmatter must include tenantId." };
+    // Institutional desk notes / GF drafts may omit tenantId in early drafts.
+    // Resolve the GTM publish tenant (default ironframe-sandbox) rather than hard-fail.
+    const preferred =
+      process.env.GTM_BRIEFING_QUEUE_TENANT_SLUG?.trim().toLowerCase() || "ironframe-sandbox";
+    const tenant =
+      (await prisma.tenant.findFirst({
+        where: { slug: preferred },
+        select: { id: true },
+      })) ||
+      (await prisma.tenant.findFirst({
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      }));
+    if (!tenant) {
+      return {
+        ok: false,
+        error:
+          "Promotion blocked — frontmatter must include tenantId (and no fallback tenant is available).",
+      };
+    }
+    parsedFrontmatter = parseBriefingDraftFrontmatter(
+      markdown.replace(
+        /^---\n/,
+        `---\ntenantId: "${tenant.id}"\ntenantSlug: "${preferred}"\nactiveExposureCents: "0"\n`,
+      ),
+      slug,
+    );
+    if (!parsedFrontmatter) {
+      return { ok: false, error: "Promotion blocked — frontmatter must include tenantId." };
+    }
   }
 
   const validatedTenantUuid = parsedFrontmatter.tenantId.trim();

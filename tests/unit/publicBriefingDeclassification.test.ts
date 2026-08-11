@@ -83,6 +83,10 @@ published: "2026-07-01"
 summary: "KEV addition for on-premises SharePoint remote code execution."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
+tenantId: "00000000-0000-0000-0000-000000000000"
+tenantSlug: "ironframe-sandbox"
+activeExposureCents: "0"
+requiresImmediatePromotion: false
 ---
 
 > **Signal (1 July 2026):** CISA added Microsoft SharePoint Server CVE-2026-45659 to KEV.

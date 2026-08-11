@@ -7,6 +7,10 @@ published: "2026-07-07"
 summary: "Federal News Network reported on 7 July 2026 that the latest Unified Agenda preview shows CISA targeting September 2026 to finalize CIRCIA’s cyber incident reporting rule—alongside related federal contracting cyber rules. Covered critical-infrastructure entities should use the intervening months for coverage assessment and incident-clock readiness; the rule is not yet final."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
+tenantId: "00000000-0000-0000-0000-000000000000"
+tenantSlug: "ironframe-sandbox"
+activeExposureCents: "0"
+requiresImmediatePromotion: false
 ---
 
 > **Signal (7 July 2026):** Reporting on the updated 2026 Unified Agenda preview states CISA expects to issue the final **CIRCIA** (Cyber Incident Reporting for Critical Infrastructure Act) rule in **September 2026**. The same agenda window also projects related federal contracting cybersecurity rules for September. CISA’s June 2026 town halls (reported attendance >1,200 stakeholders) are cited as completed feedback steps.

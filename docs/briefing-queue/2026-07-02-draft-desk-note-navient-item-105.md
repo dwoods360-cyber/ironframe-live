@@ -7,6 +7,10 @@ published: "2026-07-02"
 summary: "On 2 July 2026 Navient Corporation filed an Item 1.05 Form 8-K after determining a third-party law-firm ransomware incident material on 29 June 2026. The filing illustrates a recurring disclosure pattern: sensitive borrower data in a professional adviser’s environment can drive materiality even when the registrant reports no unauthorized access to its own systems and no operational disruption."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
+tenantId: "00000000-0000-0000-0000-000000000000"
+tenantSlug: "ironframe-sandbox"
+activeExposureCents: "0"
+requiresImmediatePromotion: false
 ---
 
 > **Signal (2 July 2026):** Navient Corporation filed a Form 8-K Item 1.05 cybersecurity incident disclosure. Public filing narrative: awareness of a ransomware incident at a third-party law firm (8 June 2026); materiality determination (29 June 2026); filing (2 July 2026). Borrower data including names, dates of birth, addresses, and Social Security numbers were reported accessed in the firm’s environment. Navient reported no unauthorized access to its own systems and no operational disruption—yet determined the incident material given volume and sensitivity of information.

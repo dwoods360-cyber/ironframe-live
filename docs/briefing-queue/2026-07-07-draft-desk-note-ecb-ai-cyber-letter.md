@@ -7,6 +7,10 @@ published: "2026-07-07"
 summary: "On 7 July 2026 the ECB Supervisory Board wrote to significant institutions (SSM-2026-0301) requiring board-owned action plans addressing AI-enabled cybersecurity threats, submitted to Joint Supervisory Teams by 31 October 2026, grounded in DORA. The ECB also postponed the annual IT Risk Questionnaire from September 2026 to February 2027. The ESRB published a same-day warning on systemic cyber risks from frontier AI models."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
+tenantId: "00000000-0000-0000-0000-000000000000"
+tenantSlug: "ironframe-sandbox"
+activeExposureCents: "0"
+requiresImmediatePromotion: false
 ---
 
 > **Signal (7 July 2026):** ECB Supervisory Board Chair Claudia Buch issued letter **SSM-2026-0301**, *Addressing AI-enabled cybersecurity threats*, to CEOs of significant institutions. Institutions must assess the evolving threat landscape and submit a comprehensive action plan—concrete controls, resources, roles, timelines—to their Joint Supervisory Team by **31 October 2026**. The letter grounds expectations in **DORA** (Regulation (EU) 2022/2554) and calls out short-term priorities: accelerate vulnerability/patch management; enhance monitoring/detection (including AI-enabled defensive capabilities with safeguards); verify third-party ICT risk management for critical supply chains.

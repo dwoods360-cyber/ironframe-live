@@ -7,6 +7,10 @@ published: "2026-08-07"
 summary: "On 7 August 2026 CISA added Progress LoadMaster CVE-2026-8037 (command injection) to the KEV catalog amid an already dense early-August exploited-vulnerability week. Edge/load-balancer appliances remain high-value targets; operators should pair patch evidence with exposure inventory and, where clocks demand it, pre-patch compromise triage."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
+tenantId: "00000000-0000-0000-0000-000000000000"
+tenantSlug: "ironframe-sandbox"
+activeExposureCents: "0"
+requiresImmediatePromotion: false
 ---
 
 > **Signal (7 August 2026):** Progress **LoadMaster** command-injection activity entered the KEV conversation the same week BOD 26-04 policy pressure and multiple other KEVs (N-central, Langflow, Tomcat, TeamCity) were already driving emergency change. Public weeklies place LoadMaster among the week-ending-9-August KEV set, with remediation pressure extending into the **10 August** window in operational trackers.

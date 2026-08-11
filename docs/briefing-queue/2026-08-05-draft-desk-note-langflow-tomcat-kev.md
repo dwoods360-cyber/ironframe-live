@@ -7,6 +7,10 @@ published: "2026-08-05"
 summary: "In the early-August 2026 KEV wave, CISA listed actively exploited flaws in IBM Langflow (CVE-2026-9198) and Apache Tomcat clustering (CVE-2026-34486), with short federal remediation pressure commonly cited around 7 August 2026. Langflow puts AI-orchestration tooling on the exploit map; Tomcat clustering exposure remains a classic internet-facing serialization risk—even when adjacent AI-campaign reporting is noisier than the specific exploit path."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
+tenantId: "00000000-0000-0000-0000-000000000000"
+tenantSlug: "ironframe-sandbox"
+activeExposureCents: "0"
+requiresImmediatePromotion: false
 ---
 
 > **Signal (early August 2026):** CISA’s KEV additions included **IBM Langflow** and **Apache Tomcat** vulnerabilities with confirmed exploitation. Practitioner weeklies for the week ending 9 August also stress: patch to current supported lines (not only the minimum fixed version), and treat internet-reachable clustering / AI workflow UIs as investigation candidates when exposure is unclear.

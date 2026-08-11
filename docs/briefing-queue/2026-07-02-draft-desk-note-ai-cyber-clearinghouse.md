@@ -7,6 +7,10 @@ published: "2026-07-02"
 summary: "2 July 2026 was the 30-day deadline under the 2 June 2026 executive order for Treasury—working with the National Cyber Director, NSA, and CISA—to form an AI cybersecurity clearinghouse coordinating vulnerability scanning validation and patch prioritization for critical infrastructure. Most private operators face no new private right of action today; federal contractors and critical-infrastructure partners should ask what, if anything, flows down."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
+tenantId: "00000000-0000-0000-0000-000000000000"
+tenantSlug: "ironframe-sandbox"
+activeExposureCents: "0"
+requiresImmediatePromotion: false
 ---
 
 > **Signal (2 July 2026):** The federal **AI cybersecurity clearinghouse** standup deadline arrived—thirty days after the 2 June 2026 executive order directing Treasury, in consultation with the National Cyber Director, NSA, and CISA, to form a clearinghouse that coordinates AI-assisted vulnerability discovery validation and remediation prioritization.

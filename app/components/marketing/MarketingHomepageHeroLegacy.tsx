@@ -59,11 +59,11 @@ export default function MarketingHomepageHeroLegacy() {
             Open guided demonstration
           </Link>
         </div>
-        <p className="mx-auto max-w-xl text-xs leading-relaxed text-[var(--login-muted)]">
+        <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
           Primary next step is a workflow review — not a free trial. {CUSTOMER_FACING_PATH_B_SKU}:{" "}
           {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day paid design engagement.
         </p>
-        <p className="mx-auto max-w-xl text-xs leading-relaxed text-[var(--login-muted)]">
+        <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
           An operator typically replies within {INBOUND_LEAD_REPLY_SLA_HOURS} business hour (
           {INBOUND_SLA_WINDOW_COPY}).
         </p>

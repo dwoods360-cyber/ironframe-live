@@ -25,8 +25,7 @@ Pair this signal with the process clocks: discovery/awareness, materiality deter
 2. Confirm the intake path for *their* incident notice into *your* disclosure committee.  
 3. Ask whether your materiality rubric explicitly contemplates third-party environments when registrant-used information is affected—even if registrant-owned systems stay clean.
 
-## Sources & Citations
-
+## V. Sources & Citations
 1. SEC EDGAR — Navient Corporation Form 8-K (Item 1.05), filed 2 July 2026 (search issuer filings): https://www.sec.gov/edgar/search/  
 2. SEC — Cybersecurity disclosure rules / Corp Fin staff statement context (Item 1.05 vs voluntary Item 8.01): https://www.sec.gov/  
 3. Governance Frame newsletter context (Item 1.05 filing patterns): https://research.ironframegrc.com/briefings/2026-08-16-newsletter-sec-item-105-filings

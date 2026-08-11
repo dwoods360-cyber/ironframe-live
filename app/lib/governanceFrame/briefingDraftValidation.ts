@@ -194,6 +194,17 @@ export function parseBriefingDraftAlertFlags(markdown: string): BriefingDraftAle
   };
 }
 
+function hasDeskNoteSections(markdown: string): boolean {
+  const sections = parseBriefingSections(markdown);
+  const ids = new Set(sections.map((s) => s.id));
+  // Full triad + citations is always acceptable.
+  if (ids.has("exposure") && ids.has("impact") && ids.has("machine-rule") && ids.has("citations")) {
+    return true;
+  }
+  // Short desk-note form: what moved + governance implication + sources.
+  return ids.has("exposure") && ids.has("machine-rule") && ids.has("citations");
+}
+
 function hasTriadSections(markdown: string): boolean {
   const sections = parseBriefingSections(markdown);
   const ids = new Set(sections.map((s) => s.id));
@@ -262,6 +273,15 @@ export function validateBriefingDraftContent(
         code: "MISSING_THREAT_NOTICE_SECTIONS",
         message:
           "Emerging Threats Notice must include Active Threat Landscape, Regulatory Posture, and Recommended Mitigation Controls sections.",
+        severity: options?.promotion ? "error" : "warn",
+      });
+    }
+  } else if (profile === "desk-note") {
+    if (!hasDeskNoteSections(markdown)) {
+      issues.push({
+        code: "MISSING_DESK_NOTE_SECTIONS",
+        message:
+          "Desk note must include What moved (or I. Exposure Vector), Governance implication (or III. Control-System Requirements), and V. Sources & Citations — keep the note short; do not inflate into a monthly briefing.",
         severity: options?.promotion ? "error" : "warn",
       });
     }

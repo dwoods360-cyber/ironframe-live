@@ -25,8 +25,7 @@ Short-term annex focus includes perimeter and internet-facing assets, third-part
 2. Map the plan’s short-term items to existing DORA ICT risk, incident, testing, and third-party register evidence—not a parallel slide deck.  
 3. Record open supervisory ICT findings and whether AI-threat acceleration changes their residual rating.
 
-## Sources & Citations
-
+## V. Sources & Citations
 1. ECB Banking Supervision — Letter SSM-2026-0301 (7 July 2026) PDF: https://www.bankingsupervision.europa.eu/press/letterstobanks/shared/pdf/2026/ssm.2026_letter_on_AI_enabled_cybersecurity_threats.en.pdf  
 2. Euronews — ECB tells banks to prepare for AI-powered cyber threats (7 July 2026): https://www.euronews.com/business/2026/07/07/ecb-tells-europes-biggest-banks-to-prepare-for-ai-powered-cyber-threats  
 3. DORA — Regulation (EU) 2022/2554 (EUR-Lex): https://eur-lex.europa.eu/eli/reg/2022/2554/oj

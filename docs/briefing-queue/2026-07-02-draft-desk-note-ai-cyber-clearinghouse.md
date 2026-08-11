@@ -29,7 +29,6 @@ Do not over-read the deadline as automatic private obligation. Ask contracting o
 2. Record the owner who monitors CISA.gov / contracting updates for clearinghouse-related guidance.  
 3. Separate three workstreams in the risk register: (a) AI used *by attackers*, (b) AI used *in your defenses*, (c) AI used *in your GRC evidence path*—each needs different controls.
 
-## Sources & Citations
-
+## V. Sources & Citations
 1. AI Policy Desk — clearinghouse deadline explainers (2 July 2026): https://www.aipolicydesk.com/blog/ai-cybersecurity-clearinghouse-july-2026-compliance-teams  
 2. CISA — CIRCIA / cyber reporting program hub (ongoing federal cyber rulemaking context): https://www.cisa.gov/circia

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "draftFilename": "2026-08-07-draft-desk-note-loadmaster-kev.md",
+  "title": "Desk Note — Progress LoadMaster KEV (7 Aug 2026)",
+  "generatedAt": "2026-08-11T13:00:00.000Z",
+  "readyForHumanOperator": true,
+  "findings": [
+    {
+      "agentId": "gf-researcher",
+      "status": "advisory",
+      "summary": "August 2026 desk-note staged from primary/secondary sources; human must re-open URLs before Approve.",
+      "notes": [
+        "Month-to-date August slate (through ~11 Aug 2026).",
+        "Intentionally avoids restating published Item 1.05 newsletter lead examples and July CIRCIA/ECB desk-note leads."
+      ]
+    },
+    {
+      "agentId": "gf-product-boundary",
+      "status": "pass",
+      "summary": "No Ironframe product CTA or certification claims in staged body.",
+      "notes": []
+    },
+    {
+      "agentId": "gf-operator",
+      "status": "advisory",
+      "summary": "readyForHumanOperator is advisory only — human Publisher Approve required.",
+      "notes": [
+        "Quarantine → Approve/Hold/Deny on Publishing Desk → Desk notes."
+      ]
+    }
+  ]
+}

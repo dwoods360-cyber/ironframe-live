@@ -31,6 +31,9 @@ const SECTION_HEADING = /^#{2,3}\s+(.+)$/;
 function classifySection(title: string): BriefingSectionId {
   const t = title.replace(/\*\*/g, "").trim();
   if (/^I\.\s*Exposure Vector/i.test(t)) return "exposure";
+  // Desk-note short form
+  if (/^What moved\b/i.test(t)) return "exposure";
+  if (/^Signal\b/i.test(t)) return "exposure";
   // II — impact / quantitative or economic context
   if (
     /^II\.\s*(?:Calculated Quantitative Impact|Quantitative Context|Quantitative Impact|Economic Context)\b/i.test(
@@ -39,6 +42,7 @@ function classifySection(title: string): BriefingSectionId {
   ) {
     return "impact";
   }
+  if (/^Why (?:it|this) matters\b/i.test(t)) return "impact";
   // III — control requirements / architectural implications / machine-rule translation
   if (
     /^III\.\s*(?:Machine-Rule Technical Translation|What Modern GRC Must Enforce|Architectural Implications|Control-System Requirements)\b/i.test(
@@ -47,8 +51,10 @@ function classifySection(title: string): BriefingSectionId {
   ) {
     return "machine-rule";
   }
+  if (/^Governance implication\b/i.test(t)) return "machine-rule";
   if (/^IV\.\s*Verification Protocol/i.test(t)) return "verification";
   if (/^V\.\s*Sources/i.test(t)) return "citations";
+  if (/^Sources(?:\s*&\s*Citations)?$/i.test(t)) return "citations";
   return "other";
 }
 

@@ -27,7 +27,7 @@ Independent reporting also associated active campaigns with financially motivate
 
 KEV listing is not a private-sector statute by itself. It is a primary signal that "we will get to it next cycle" is no longer a defendable operating assumption for exposed farms.
 
-## Sources & Citations
+## V. Sources & Citations
 
 - **[1] CISA — Known Exploited Vulnerabilities Catalog** — https://www.cisa.gov/known-exploited-vulnerabilities-catalog
 - **[2] NVD — CVE-2026-45659** — https://nvd.nist.gov/vuln/detail/CVE-2026-45659

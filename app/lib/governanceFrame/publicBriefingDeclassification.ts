@@ -9,7 +9,10 @@ export type PublicDeclassificationIssue = {
   severity: "error" | "warn";
 };
 
-export type PublicBriefingProfile = "governance-triad" | "emerging-threats-notice";
+export type PublicBriefingProfile =
+  | "governance-triad"
+  | "emerging-threats-notice"
+  | "desk-note";
 
 type DeclassificationRule = {
   code: string;
@@ -24,6 +27,7 @@ type DeclassificationRule = {
 const ALL_PROFILES: readonly PublicBriefingProfile[] = [
   "governance-triad",
   "emerging-threats-notice",
+  "desk-note",
 ];
 
 /** Patterns that must not appear in public-facing briefing bodies (all profiles). */
@@ -144,7 +148,7 @@ export const PUBLIC_BRIEFING_DECLASSIFICATION_MANDATE = `
 [PUBLIC BRIEFING DE-CLASSIFICATION — MANDATORY]
 Audience: prospects, design partners, and subscribers at brief.ironframegrc.com — not engineers or operators.
 1. Never reference internal APIs, repository paths, database tables, agent names, tenant UUIDs, demo tenant slugs, or editorial workflow paths.
-2. Governance Frame triads: no raw CVE tokens — use perimeter descriptions. Emerging Threats Notices: CVE identifiers permitted.
+2. Governance Frame triads: no raw CVE tokens — use perimeter descriptions. Desk notes and Emerging Threats Notices: CVE identifiers permitted when they are the public catalog key (e.g. CISA KEV).
 3. Section V citations must use external regulator primary sources and https://brief.ironframegrc.com only.
 4. Describe regulated industries generically — never engineering fixtures as company names.
 `.trim();
@@ -167,10 +171,26 @@ export function resolvePublicBriefingProfile(
   filename?: string,
 ): PublicBriefingProfile {
   const classification = parseFrontmatterField(markdown, "classification")?.toLowerCase() ?? "";
+  const category = parseFrontmatterField(markdown, "category")?.toLowerCase() ?? "";
+  const title = parseFrontmatterField(markdown, "title")?.toLowerCase() ?? "";
+  const lowerFile = filename?.toLowerCase() ?? "";
+
+  if (
+    category.includes("desk-note") ||
+    category.includes("desk_note") ||
+    category === "signal" ||
+    title.startsWith("desk note") ||
+    title.startsWith("signal —") ||
+    title.startsWith("signal -") ||
+    lowerFile.includes("desk-note") ||
+    lowerFile.includes("draft-signal")
+  ) {
+    return "desk-note";
+  }
+
   if (classification.includes("emerging threats")) {
     return "emerging-threats-notice";
   }
-  const lowerFile = filename?.toLowerCase() ?? "";
   if (lowerFile.includes("emerging-threats")) {
     return "emerging-threats-notice";
   }

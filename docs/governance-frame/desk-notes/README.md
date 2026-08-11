@@ -16,6 +16,8 @@ Short, dated Governance Frame publications on **one** live development.
 4. If depth is required, graduate the topic to the monthly briefing — do not inflate the desk note.
 5. Frontmatter: `category: desk-note` (or title prefix `Desk Note —` / `Signal —`).
 6. Queue filenames: `*-draft-desk-note-*` or `*-draft-signal-*`.
+7. Promote-path sections (short form): **What moved**, **Governance implication**, **V. Sources & Citations**. Full triad I–III is optional, not required.
+8. CVE identifiers are permitted on desk notes when they are the public catalog key (e.g. CISA KEV) — monthly triad briefings still forbid raw CVE tokens.
 
 ## Public surface
 

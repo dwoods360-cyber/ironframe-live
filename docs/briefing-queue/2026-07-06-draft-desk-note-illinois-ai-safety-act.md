@@ -25,7 +25,6 @@ For enterprises that are *users* rather than frontier developers, the practical 
 2. For vendor models, request the vendor’s written position on CA / NY / IL AI safety obligations and any third-party audit posture.  
 3. Do not treat “HIPAA/SOC tooling” as a substitute for frontier-developer AI safety duties—different statutes, different evidence.
 
-## Sources & Citations
-
+## V. Sources & Citations
 1. Skadden — Illinois enacts AI Safety Measures Act (July 2026 analysis): https://www.skadden.com/insights/publications/2026/07/illinois-enacts-ai-safety-law-becoming-first-state  
 2. Illinois General Assembly / bill text (confirm enacted chapter citation before any absolute claim in Promote): https://www.ilga.gov/

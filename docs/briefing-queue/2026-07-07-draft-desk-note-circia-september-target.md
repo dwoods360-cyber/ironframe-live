@@ -25,8 +25,7 @@ September 2026 also sits near the reported sunset pressure on Cybersecurity Info
 2. Tabletop one “substantial cyber incident” and one ransomware-payment scenario against draft clock assumptions.  
 3. Record conflicts with existing regulators’ reporting clocks—do not assume CIRCIA replaces them.
 
-## Sources & Citations
-
+## V. Sources & Citations
 1. Federal News Network — CIRCIA and other cyber rules expected fall finalization (7 July 2026): https://federalnewsnetwork.com/cybersecurity/2026/07/circia-other-big-cyber-rules-expected-to-get-finalized-this-fall/  
 2. CISA — CIRCIA program page: https://www.cisa.gov/circia  
 3. OIRA Unified Agenda (confirm current CIRCIA RIN entry before Promote): https://www.reginfo.gov/

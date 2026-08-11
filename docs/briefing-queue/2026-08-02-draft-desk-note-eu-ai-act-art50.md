@@ -25,8 +25,7 @@ Commission guidelines on Article 50 transparency (adopted mid/late July 2026 per
 2. Label each as provider, deployer, or both.  
 3. For each, record the disclosure/marking control owner and evidence location (UI notice, watermarking/detection method, editorial-exception log).
 
-## Sources & Citations
-
+## V. Sources & Citations
 1. European Commission — Guidelines on transparency obligations (Article 50): https://digital-strategy.ec.europa.eu/en/policies/guidelines-ai-transparency-obligations  
 2. EU Artificial Intelligence Act — Article 50: https://artificialintelligenceact.eu/article/50/  
 3. Cooley — Article 50 transparency obligations take effect 2 August 2026: https://www.cooley.com/news/insight/2026/2026-08-03-eu-ai-act-transparency-obligations-take-effect-2-august-2026

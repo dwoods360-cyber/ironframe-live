@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "draftFilename": "2026-07-02-draft-desk-note-navient-item-105.md",
+  "title": "Desk Note — Navient Item 1.05: third-party counsel ransomware",
+  "generatedAt": "2026-07-07T22:00:00.000Z",
+  "readyForHumanOperator": true,
+  "findings": [
+    {
+      "agentId": "gf-researcher",
+      "status": "advisory",
+      "summary": "Backdated desk-note staged from verified July 2026 industry signals; human must re-open primary URLs before Approve.",
+      "notes": [
+        "Event-week backfill for Desk notes tab (first week of July 2026).",
+        "Do not promote without Source Verification Reviewer pass on live URLs."
+      ]
+    },
+    {
+      "agentId": "gf-product-boundary",
+      "status": "pass",
+      "summary": "No Ironframe product CTA or certification claims in staged body.",
+      "notes": []
+    },
+    {
+      "agentId": "gf-operator",
+      "status": "advisory",
+      "summary": "readyForHumanOperator is advisory only — human Publisher Approve required.",
+      "notes": [
+        "Quarantine → Approve/Hold/Deny on Publishing Desk → Desk notes."
+      ]
+    }
+  ]
+}

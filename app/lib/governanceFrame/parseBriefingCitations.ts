@@ -15,6 +15,8 @@ const URL_LINE = /^(https?:\/\/\S+|`[^`]+`)$/i;
  * - **[1] Label** — `locator` · retrieved 2026-06-17 · optional note
  * - **[1] Label** — https://example.com/path
  * - **Label** | locator | 2026-06-17
+ * - 1. **[1] Label** — https://example.com/path  (numbered lists)
+ * - 1. **Label:** https://example.com/path
  * - multi-line research citations:
  *   * **[1] Label**
  *     https://example.com/path
@@ -27,10 +29,13 @@ export function parseBriefingCitations(sectionBody: string): BriefingCitation[] 
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i]?.trim() ?? "";
-    if (!/^[-*]\s+/.test(line)) continue;
+    // Accept markdown bullets (-/*/+) and numbered lists (1. / 1)).
+    if (!/^([-*+]|\d+[.)])\s+/.test(line)) continue;
+    const content = line.replace(/^([-*+]|\d+[.)])\s+/, "").trim();
+    if (!content) continue;
 
-    const indexedBacktick = line.match(
-      /^[-*]\s+\*\*\[(\d+)\]\s*(.+?)\*\*\s*[—–-]\s*`([^`]+)`(?:\s*·\s*retrieved\s+([^\s·]+))?(?:\s*·\s*(.+))?$/i,
+    const indexedBacktick = content.match(
+      /^\*\*\[(\d+)\]\s*(.+?)\*\*\s*[—–-]\s*`([^`]+)`(?:\s*·\s*retrieved\s+([^\s·]+))?(?:\s*·\s*(.+))?$/i,
     );
     if (indexedBacktick) {
       citations.push({
@@ -43,8 +48,8 @@ export function parseBriefingCitations(sectionBody: string): BriefingCitation[] 
       continue;
     }
 
-    const indexedInline = line.match(
-      /^[-*]\s+\*\*\[(\d+)\]\s*(.+?)\*\*\s*[—–-]\s*(.+?)(?:\s*·\s*retrieved\s+([^\s·]+))?(?:\s*·\s*(.+))?$/i,
+    const indexedInline = content.match(
+      /^\*\*\[(\d+)\]\s*(.+?)\*\*\s*[—–-]\s*(.+?)(?:\s*·\s*retrieved\s+([^\s·]+))?(?:\s*·\s*(.+))?$/i,
     );
     if (indexedInline) {
       citations.push({
@@ -57,7 +62,7 @@ export function parseBriefingCitations(sectionBody: string): BriefingCitation[] 
       continue;
     }
 
-    const piped = line.match(/^[-*]\s+\*\*(.+?)\*\*\s*\|\s*([^|]+)\|\s*([^|]+)(?:\|\s*(.+))?$/);
+    const piped = content.match(/^\*\*(.+?)\*\*\s*\|\s*([^|]+)\|\s*([^|]+)(?:\|\s*(.+))?$/);
     if (piped) {
       autoIndex += 1;
       citations.push({
@@ -70,13 +75,32 @@ export function parseBriefingCitations(sectionBody: string): BriefingCitation[] 
       continue;
     }
 
-    const simple = line.match(/^[-*]\s+\*\*(.+?)\*\*\s*[—–-]\s*(.+)$/);
+    const simple = content.match(/^\*\*(.+?)\*\*\s*[—–:-]\s*(.+)$/);
     if (simple) {
       autoIndex += 1;
       citations.push({
         index: autoIndex,
-        label: simple[1].trim(),
-        locator: simple[2].trim(),
+        label: simple[1].trim().replace(/:$/, ""),
+        locator: simple[2].trim().replace(/^<|>$/g, ""),
+        retrievedAt: null,
+        note: null,
+      });
+      continue;
+    }
+
+    // "Label: https://..." or "Label — https://..." without bold wrapper.
+    const plainLabeled = content.match(
+      /^(.+?)\s*[—–:-]\s*(https?:\/\/\S+|`[^`]+`|\[[^\]]+\]\((https?:\/\/[^)]+)\))$/i,
+    );
+    if (plainLabeled) {
+      autoIndex += 1;
+      const locator =
+        plainLabeled[3]?.trim() ||
+        plainLabeled[2].replace(/^`|`$/g, "").replace(/^\[([^\]]+)\]\((.+)\)$/, "$2").trim();
+      citations.push({
+        index: autoIndex,
+        label: plainLabeled[1].replace(/\*\*/g, "").trim(),
+        locator,
         retrievedAt: null,
         note: null,
       });
@@ -84,8 +108,22 @@ export function parseBriefingCitations(sectionBody: string): BriefingCitation[] 
     }
 
     // Multi-line research form: bullet label, then URL / note on following lines.
-    const headingOnly = line.match(/^[-*]\s+\*\*\[(\d+)\]\s*(.+?)\*\*\s*$/);
-    if (!headingOnly) continue;
+    const headingOnly = content.match(/^\*\*\[(\d+)\]\s*(.+?)\*\*\s*$/);
+    if (!headingOnly) {
+      // Last-resort: any https locator on the line.
+      const urlOnly = content.match(/(https?:\/\/[^\s)>\]]+)/i);
+      if (urlOnly) {
+        autoIndex += 1;
+        citations.push({
+          index: autoIndex,
+          label: content.replace(urlOnly[1], "").replace(/\*\*/g, "").trim() || `Source ${autoIndex}`,
+          locator: urlOnly[1],
+          retrievedAt: null,
+          note: null,
+        });
+      }
+      continue;
+    }
 
     let locator = "";
     const noteParts: string[] = [];
@@ -97,7 +135,7 @@ export function parseBriefingCitations(sectionBody: string): BriefingCitation[] 
         if (locator) break;
         continue;
       }
-      if (/^[-*]\s+/.test(trimmed) || /^#{2,3}\s+/.test(trimmed)) break;
+      if (/^([-*+]|\d+[.)])\s+/.test(trimmed) || /^#{2,3}\s+/.test(trimmed)) break;
 
       const urlMatch = trimmed.match(URL_LINE);
       if (urlMatch && !locator) {

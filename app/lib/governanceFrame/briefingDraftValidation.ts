@@ -214,7 +214,14 @@ function hasTriadSections(markdown: string): boolean {
 function citationsSectionBody(markdown: string): string {
   const sections = parseBriefingSections(markdown);
   const citations = sections.find((s) => s.id === "citations");
-  return citations?.body ?? "";
+  if (citations?.body?.trim()) return citations.body;
+
+  // Fallback when heading variants were not classified (e.g. "Sources" without "V.").
+  const stripped = stripFrontmatter(markdown);
+  const match = stripped.match(
+    /^#{2,3}\s+(?:V\.\s*)?Sources(?:\s*&\s*Citations)?\s*\n([\s\S]*?)(?=^#{2,3}\s+|\s*$)/im,
+  );
+  return match?.[1] ?? "";
 }
 
 function hasEmergingThreatsSections(markdown: string): boolean {

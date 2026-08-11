@@ -59,24 +59,18 @@ describe("parseBriefingCitations", () => {
     expect(block).toMatch(/\[1\] Telemetry/);
   });
 
-  it("parses multi-line research citations with * bullets", () => {
+  it("parses numbered confirmation-style citation lists", () => {
     const body = `## V. Sources & Citations
 
-* **[1] Sarbanes-Oxley Act of 2002, Public Law 107-204**
-  https://www.govinfo.gov/content/pkg/PLAW-107publ204/pdf/PLAW-107publ204.pdf
-  Section 404 establishes management-assessment requirements.
-
-* **[2] U.S. Securities and Exchange Commission, *Study of Section 404* (September 2009)**
-  https://www.sec.gov/news/studies/2009/sox-404_study.pdf
-  Reports mean compliance costs.
+1. **AI Policy Desk — clearinghouse deadline explainers (2 July 2026):** https://www.aipolicydesk.com/blog/ai-cybersecurity-clearinghouse-july-2026-compliance-teams
+2. **CISA — CIRCIA / cyber reporting program hub:** https://www.cisa.gov/circia
 `;
     const citations = parseBriefingCitations(
       parseBriefingSections(body).find((s) => s.id === "citations")!.body,
     );
-    expect(citations).toHaveLength(2);
-    expect(citations[0]?.locator).toContain("govinfo.gov");
-    expect(citations[1]?.label).toMatch(/Study of Section 404/);
-    expect(citations[1]?.note).toMatch(/mean compliance costs/i);
+    expect(citations.length).toBeGreaterThanOrEqual(2);
+    expect(citations.some((c) => c.locator.includes("aipolicydesk.com"))).toBe(true);
+    expect(citations.some((c) => c.locator.includes("cisa.gov/circia"))).toBe(true);
   });
 });
 

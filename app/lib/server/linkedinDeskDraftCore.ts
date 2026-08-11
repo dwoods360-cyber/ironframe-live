@@ -244,6 +244,12 @@ const LINKEDIN_SOURCE_REF_REPO_FILE: Record<string, string> = {
     "docs/marketing-strategy/linkedin-drafts-next-ai-evidence-hitl.md",
   "marketing/linkedin-2026-08-14-residual":
     "docs/marketing-strategy/linkedin-drafts-next-residual-vs-spend.md",
+  "marketing/linkedin-2026-08-17-ccm":
+    "docs/marketing-strategy/linkedin-drafts-2026-08-17-ccm.md",
+  "marketing/linkedin-2026-08-19-board-delta":
+    "docs/marketing-strategy/linkedin-drafts-2026-08-19-board-delta.md",
+  "marketing/linkedin-2026-08-21-tprm":
+    "docs/marketing-strategy/linkedin-drafts-2026-08-21-tprm.md",
 };
 
 /** Ordered static LinkedIn desk slots (week-1 canon). Dynamic calendar slots merge in. */
@@ -301,11 +307,8 @@ export function parseLinkedInRepoPackMarkdown(markdown: string): {
   const title = titleMatch?.[1]?.trim() || "LinkedIn draft";
   let rest = normalized.replace(/^#\s+.+\n+/, "").trim();
 
-  // Drop YAML-ish metadata blocks before the paste body when present.
-  rest = rest.replace(
-    /^(?:\*\*[^*]+\*\*:[^\n]*\n+)+\n---\n+/m,
-    "",
-  );
+  // Drop operator planning front matter (**Slot intent:** … ---).
+  rest = stripLinkedInOperatorFrontMatter(rest);
 
   const researchSplit = rest.split(
     /\n---\n+\s*## Research & verification[^\n]*\n+/i,
@@ -492,9 +495,28 @@ export function composeLinkedInDeskMarkdown(
   research: string,
 ): string {
   const cleanTitle = title.trim() || LINKEDIN_SUGGESTED_DRAFT_TITLE;
-  const cleanBody = body.replace(/\r\n/g, "\n").trim();
+  const cleanBody = stripLinkedInOperatorFrontMatter(body.replace(/\r\n/g, "\n").trim());
   const cleanResearch = research.replace(/\r\n/g, "\n").trim();
   return `# ${cleanTitle}\n\n${cleanBody}\n\n---\n\n${RESEARCH_HEADING}\n\n${cleanResearch}\n`;
+}
+
+/**
+ * Strip operator planning front matter (**Slot intent:** … ---) from paste body.
+ * Keys use bold-with-colon-inside (`**Label:**`), not `**Label**:`.
+ */
+export function stripLinkedInOperatorFrontMatter(text: string): string {
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  // Full front-matter block ending at the first thematic break.
+  const withBreak = normalized.replace(
+    /^(?:\*\*[^*\n]+?:\*\*[^\n]*\n+)+\n---\n+/m,
+    "",
+  );
+  if (withBreak !== normalized) return withBreak.trim();
+  // Orphan bold meta lines at the top (no ---).
+  return normalized
+    .replace(/^(?:\*\*[^*\n]+?:\*\*[^\n]*\n+)+/m, "")
+    .replace(/^---\n+/, "")
+    .trim();
 }
 
 export function parseLinkedInDeskMarkdown(markdown: string): {
@@ -511,14 +533,14 @@ export function parseLinkedInDeskMarkdown(markdown: string): {
   if (researchSplit.length >= 2) {
     return {
       title,
-      body: researchSplit[0].trim(),
+      body: stripLinkedInOperatorFrontMatter(researchSplit[0].trim()),
       research: researchSplit.slice(1).join("\n---\n").trim(),
     };
   }
 
   return {
     title,
-    body: rest,
+    body: stripLinkedInOperatorFrontMatter(rest),
     research: LINKEDIN_SUGGESTED_DRAFT_RESEARCH,
   };
 }

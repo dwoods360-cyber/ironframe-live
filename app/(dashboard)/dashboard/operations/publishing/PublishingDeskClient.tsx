@@ -567,7 +567,14 @@ export default function PublishingDeskClient() {
       return;
     }
     try {
-      await navigator.clipboard.writeText(linkedinBody);
+      // Never paste operator front matter (**Slot intent:** / Ops calendar / etc.).
+      const pasteBody = linkedinBody
+        .replace(/\r\n/g, "\n")
+        .replace(/^(?:\*\*[^*\n]+?:\*\*[^\n]*\n+)+\n---\n+/m, "")
+        .replace(/^(?:\*\*[^*\n]+?:\*\*[^\n]*\n+)+/m, "")
+        .replace(/^---\n+/, "")
+        .trim();
+      await navigator.clipboard.writeText(pasteBody);
       setLinkedinMessage("Copied post body only — research/citations stay on this desk.");
       setLinkedinError(null);
     } catch {

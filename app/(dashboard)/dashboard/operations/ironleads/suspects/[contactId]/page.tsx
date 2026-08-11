@@ -65,6 +65,13 @@ export default async function IronleadsSuspectReportPage({
     );
   }
 
+  // HOLD archive parks leave the active queue — bounce to SUSPECT list unless dossier=1 (HOLD archive open).
+  if (report.operatorHold && query.dossier !== "1") {
+    redirect(
+      `/dashboard/operations/ironleads?held=${encodeURIComponent(contactId)}&company=${encodeURIComponent(report.company)}`,
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#020617] p-4 text-slate-100 sm:p-6">
       <div className="mx-auto max-w-3xl space-y-6">

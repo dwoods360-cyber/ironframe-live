@@ -956,26 +956,81 @@ export function selectAccountResearchBriefForReport(
     };
   }
 
+  // HOLD/competitor rebuilds may deliberately degrade PASS → FAIL.
+  // Thin report-corpus rebuilds must NOT wipe operator/Prospeo Buyer·Email PASS
+  // (common when namedBuyer briefly fails to merge or contact.email is mid-write).
+  const rebuiltForcesHold =
+    rebuiltBrief.outreach.status === "hold" ||
+    rebuiltBrief.competitiveConflict.classification === "competitor" ||
+    rebuiltBrief.competitiveConflict.classification === "hold" ||
+    rebuiltBrief.snapshot.status === "HOLD";
+
+  const thinDegradeOnly =
+    !rebuiltForcesHold &&
+    !buyerImproved &&
+    !emailImproved &&
+    (buyerDegraded || emailDegraded) &&
+    reasons.every((r) =>
+      ["buyer_degraded", "email_degraded", "buyer_roster_changed"].includes(r),
+    );
+
+  if (thinDegradeOnly) {
+    return {
+      brief: persistedBrief,
+      shouldPersist: false,
+      reasons: [...reasons, "kept_persisted_over_thin_degrade"],
+    };
+  }
+
   // Keep scrape/operator corpus; overlay rebuilt Buyer/Email/outreach decision surfaces.
+  // Prefer persisted PASS when rebuild degrades without HOLD/competitor force.
+  const buyerGate =
+    buyerDegraded && !rebuiltForcesHold
+      ? persistedBrief.gates.buyer
+      : rebuiltBrief.gates.buyer;
+  const emailGate =
+    emailDegraded && !rebuiltForcesHold
+      ? (persistedBrief.gates.email ?? rebuiltBrief.gates.email)
+      : rebuiltBrief.gates.email;
+  const buyerMap =
+    buyerDegraded &&
+    !rebuiltForcesHold &&
+    (persistedBrief.buyerMap?.length ?? 0) > 0
+      ? persistedBrief.buyerMap
+      : rebuiltBrief.buyerMap.length > 0
+        ? rebuiltBrief.buyerMap
+        : persistedBrief.buyerMap;
+  const outreach =
+    (buyerDegraded || emailDegraded) &&
+    !rebuiltForcesHold &&
+    persistedBrief.outreach.status === "promote"
+      ? persistedBrief.outreach
+      : rebuiltBrief.outreach;
+
   const brief: AccountResearchBrief = {
     ...persistedBrief,
     gates: {
       ...persistedBrief.gates,
-      buyer: rebuiltBrief.gates.buyer,
-      email: rebuiltBrief.gates.email,
+      buyer: buyerGate,
+      email: emailGate,
     },
-    buyerMap: rebuiltBrief.buyerMap.length > 0 ? rebuiltBrief.buyerMap : persistedBrief.buyerMap,
-    outreach: rebuiltBrief.outreach,
+    buyerMap,
+    outreach,
     snapshot: {
       ...persistedBrief.snapshot,
-      status: rebuiltBrief.snapshot.status,
+      status:
+        (buyerDegraded || emailDegraded) &&
+        !rebuiltForcesHold &&
+        persistedBrief.snapshot.status !== "HOLD"
+          ? persistedBrief.snapshot.status
+          : rebuiltBrief.snapshot.status,
     },
     generatedAt: rebuiltBrief.generatedAt ?? persistedBrief.generatedAt,
   };
 
   return {
     brief,
-    // Persist degrades too — e.g. operator channel_competitor HOLD must not leave CRM on promote.
+    // Persist HOLD/competitor degrades and genuine improvements — not thin PASS wipes.
     shouldPersist: reasons.length > 0,
     reasons,
   };

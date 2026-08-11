@@ -64,8 +64,11 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
     const params = new URLSearchParams();
     params.set(decision, contactId);
     params.set("company", companyLabelForQueue(nextReport));
-    // Hard navigation (replace): Soft router.push left operators on the dossier after HOLD.
-    window.location.replace(`/dashboard/operations/ironleads?${params.toString()}`);
+    // Hard navigation (replace) + anchor: Soft router.push left operators on the dossier after HOLD.
+    // Always land on the active SUSPECT list (not HOLD archive / not still on this dossier).
+    window.location.replace(
+      `/dashboard/operations/ironleads?${params.toString()}#suspect-queue`,
+    );
   }
 
   async function patchSuspect(body: Record<string, unknown>, successMessage: string) {
@@ -91,36 +94,11 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
         setError(data.error || `Save failed (${response.status})`);
         return;
       }
+      // Queue exits first — never leave the operator on the dossier after HOLD/promote/restore/discard.
       if (data.discarded) {
-        setMessage(successMessage);
         returnToQueue("discarded", data.report);
         return;
       }
-      if (data.report) {
-        setOnHold(Boolean(data.report.operatorHold));
-        setHoldSnapshot(data.report.operatorHold);
-        if (typeof data.report.email === "string") setEmail(data.report.email);
-        if (typeof data.report.fullName === "string") setFullName(data.report.fullName);
-        if (typeof data.report.phone === "string" || data.report.phone === null) {
-          setPhone(data.report.phone ?? "");
-        }
-      } else if (body.restoreFromHoldArchive === true) {
-        setOnHold(false);
-        setHoldSnapshot(null);
-      } else if (body.moveToHoldArchive === true) {
-        setOnHold(true);
-      }
-      const enrichProvider =
-        body.enrichWithProspeo === true
-          ? ("Prospeo" as const)
-          : body.enrichWithApollo === true
-            ? ("Apollo" as const)
-            : null;
-      setMessage(
-        enrichProvider
-          ? enrichResultMessage(enrichProvider, data.report)
-          : successMessage,
-      );
       if (body.promoteToProspect === true) {
         returnToQueue("promoted", data.report);
         return;
@@ -133,6 +111,26 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
         returnToQueue("restored", data.report);
         return;
       }
+      if (data.report) {
+        setOnHold(Boolean(data.report.operatorHold));
+        setHoldSnapshot(data.report.operatorHold);
+        if (typeof data.report.email === "string") setEmail(data.report.email);
+        if (typeof data.report.fullName === "string") setFullName(data.report.fullName);
+        if (typeof data.report.phone === "string" || data.report.phone === null) {
+          setPhone(data.report.phone ?? "");
+        }
+      }
+      const enrichProvider =
+        body.enrichWithProspeo === true
+          ? ("Prospeo" as const)
+          : body.enrichWithApollo === true
+            ? ("Apollo" as const)
+            : null;
+      setMessage(
+        enrichProvider
+          ? enrichResultMessage(enrichProvider, data.report)
+          : successMessage,
+      );
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");

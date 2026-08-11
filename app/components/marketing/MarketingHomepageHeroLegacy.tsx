@@ -31,16 +31,6 @@ export default function MarketingHomepageHeroLegacy() {
       </div>
 
       <header className="mx-auto max-w-6xl space-y-6 px-6 pt-8 pb-16 text-center">
-        <div
-          className="inline-flex items-center space-x-2 rounded-full border border-[var(--login-accent)]/20 bg-[var(--login-accent)]/10 px-3 py-1 font-mono text-xs text-[var(--login-accent)]"
-          role="status"
-        >
-          <span
-            className="h-2 w-2 animate-pulse rounded-full bg-[var(--login-accent)]"
-            aria-hidden="true"
-          />
-          <span>For MSSPs, vCISOs, and multi-entity CISOs</span>
-        </div>
         <h1
           id="homepage-hero-title"
           className="mx-auto max-w-4xl text-4xl leading-tight font-bold tracking-tight text-[var(--text-main)] sm:text-5xl lg:text-6xl"

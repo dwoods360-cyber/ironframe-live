@@ -9,7 +9,7 @@ const CITY_CYCLES = [
 export default function MarketingCityCycleSubtitle() {
   return (
     <p
-      className="mt-3 mb-1 min-h-[1.1rem] text-center font-mono text-[9px] uppercase tracking-[0.2em] text-slate-400/90 sm:text-[10px] sm:tracking-[0.22em]"
+      className="mt-3 mb-1 min-h-[1.35rem] text-center font-mono text-xs uppercase tracking-[0.2em] text-slate-400/90 sm:min-h-[1.5rem] sm:text-sm sm:tracking-[0.22em]"
       aria-live="polite"
       aria-atomic="true"
       data-testid="marketing-city-cycle"

@@ -24,7 +24,7 @@ export default function MarketingHomepageHeroLegacy() {
     <>
       <div className="flex flex-col items-center px-4 pt-8 sm:px-6">
         <MarketingAnimatedLogo className="h-28 w-28 sm:h-36 sm:w-36" />
-        <p className="mt-3 font-mono text-sm font-black tracking-widest text-[var(--text-main)] sm:text-base">
+        <p className="mt-3 font-mono text-2xl font-black tracking-[0.28em] text-[var(--text-main)] sm:text-3xl sm:tracking-[0.3em] lg:text-4xl">
           IRONFRAME
         </p>
         <MarketingCityCycleSubtitle />

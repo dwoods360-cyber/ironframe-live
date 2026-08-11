@@ -13,6 +13,8 @@ import {
   formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
 
+import EngagementPathChooser from "./EngagementPathChooser";
+
 export default function SalesContactClient() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export default function SalesContactClient() {
   };
 
   return (
-    <main className="ironframe-public-funnel mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-6 py-12">
+    <main className="ironframe-public-funnel mx-auto flex min-h-[70vh] max-w-3xl flex-col justify-center px-6 py-12">
       <p className="font-mono text-xs uppercase tracking-widest text-[var(--login-muted)]">
         For MSSPs, vCISOs, and multi-entity CISOs
       </p>
@@ -68,7 +70,10 @@ export default function SalesContactClient() {
         {WORKFLOW_REVIEW_CTA_MINUTES} minute conversation on your current evidence collection and
         board-reporting friction — zero pitch decks.
       </p>
-      <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm leading-relaxed text-amber-100">
+
+      <EngagementPathChooser className="mt-8" headingId="contact-engagement-path" />
+
+      <p className="mt-6 rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm leading-relaxed text-amber-100">
         <span className="font-medium">Design partner note:</span> Submitting this form does not
         create a workspace. {CUSTOMER_FACING_PATH_B_SKU} is a fixed {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}
         -day cohort at {formatPathBUsd()} flat — credited to year-1 Command (planned GA ~

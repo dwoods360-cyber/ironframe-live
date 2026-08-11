@@ -8,7 +8,6 @@ import {
 } from "@/lib/ironframeProductKnowledge/commercial";
 import {
   INBOUND_LEAD_REPLY_SLA_HOURS,
-  INBOUND_SLA_WINDOW_COPY,
 } from "@/config/commercialGates";
 import { SALES_CONTACT_PATH } from "@/config/registration";
 
@@ -60,12 +59,13 @@ export default function MarketingHomepageHeroLegacy() {
           </Link>
         </div>
         <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
-          Primary next step is a workflow review — not a free trial. {CUSTOMER_FACING_PATH_B_SKU}:{" "}
-          {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day paid design engagement.
+          Primary next step: {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review (by application) —
+          not a free trial.
         </p>
         <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
-          An operator typically replies within {INBOUND_LEAD_REPLY_SLA_HOURS} business hour (
-          {INBOUND_SLA_WINDOW_COPY}).
+          {CUSTOMER_FACING_PATH_B_SKU}: {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}{" "}
+          days. Operator response within {INBOUND_LEAD_REPLY_SLA_HOURS} business hour (9 AM–5 PM
+          CT, Mon–Fri).
         </p>
       </header>
     </>

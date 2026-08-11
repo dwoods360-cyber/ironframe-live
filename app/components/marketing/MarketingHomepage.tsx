@@ -9,13 +9,10 @@ import {
   formatPathBUsd,
   formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
-import {
-  INBOUND_LEAD_REPLY_SLA_HOURS,
-  INBOUND_SLA_WINDOW_COPY,
-} from "@/config/commercialGates";
 import { SALES_CONTACT_PATH } from "@/config/registration";
 
 import BriefingsArchive from "./BriefingsArchive";
+import EngagementPathChooser from "./EngagementPathChooser";
 import MarketingHomepageHeroLegacy from "./MarketingHomepageHeroLegacy";
 import MarketingHomepageHeroV2 from "./MarketingHomepageHeroV2";
 import { MARKETING_HERO_VARIANT } from "./marketingHeroVariant";
@@ -321,18 +318,8 @@ export default function MarketingHomepage({
             Start with a workflow review to map one spreadsheet workflow and align success criteria.
             Seat activation follows agreement — never a free PoC.
           </p>
-          {MARKETING_HERO_VARIANT === "v2" ? (
-            <>
-              <p className="mt-3 max-w-2xl text-xs leading-relaxed text-[var(--login-muted)]">
-                Primary next step is a workflow review — not a free trial. {CUSTOMER_FACING_PATH_B_SKU}:{" "}
-                {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day paid design engagement.
-              </p>
-              <p className="mt-2 max-w-2xl text-xs leading-relaxed text-[var(--login-muted)]">
-                An operator typically replies within {INBOUND_LEAD_REPLY_SLA_HOURS} business hour (
-                {INBOUND_SLA_WINDOW_COPY}).
-              </p>
-            </>
-          ) : null}
+
+          <EngagementPathChooser className="mt-10" headingId="outcomes-engagement-path" />
         </div>
       </section>
 

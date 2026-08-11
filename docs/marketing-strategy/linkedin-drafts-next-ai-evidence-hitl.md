@@ -1,11 +1,11 @@
 # LinkedIn — AI drafts are not evidence (HITL before promote)
 
-**Slot intent:** Tuesday problem post  
-**Ops calendar:** `marketing/linkedin-2026-08-11-ai-evidence` — due **Tue 2026-08-11**  
+**Slot intent:** Wednesday problem post (Mon–Wed–Fri cadence)  
+**Ops calendar:** `marketing/linkedin-2026-08-11-ai-evidence` — due **Wed 2026-08-12**  
 **Complements:** Fri collection ≠ verification (connectors/tenancy) — this one is about **AI/agent outputs**, not soft tenancy  
 **Avoids:** heatmap dollars, evidence→scenario→exposure pipeline, connector-count soft tenancy  
 **Industry pull:** AI governance, human-in-the-loop before high-impact use, audit trails for AI-assisted GRC (2026 CISO / board theme)  
-**Drafted:** 2026-08-11
+**Drafted:** 2026-08-11 · **Rescheduled:** Tue → Wed 2026-08-12
 
 ---
 

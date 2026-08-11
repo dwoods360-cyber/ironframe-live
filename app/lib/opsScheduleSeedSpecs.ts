@@ -164,6 +164,18 @@ export function defaultNextActionsFor(args: {
       "Mark Done with LinkedIn URL",
     ];
   }
+  if (
+    ref.startsWith("marketing/linkedin-2026-08-17-ccm") ||
+    ref.startsWith("marketing/linkedin-2026-08-19-board-delta") ||
+    ref.startsWith("marketing/linkedin-2026-08-21-tprm")
+  ) {
+    return [
+      "Open Publishing Desk → LinkedIn (this calendar card)",
+      "Verify research citations, Copy body → LinkedIn",
+      "Paste first-comment CTA after publish",
+      "Mark Done with LinkedIn URL",
+    ];
+  }
   if (ref.startsWith("rollout/dp-pre-outreach") || title.includes("pre-outreach")) {
     return [
       "Complete A1–A4 on design-partner operator launch checklist",
@@ -935,15 +947,15 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       ],
     },
     {
-      title: "LinkedIn Tue — AI drafts are not evidence",
+      title: "LinkedIn Wed — AI drafts are not evidence",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-11T20:00:00.000Z",
+      dueAt: "2026-08-12T20:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-08-11-ai-evidence",
       href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-11-ai-evidence",
       priorityHint: 2,
       synopsis:
-        "Founder LinkedIn (Tue): AI/agent output ≠ trusted evidence — quarantine + human promote gates. Complements Fri collection≠verification without repeating soft tenancy.",
+        "Founder LinkedIn (Wed): AI/agent output ≠ trusted evidence — quarantine + human promote gates. Mon–Wed–Fri cadence (moved from Tue 2026-08-11).",
       nextActions: [
         "Open Publishing Desk → LinkedIn (this calendar card)",
         "Verify research citations, Copy body → LinkedIn",
@@ -961,6 +973,57 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       priorityHint: 3,
       synopsis:
         "Founder LinkedIn (Fri): Control-to-Capital lesson — spend → residual exposure with signed assumptions. Complements Mon heatmap without repeating color-vs-dollars.",
+      nextActions: [
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Verify research citations, Copy body → LinkedIn",
+        "Paste first-comment CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
+      title: "LinkedIn Mon — “Last audited” is not “working now”",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-08-17T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-08-17-ccm",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-17-ccm",
+      priorityHint: 4,
+      synopsis:
+        "Founder LinkedIn (Mon): point-in-time audit packs vs continuous control proof — ‘last audited’ ≠ ‘working now.’",
+      nextActions: [
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Verify research citations, Copy body → LinkedIn",
+        "Paste first-comment CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
+      title: "LinkedIn Wed — What changed since the last board packet?",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-08-19T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-08-19-board-delta",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-19-board-delta",
+      priorityHint: 5,
+      synopsis:
+        "Founder LinkedIn (Wed): board-packet delta walkthrough — material risks, what changed, what decision. Points to /product-demo.",
+      nextActions: [
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Verify research citations, Copy body → LinkedIn",
+        "Paste first-comment CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
+      title: "LinkedIn Fri — Questionnaire ≠ continuous third-party assurance",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-08-21T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-08-21-tprm",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-21-tprm",
+      priorityHint: 6,
+      synopsis:
+        "Founder LinkedIn (Fri): TPRM control lesson — vendor questionnaires ≠ continuous third-party assurance; DORA ICT third-party context.",
       nextActions: [
         "Open Publishing Desk → LinkedIn (this calendar card)",
         "Verify research citations, Copy body → LinkedIn",

@@ -43,7 +43,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
         ? "Your phone or browser kept an older Ironframe build. Reloading once…"
         : "Stale chunk after rebuild — reloading once…"
       : "Client bundle is out of date. Tap Retry, or open a fresh login URL below."
-    : "The root layout could not render. This is usually a stale phone session after a deploy — not a local .next problem. Tap Sign in fresh below.";
+    : "A Server Component threw while rendering the app shell (not a local .next cache issue). Tap Retry once; if the same Digest returns, use Sign in fresh — then report the Digest if it still fails.";
 
   return (
     <html lang="en">

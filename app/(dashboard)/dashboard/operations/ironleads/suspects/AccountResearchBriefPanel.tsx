@@ -14,8 +14,9 @@ function GateBadge({ result }: { result: "PASS" | "FAIL" | "UNKNOWN" }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const hot = status === "HOLD" || status === "DROP" || status === "hold" || status === "drop";
+function StatusBadge({ status }: { status?: string | null }) {
+  const label = String(status ?? "unknown");
+  const hot = label === "HOLD" || label === "DROP" || label === "hold" || label === "drop";
   return (
     <span
       className={`rounded px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide ring-1 ${
@@ -24,7 +25,7 @@ function StatusBadge({ status }: { status: string }) {
           : "bg-cyan-950/50 text-cyan-200 ring-cyan-800"
       }`}
     >
-      {status.replace(/_/g, " ")}
+      {label.replace(/_/g, " ")}
     </span>
   );
 }
@@ -35,7 +36,24 @@ function normalizeBriefForPanel(brief: AccountResearchBrief): AccountResearchBri
     ...brief,
     triggerEvidence: Array.isArray(brief.triggerEvidence) ? brief.triggerEvidence : [],
     sourceLedger: Array.isArray(brief.sourceLedger) ? brief.sourceLedger : [],
-    buyerMap: Array.isArray(brief.buyerMap) ? brief.buyerMap : [],
+    buyerMap: Array.isArray(brief.buyerMap)
+      ? brief.buyerMap.map((person) => {
+          const row = person as {
+            purchaseRole?: string;
+            role?: string;
+            name?: string;
+            title?: string;
+            confidence?: number | string;
+          };
+          return {
+            ...person,
+            name: row.name ?? "Unknown",
+            title: row.title ?? "",
+            purchaseRole: row.purchaseRole ?? row.role ?? "unknown",
+            confidence: row.confidence ?? "—",
+          };
+        })
+      : [],
     linkedInIntelligence: brief.linkedInIntelligence ?? {
       urls: [],
       operatorPrompt:
@@ -208,7 +226,7 @@ export default function AccountResearchBriefPanel({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-white">{person.name ?? "Unknown"}</span>
                   <span className="font-mono text-[10px] uppercase text-violet-300">
-                    {person.purchaseRole.replace(/_/g, " ")}
+                    {String(person.purchaseRole ?? "unknown").replace(/_/g, " ")}
                   </span>
                   <span className="text-slate-500">confidence {person.confidence}</span>
                 </div>

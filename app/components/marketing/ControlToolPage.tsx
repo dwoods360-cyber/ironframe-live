@@ -7,6 +7,7 @@ import {
 import { SALES_CONTACT_PATH } from "@/config/registration";
 import { WORKFLOW_REVIEW_CTA_MINUTES } from "@/lib/ironframeProductKnowledge/commercial";
 
+import ControlToolPrintButton from "./ControlToolPrintButton";
 import PublicApexNav from "./PublicApexNav";
 
 type ControlToolPageProps = {
@@ -16,13 +17,20 @@ type ControlToolPageProps = {
 export default function ControlToolPage({ tool }: ControlToolPageProps) {
   return (
     <>
-      <PublicApexNav />
+      <div className="control-tool-no-print">
+        <PublicApexNav />
+      </div>
       <main
-        className="ironframe-public-funnel min-h-screen bg-slate-950 px-4 py-10 text-slate-100 sm:px-6"
+        id="control-tool-print-root"
+        className="ironframe-public-funnel control-tool-print-root min-h-screen bg-slate-950 px-4 py-10 text-slate-100 sm:px-6"
         aria-labelledby="control-tool-title"
+        data-ironframe-surface="control-tool"
       >
         <div className="mx-auto max-w-4xl">
-          <nav className="mb-8 text-sm text-slate-400" aria-label="Breadcrumb">
+          <nav
+            className="control-tool-no-print mb-8 text-sm text-slate-400"
+            aria-label="Breadcrumb"
+          >
             <Link href="/tools" className="transition-colors hover:text-teal-300">
               Tools
             </Link>
@@ -41,6 +49,19 @@ export default function ControlToolPage({ tool }: ControlToolPageProps) {
             <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-400">{tool.intro}</p>
             <p className="mt-5 inline-flex rounded border border-amber-500/30 bg-amber-950/25 px-3 py-2 text-xs font-medium text-amber-100">
               {CONTROL_TOOL_DISCLAIMER}
+            </p>
+            <div className="control-tool-no-print mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <ControlToolPrintButton />
+              <Link
+                href="/tools"
+                className="inline-flex h-11 items-center justify-center rounded-md border border-slate-700 px-5 text-sm font-medium text-slate-200 transition-colors hover:border-slate-500 hover:text-white"
+              >
+                All free tools
+              </Link>
+            </div>
+            <p className="control-tool-no-print mt-3 max-w-2xl text-xs leading-relaxed text-slate-500">
+              Share this page URL from LinkedIn or email. Use Print / Save PDF for an offline copy —
+              tools stay on ironframegrc.com/tools (not Governance Frame).
             </p>
           </header>
 
@@ -111,7 +132,10 @@ export default function ControlToolPage({ tool }: ControlToolPageProps) {
             </aside>
           ) : null}
 
-          <section className="mt-10 border-t border-slate-800 py-10" aria-labelledby="review-heading">
+          <section
+            className="control-tool-no-print mt-10 border-t border-slate-800 py-10"
+            aria-labelledby="review-heading"
+          >
             <h2 id="review-heading" className="text-xl font-semibold">
               Want a second set of eyes on the workflow?
             </h2>

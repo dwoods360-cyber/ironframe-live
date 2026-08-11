@@ -126,6 +126,12 @@ export default function MarketingHomepage({
           Heatmap Amnesty
         </Link>
         <Link
+          href="/tools"
+          className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]"
+        >
+          Free tools
+        </Link>
+        <Link
           href="/product-demo"
           className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]"
         >

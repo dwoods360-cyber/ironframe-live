@@ -7,7 +7,7 @@ import { CONTROL_TOOL_DISCLAIMER, CONTROL_TOOLS } from "@/app/lib/marketing/cont
 export const metadata: Metadata = {
   title: "Free control tools | Ironframe",
   description:
-    "Practical, ungated templates and checklists for cyber risk, evidence readiness, third-party criticality, governance, and AI inventory.",
+    "Practical, ungated templates and checklists for cyber risk, evidence readiness, third-party criticality, governance, and AI inventory. Open online or Print / Save PDF — share the page URL from LinkedIn.",
 };
 
 export default function ControlToolsIndexPage() {
@@ -27,6 +27,11 @@ export default function ControlToolsIndexPage() {
               Use these worksheets and checklists to organize one decision, one evidence set, or one
               governance conversation. They are public and require no email or account.
             </p>
+            <p className="mt-3 text-sm leading-relaxed text-slate-400">
+              This is the Ironframe distribution hub — not Governance Frame. From LinkedIn or email,
+              link to a tool page. On each page, use <span className="text-slate-200">Print / Save PDF</span>{" "}
+              for an offline copy.
+            </p>
             <p className="mt-5 inline-flex rounded border border-amber-500/30 bg-amber-950/25 px-3 py-2 text-xs font-medium text-amber-100">
               {CONTROL_TOOL_DISCLAIMER}
             </p>
@@ -44,12 +49,20 @@ export default function ControlToolsIndexPage() {
                   <span className="font-semibold text-slate-400">Best for: </span>
                   {tool.useWhen}
                 </p>
-                <Link
-                  href={`/tools/${tool.slug}`}
-                  className="mt-6 inline-flex h-10 items-center justify-center rounded-md border border-teal-800 bg-teal-950/30 px-4 text-sm font-semibold text-teal-100 transition-colors hover:border-teal-600 hover:bg-teal-900/40"
-                >
-                  Open checklist
-                </Link>
+                <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+                  <Link
+                    href={`/tools/${tool.slug}`}
+                    className="inline-flex h-10 flex-1 items-center justify-center rounded-md border border-teal-800 bg-teal-950/30 px-4 text-sm font-semibold text-teal-100 transition-colors hover:border-teal-600 hover:bg-teal-900/40"
+                  >
+                    Open checklist
+                  </Link>
+                  <Link
+                    href={`/tools/${tool.slug}#control-tool-title`}
+                    className="inline-flex h-10 items-center justify-center rounded-md border border-slate-700 px-4 text-sm font-medium text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                  >
+                    Print / PDF →
+                  </Link>
+                </div>
               </article>
             ))}
           </section>

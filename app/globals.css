@@ -1058,3 +1058,42 @@ html[data-ironframe-theme="executive-light"] .ironframe-login-page {
     color: #e2e8f0 !important;
   }
 }
+
+/* Free control tools (/tools/*): Print / Save PDF — hide chrome, ink on paper */
+@media print {
+  .control-tool-no-print {
+    display: none !important;
+  }
+
+  body:has(.control-tool-print-root) {
+    background: #fff !important;
+    color: #0f172a !important;
+  }
+
+  .control-tool-print-root {
+    min-height: 0 !important;
+    background: #fff !important;
+    color: #0f172a !important;
+    padding-top: 0 !important;
+  }
+
+  .control-tool-print-root,
+  .control-tool-print-root * {
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+
+  .control-tool-print-root .rounded-lg,
+  .control-tool-print-root .bg-slate-900\/40,
+  .control-tool-print-root .bg-slate-900\/50,
+  .control-tool-print-root .bg-cyan-950\/20,
+  .control-tool-print-root .bg-amber-950\/25 {
+    background: #fff !important;
+  }
+
+  .control-tool-print-root a {
+    text-decoration: underline;
+  }
+}
+

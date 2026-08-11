@@ -2,7 +2,7 @@
 Document Type: Marketing Strategy Documentation
 Status: AUTHORITATIVE
 Security Classification: INTERNAL ONLY (Tenant Boundaries Enforced)
-Last Updated: 2026-08-04
+Last Updated: 2026-08-11
 ---
 
 # Content Calendar — Marketing
@@ -21,6 +21,17 @@ Rolling editorial schedule. Align each asset to a pillar in [Marketing Plan](./m
 | 2026-08-04 | Industry Research — Evolution of GRC (2002–2026) | [ledger](../published-briefings/2026-07-15-research-grc-evolution.md) |
 
 Desk resolution: [RESOLUTION-summer-2026-cps-230-and-sec-item-105.md](../briefing-queue/.desk-reviews/RESOLUTION-summer-2026-cps-230-and-sec-item-105.md).
+
+## GF Desk notes (weekly)
+
+**Canonical:** [../governance-frame/desk-notes/README.md](../governance-frame/desk-notes/README.md)
+
+| Day (UTC) | Slot | Job |
+|-----------|------|-----|
+| **Tue 18:00** | Publish | Approve one desk note (Publishing Desk → Desk notes) |
+| **Mon 17:00** | Research | After backlog clears — research one new industry signal and stage quarantine |
+
+Does **not** share LinkedIn Mon/Wed/Fri or video Fri 16:00 publish windows. Ops Calendar seeds from `deskNotesCadence2026SeedSpecs()` (backlog Tue publishes from **2026-08-18**, then Mon research + Tue publish).
 
 ## Active campaign — When Risk Enters the Room (video)
 

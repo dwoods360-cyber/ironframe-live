@@ -120,6 +120,27 @@ export function defaultNextActionsFor(args: {
   const title = (args.title ?? "").toLowerCase();
   const kind = args.kind;
 
+  if (ref.startsWith("gf/desk-notes#research") || title.includes("desk note — research")) {
+    return [
+      "Scan primary sources (CISA KEV, regulator notices, EDGAR Item 1.05, EU OJ) for one live signal",
+      "Avoid lead topics already used by this month’s briefing/newsletter",
+      "Stage quarantine draft as *-draft-desk-note-* (Publishing Desk → Desk notes)",
+      "Mark Done when draft is staged for Tuesday Approve",
+    ];
+  }
+  if (
+    ref.startsWith("gf/desk-notes#publish") ||
+    /-draft-desk-note-/i.test(ref) ||
+    /-draft-signal-/i.test(ref) ||
+    title.includes("desk note — publish")
+  ) {
+    return [
+      "Open Publishing Desk → Desk notes for this draft",
+      "Verify citations + product boundary; Approve / promote",
+      "Confirm live on research.ironframegrc.com/desk-notes",
+      "Mark Done with public URL in outcome",
+    ];
+  }
   if (ref.startsWith("marketing/live-surfaces")) {
     return [
       "Spot-check /marketing, /product-demo, /trust-center, /register/contact",
@@ -376,6 +397,9 @@ export function synopsisForQueueDraft(filename: string): string {
   }
   if (/newsletter/i.test(base)) {
     return "Staged industry newsletter draft — fact-check citations, then promote or deny.";
+  }
+  if (/desk-note|draft-signal/i.test(base)) {
+    return "Staged GF desk note — short dated signal; Approve on Publishing Desk → Desk notes (Tue 18:00 UTC publish window).";
   }
   if (/research/i.test(base)) {
     return "Staged research briefing draft — Ops review citations and product boundary, then promote or deny.";
@@ -1183,6 +1207,167 @@ export function regulatoryEng2026SeedSpecs(): OpsScheduleSeedSpec[] {
   ];
 }
 
+/**
+ * GF Desk notes — weekly publish on **Tue 18:00 UTC** (avoids LinkedIn Mon/Wed/Fri,
+ * video Fri 16:00 UTC, and most monthly GF 17:00 windows).
+ * Phase 1: Approve/publish staged backlog one per Tuesday.
+ * Phase 2: after backlog clears — Mon research + Tue publish for new industry signals.
+ */
+export function deskNotesCadence2026SeedSpecs(): OpsScheduleSeedSpec[] {
+  /** Quarantine backlog (signal-date order) from stage scripts — one Approve per Tuesday. */
+  const backlog: Array<{ filename: string; label: string }> = [
+    { filename: "2026-07-01-draft-desk-note-sharepoint-kev.md", label: "SharePoint KEV (1 Jul)" },
+    {
+      filename: "2026-07-02-draft-desk-note-ai-cyber-clearinghouse.md",
+      label: "AI cyber clearinghouse (2 Jul)",
+    },
+    { filename: "2026-07-02-draft-desk-note-navient-item-105.md", label: "Navient Item 1.05 (2 Jul)" },
+    {
+      filename: "2026-07-06-draft-desk-note-illinois-ai-safety-act.md",
+      label: "Illinois AI Safety Act (6 Jul)",
+    },
+    {
+      filename: "2026-07-07-draft-desk-note-circia-september-target.md",
+      label: "CIRCIA September target (7 Jul)",
+    },
+    { filename: "2026-07-07-draft-desk-note-ecb-ai-cyber-letter.md", label: "ECB AI cyber letter (7 Jul)" },
+    {
+      filename: "2026-07-16-draft-desk-note-fortisandbox-sharepoint-kev.md",
+      label: "FortiSandbox + SharePoint KEV (16 Jul)",
+    },
+    {
+      filename: "2026-07-21-draft-desk-note-wordpress-langflow-kev.md",
+      label: "WordPress + Langflow KEV (21 Jul)",
+    },
+    {
+      filename: "2026-07-22-draft-desk-note-checkpoint-sharepoint-kev.md",
+      label: "Check Point + SharePoint KEV (22 Jul)",
+    },
+    {
+      filename: "2026-07-27-draft-desk-note-arista-fortinet-kev.md",
+      label: "Arista + Fortinet KEV (27 Jul)",
+    },
+    {
+      filename: "2026-07-27-draft-desk-note-eu-ai-omnibus-force.md",
+      label: "EU AI Omnibus force (27 Jul)",
+    },
+    { filename: "2026-07-29-draft-desk-note-cisco-fmc-kev.md", label: "Cisco FMC KEV (29 Jul)" },
+    {
+      filename: "2026-08-02-draft-desk-note-eu-ai-act-art50.md",
+      label: "EU AI Act Art. 50 (2 Aug)",
+    },
+    {
+      filename: "2026-08-03-draft-desk-note-ncentral-incomplete-fix.md",
+      label: "N-central incomplete fix (3 Aug)",
+    },
+    {
+      filename: "2026-08-05-draft-desk-note-teamcity-cicd-kev.md",
+      label: "TeamCity CI/CD KEV (5 Aug)",
+    },
+    {
+      filename: "2026-08-05-draft-desk-note-langflow-tomcat-kev.md",
+      label: "Langflow + Tomcat KEV (5 Aug)",
+    },
+    { filename: "2026-08-07-draft-desk-note-bod-26-04-policy.md", label: "BOD 26-04 policy (7 Aug)" },
+    { filename: "2026-08-07-draft-desk-note-loadmaster-kev.md", label: "LoadMaster KEV (7 Aug)" },
+    {
+      filename: "2026-08-10-draft-desk-note-fortios-loadmaster-due.md",
+      label: "FortiOS / LoadMaster due (10 Aug)",
+    },
+    {
+      filename: "2026-08-14-draft-desk-note-ai-act-art50-operating-week.md",
+      label: "Art. 50 operating week (14 Aug)",
+    },
+    {
+      filename: "2026-08-17-draft-desk-note-federal-contracting-cyber-rules.md",
+      label: "Federal contracting cyber rules (17 Aug)",
+    },
+    {
+      filename: "2026-08-24-draft-desk-note-circia-readiness-window.md",
+      label: "CIRCIA readiness window (24 Aug)",
+    },
+    {
+      filename: "2026-08-31-draft-desk-note-september-cyber-rulemaking.md",
+      label: "September cyber rulemaking (31 Aug)",
+    },
+  ];
+
+  /** First Tuesday publish window after 2026-08-11 (today) — clear of LinkedIn / video Fridays. */
+  const firstPublishUtc = Date.UTC(2026, 7, 18, 18, 0, 0); // Tue 2026-08-18 18:00 UTC
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+
+  const publishBacklog: OpsScheduleSeedSpec[] = backlog.map((item, index) => {
+    const due = new Date(firstPublishUtc + index * weekMs);
+    return {
+      title: `Desk note — publish: ${item.label}`,
+      kind: "BRIEFING_REVIEW" as const,
+      status: "PLANNED" as const,
+      dueAt: due.toISOString(),
+      sourceRef: item.filename,
+      priorityHint: 40,
+      synopsis:
+        "Weekly GF desk note Approve window (Tue 18:00 UTC). Does not share Mon/Wed/Fri LinkedIn or Fri video publish slots. Signal date stays on the note — not Approve-day.",
+      href: `/dashboard/operations/publishing?desk=desk-notes&draft=${encodeURIComponent(item.filename)}`,
+    };
+  });
+
+  const lastBacklogDue = firstPublishUtc + (backlog.length - 1) * weekMs;
+  /** First Monday research after backlog is scheduled clear (day after last Tue → next Mon). */
+  const firstResearchUtc = lastBacklogDue + 6 * 24 * 60 * 60 * 1000; // Mon after last Tue
+  const ongoingWeeks = 12;
+
+  const ongoing: OpsScheduleSeedSpec[] = [];
+  for (let i = 0; i < ongoingWeeks; i += 1) {
+    const researchDue = new Date(firstResearchUtc + i * weekMs);
+    const researchIso = new Date(
+      Date.UTC(
+        researchDue.getUTCFullYear(),
+        researchDue.getUTCMonth(),
+        researchDue.getUTCDate(),
+        17,
+        0,
+        0,
+      ),
+    ).toISOString();
+    const publishDay = new Date(researchDue.getTime() + 24 * 60 * 60 * 1000);
+    const publishIso = new Date(
+      Date.UTC(
+        publishDay.getUTCFullYear(),
+        publishDay.getUTCMonth(),
+        publishDay.getUTCDate(),
+        18,
+        0,
+        0,
+      ),
+    ).toISOString();
+    const stamp = researchIso.slice(0, 10);
+    ongoing.push({
+      title: `Desk note — research industry signal (${stamp})`,
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: researchIso,
+      sourceRef: `gf/desk-notes#research-${stamp}`,
+      priorityHint: 45,
+      synopsis:
+        "Backlog cleared — research one new industry signal for next day’s desk note. Primary sources only; no overlap with monthly briefing/newsletter lead topics.",
+      href: "/dashboard/operations/publishing?desk=desk-notes",
+    });
+    ongoing.push({
+      title: `Desk note — publish weekly signal (${publishIso.slice(0, 10)})`,
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: publishIso,
+      sourceRef: `gf/desk-notes#publish-${publishIso.slice(0, 10)}`,
+      priorityHint: 40,
+      synopsis:
+        "Approve/promote the desk note staged from Monday research. Tue 18:00 UTC only — do not move onto LinkedIn or video Fridays.",
+      href: "/dashboard/operations/publishing?desk=desk-notes",
+    });
+  }
+
+  return [...publishBacklog, ...ongoing];
+}
+
 /** All project packs for Ops Calendar seed (idempotent by sourceRef+kind). */
 export function allProjects2026SeedSpecs(): OpsScheduleSeedSpec[] {
   return assignCalendarPriorities([
@@ -1192,6 +1377,7 @@ export function allProjects2026SeedSpecs(): OpsScheduleSeedSpec[] {
     ...ironframeRollout2026SeedSpecs(),
     ...researchPaper2026SeedSpecs(),
     ...queueBacklog2026SeedSpecs(),
+    ...deskNotesCadence2026SeedSpecs(),
     ...regulatoryEng2026SeedSpecs(),
   ]);
 }

@@ -48,6 +48,10 @@ export function hrefForOpsSourceRef(
     return `/dashboard/operations/publishing?desk=${desk}&draft=${encodeURIComponent(file)}`;
   }
 
+  if (base.startsWith("gf/desk-notes")) {
+    return "/dashboard/operations/publishing?desk=desk-notes";
+  }
+
   if (base.startsWith("video-series/") || base.includes("when-risk-enters-the-room")) {
     return `/docs/marketing-strategy/video-series/when-risk-enters-the-room${hash}`;
   }

@@ -90,13 +90,23 @@ async function upsertSeed(spec: OpsScheduleSeedSpec) {
     const mergedItems = mergeNextActionItems(prevItems, nextActionTexts);
     const nextActionsSerialized = serializeNextActionItems(mergedItems);
     const prevActionsSerialized = serializeNextActionItems(prevItems);
-    const statusChanged = existing.status !== spec.status;
+    // Never reopen DONE/CANCELLED when seed slate still says PLANNED (desk archive).
+    const existingClosed =
+      existing.status === "DONE" || existing.status === "CANCELLED";
+    const specWouldReopen =
+      spec.status === "PLANNED" ||
+      spec.status === "IN_PROGRESS" ||
+      spec.status === "IN_REVIEW";
+    const effectiveStatus =
+      existingClosed && specWouldReopen ? existing.status : spec.status;
+    const statusChanged = existing.status !== effectiveStatus;
     const nextDueAt = new Date(spec.dueAt);
     const dueChanged = existing.dueAt.getTime() !== nextDueAt.getTime();
     const priorityChanged = prev.priority !== nextPriority;
     const outcomeChanged = nextOutcome
       ? prev.outcome !== nextOutcome
       : Boolean(prev.outcome) &&
+        !existingClosed &&
         (spec.status === "PLANNED" ||
           spec.status === "IN_PROGRESS" ||
           spec.status === "IN_REVIEW");
@@ -110,17 +120,18 @@ async function upsertSeed(spec: OpsScheduleSeedSpec) {
       outcomeChanged ||
       prevActionsSerialized !== nextActionsSerialized
     ) {
+      const effectiveClosed =
+        effectiveStatus === "DONE" || effectiveStatus === "CANCELLED";
       await prisma.opsActivity.update({
         where: { id: existing.id },
         data: {
           notes: nextSynopsis,
           title: spec.title,
-          status: spec.status,
+          status: effectiveStatus,
           dueAt: nextDueAt,
-          completedAt:
-            spec.status === "DONE" || spec.status === "CANCELLED"
-              ? existing.completedAt ?? new Date()
-              : null,
+          completedAt: effectiveClosed
+            ? existing.completedAt ?? new Date()
+            : null,
         },
       });
       await persistHref(existing.id, nextHref);

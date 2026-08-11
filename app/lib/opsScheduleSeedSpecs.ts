@@ -141,6 +141,22 @@ export function defaultNextActionsFor(args: {
       "Only then Start first SalesTeam DISPATCH batch",
     ];
   }
+  if (ref.startsWith("marketing/linkedin-2026-08-11-ai-evidence")) {
+    return [
+      "Paste body from docs/marketing-strategy/linkedin-drafts-next-ai-evidence-hitl.md (stop before First comment / Research)",
+      "Publish from Wil personal profile; optional company amplify",
+      "Paste first-comment CTA after publish",
+      "Mark Done with LinkedIn URL",
+    ];
+  }
+  if (ref.startsWith("marketing/linkedin-2026-08-14-residual")) {
+    return [
+      "Paste body from docs/marketing-strategy/linkedin-drafts-next-residual-vs-spend.md (stop before First comment / Research)",
+      "Publish from Wil personal profile; optional company amplify",
+      "Paste first-comment CTA after publish",
+      "Mark Done with LinkedIn URL",
+    ];
+  }
   if (ref.startsWith("rollout/dp-pre-outreach") || title.includes("pre-outreach")) {
     return [
       "Complete A1–A4 on design-partner operator launch checklist",
@@ -466,7 +482,8 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       dueAt: "2026-08-09T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#phase-0",
       synopsis:
-        "Lock character refs, boardroom stills, title/end cards, and V1–V2 shot lists before episode production spend.",
+        "Lock character refs, boardroom stills, title/end cards, and V1–V2 shot lists before episode production spend. Working pack: /docs/marketing-strategy/video-series/v1-production-script",
+      href: "/docs/marketing-strategy/video-series/v1-production-script",
     },
     {
       title: "Video V1 — The Risk Register (build)",
@@ -636,10 +653,10 @@ export function ironframeRollout2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Rollout — First SalesTeam DISPATCH batch",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-17T15:00:00.000Z",
+      dueAt: "2026-08-24T15:00:00.000Z",
       sourceRef: "rollout/first-salesteam-dispatch",
       synopsis:
-        "Board-first HITL outbound batch to the Path B design-partner cohort. Rescheduled to Mon Aug 17 (after cold outreach gate Aug 10).",
+        "Board-first HITL outbound batch to the Path B design-partner cohort. [2026-08-10] Rescheduled to Mon Aug 24 — after cold outreach gate (Aug 17).",
     },
     {
       title: "Rollout — 2A Stripe subscription lifecycle PASS",
@@ -882,27 +899,65 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "LinkedIn Wed — point to /product-demo (pre-video)",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-08-11T15:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-07-23",
       href: "/dashboard/operations/publishing?desk=linkedin&li=wed-product-demo",
       priorityHint: 6,
       synopsis:
         "Founder LinkedIn: Wednesday post to /product-demo ahead of rescheduled video demo publishes.",
+      outcome:
+        "DONE 2026-08-10 — Posted. Canonical desk slot: wed-product-demo (Published).",
     },
     {
       title: "LinkedIn Fri — Collection is not verification",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-08-08T15:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-08-08-collection",
       href: "/dashboard/operations/publishing?desk=linkedin&li=fri-collection",
       priorityHint: 7,
       synopsis:
         "Founder LinkedIn: Friday control lesson — collection ≠ verification; hard tenant boundaries vs tag-only soft tenancy. CTA workflow review.",
+      outcome:
+        "DONE 2026-08-07 — Posted to LinkedIn. Canonical desk slot: fri-collection (Published).",
       nextActions: [
         "Paste Friday body from chat / desk draft",
         "Publish Fri from personal profile",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
+      title: "LinkedIn Tue — AI drafts are not evidence",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-08-11T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-08-11-ai-evidence",
+      href: "/docs/marketing-strategy/linkedin-drafts-next-ai-evidence-hitl",
+      priorityHint: 2,
+      synopsis:
+        "Founder LinkedIn (Tue): AI/agent output ≠ trusted evidence — quarantine + human promote gates. Complements Fri collection≠verification without repeating soft tenancy.",
+      nextActions: [
+        "Paste body from docs/marketing-strategy/linkedin-drafts-next-ai-evidence-hitl.md (stop before First comment / Research)",
+        "Publish from Wil personal profile; optional company amplify",
+        "Paste first-comment CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
+      title: "LinkedIn Fri — Residual exposure vs mitigation spend",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-08-14T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-08-14-residual",
+      href: "/docs/marketing-strategy/linkedin-drafts-next-residual-vs-spend",
+      priorityHint: 3,
+      synopsis:
+        "Founder LinkedIn (Fri): Control-to-Capital lesson — spend → residual exposure with signed assumptions. Complements Mon heatmap without repeating color-vs-dollars.",
+      nextActions: [
+        "Paste body from docs/marketing-strategy/linkedin-drafts-next-residual-vs-spend.md (stop before First comment / Research)",
+        "Publish from Wil personal profile; optional company amplify",
+        "Paste first-comment CTA after publish",
         "Mark Done with LinkedIn URL",
       ],
     },
@@ -922,11 +977,11 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Marketing — Cold outreach gate (after free marketing)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-10T15:00:00.000Z",
+      dueAt: "2026-08-17T15:00:00.000Z",
       sourceRef: "marketing/cold-outreach-gate",
       priorityHint: 11,
       synopsis:
-        "Do not start cold Path B DISPATCH until LinkedIn week-1 + pre-outreach checklist + live surfaces pass. Rescheduled to Mon Aug 10.",
+        "Do not start cold Path B DISPATCH until LinkedIn week-1 + pre-outreach checklist + live surfaces pass. [2026-08-10] Rescheduled to Mon Aug 17 — wait for LinkedIn week-1 posts + Video Phase 0 before cold Path B DISPATCH.",
     },
     {
       title: "Control-First GRC founder newsletter — next edition outline",

@@ -472,13 +472,25 @@ export async function seedAllProjects2026OpsSchedule(): Promise<{
       const mergedItems = mergeNextActionItems(prevItems, nextActionTexts);
       const nextActionsSerialized = serializeNextActionItems(mergedItems);
       const prevActionsSerialized = serializeNextActionItems(prevItems);
-      const statusChanged = existing.status !== spec.status;
+      // Never reopen operator-closed cards when the seed slate still says PLANNED.
+      // LinkedIn desk "Published" is keyed off calendar DONE/CANCELLED — a re-seed
+      // must not push Fri/Mon/Wed (or any closed item) back into Drafts.
+      const existingClosed =
+        existing.status === "DONE" || existing.status === "CANCELLED";
+      const specWouldReopen =
+        spec.status === "PLANNED" ||
+        spec.status === "IN_PROGRESS" ||
+        spec.status === "IN_REVIEW";
+      const effectiveStatus =
+        existingClosed && specWouldReopen ? existing.status : spec.status;
+      const statusChanged = existing.status !== effectiveStatus;
       const nextDueAt = new Date(spec.dueAt);
       const dueChanged = existing.dueAt.getTime() !== nextDueAt.getTime();
       const priorityChanged = prevPriority !== nextPriority;
       const outcomeChanged = nextOutcome
         ? prevOutcome !== nextOutcome
         : Boolean(prevOutcome) &&
+          !existingClosed &&
           (spec.status === "PLANNED" ||
             spec.status === "IN_PROGRESS" ||
             spec.status === "IN_REVIEW");
@@ -492,17 +504,18 @@ export async function seedAllProjects2026OpsSchedule(): Promise<{
         outcomeChanged ||
         prevActionsSerialized !== nextActionsSerialized
       ) {
+        const effectiveClosed =
+          effectiveStatus === "DONE" || effectiveStatus === "CANCELLED";
         await prisma.opsActivity.update({
           where: { id: existing.id },
           data: {
             notes: nextSynopsis,
             title: spec.title,
-            status: spec.status,
+            status: effectiveStatus,
             dueAt: nextDueAt,
-            completedAt:
-              spec.status === "DONE" || spec.status === "CANCELLED"
-                ? existing.completedAt ?? new Date()
-                : null,
+            completedAt: effectiveClosed
+              ? existing.completedAt ?? new Date()
+              : null,
           },
         });
         await persistActivityHref(existing.id, nextHref);

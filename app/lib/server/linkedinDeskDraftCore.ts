@@ -166,40 +166,47 @@ export const LINKEDIN_FRI_DRAFT_RESEARCH = `Use this section to verify that each
 export const LINKEDIN_WED_DRAFT_TITLE =
   "LinkedIn Wed — point to /product-demo (pre-video)";
 
-export const LINKEDIN_WED_DRAFT_BODY = `Most product tours show features.
+export const LINKEDIN_WED_DRAFT_BODY = `Most GRC product tours show feature lists and color-coded dashboards.
 
-Fewer show the one workflow that removes board-report friction: evidence → scenario → estimated exposure (whole cents, explicit assumptions).
+Fewer show the exact workflow that cuts board-reporting friction:
 
-This week I’m pointing operators to a bounded walkthrough:
+Evidence → Scenario → Estimated Exposure
+(whole cents, explicit assumptions)
 
+When the board shifts from "are we compliant?" to "what is our defendable financial exposure?", feature checklists don't answer.
+
+Short walkthrough:
 https://ironframegrc.com/product-demo
 
-If you’d rather walk that path on your own evidence stack, I’m available for 10–15 minutes:
-
-https://ironframegrc.com/register/contact
-
-#GRC #ProductDemo #BoardRisk #CyberGovernance #RiskQuantification`;
+#GRC #BoardRisk #CyberGovernance #RiskQuantification #RiskManagement`;
 
 export const LINKEDIN_WED_DRAFT_RESEARCH = `Use this section to verify that each public claim is real and that Ironframe can relieve the pain — not as LinkedIn copy.
+
+### First comment (post immediately after publish — do not put in main body)
+
+Prefer to walk that path on your own evidence stack? Happy to do a 10–15 minute workflow review:
+https://ironframegrc.com/register/contact
 
 ### Claim map (post line → proof → Ironframe relief)
 
 | Post claim (paraphrase) | What the research actually supports | Citation (full URL — open before post) | How Ironframe relieves it (product truth only) |
 |---|---|---|---|
-| Demo should show evidence→exposure workflow | Founder cadence: Wednesday posts point to a bounded product demonstration | Cadence: https://ironframegrc.com/docs/marketing-strategy/linkedin-founder-cadence | /product-demo is the public bounded walkthrough surface. |
-| CTA is workflow review, not free pilot | Locked commercial CTA | Contact: https://ironframegrc.com/register/contact | 10–15 minute workflow review only. |
+| Feature lists / color dashboards vs evidence→exposure pipeline | Founder cadence: Wednesday posts point to a bounded product demonstration; Mon heatmap post already attacked qualitative theater | Cadence: https://ironframegrc.com/docs/marketing-strategy/linkedin-founder-cadence | /product-demo is the public bounded walkthrough surface. |
+| One primary link in body (demo); contact in first comment | Cadence: one primary link per post; CTA is workflow review, not free pilot | Contact: https://ironframegrc.com/register/contact | 10–15 minute workflow review only. |
 
 ### Ironframe product truth (what we can honestly offer)
 
 - **Demo surface:** https://ironframegrc.com/product-demo
 - **CTA:** 10–15 minute workflow review — not Request Demo / free pilot.
 - **Copy locks:** Mandate 16.
+- **Held alternate:** docs/marketing-strategy/linkedin-drafts-hold-board-reporting-gap.md (Option 2 board-lens — future Monday).
 
 ### Pre-post checklist
 
 - [ ] Opened each citation URL and confirmed the claim paraphrase still matches the source.
 - [ ] Post body avoids Mandate 16 ban phrases.
 - [ ] Copy body only (not this research block) into LinkedIn.
+- [ ] Paste first-comment CTA immediately after publish.
 - [ ] Calendar card Done with post URL after publish.
 `;
 
@@ -468,21 +475,36 @@ export async function listLinkedInDeskDraftsCore(): Promise<{
   counts: { total: number; active: number; posted: number };
 }> {
   const sourceRefs = LINKEDIN_DRAFT_CATALOG.map((e) => e.opsSourceRef);
+  const titles = LINKEDIN_DRAFT_CATALOG.map((e) => e.defaultTitle);
   const calendarRows = await prisma.opsActivity.findMany({
-    where: { sourceRef: { in: sourceRefs } },
+    where: {
+      OR: [{ sourceRef: { in: sourceRefs } }, { title: { in: titles } }],
+    },
     orderBy: { updatedAt: "desc" },
   });
   const calendarByRef = new Map<string, (typeof calendarRows)[number]>();
+  const calendarByTitle = new Map<string, (typeof calendarRows)[number]>();
   for (const row of calendarRows) {
-    if (!row.sourceRef || calendarByRef.has(row.sourceRef)) continue;
-    calendarByRef.set(row.sourceRef, row);
+    if (row.sourceRef && !calendarByRef.has(row.sourceRef)) {
+      calendarByRef.set(row.sourceRef, row);
+    }
+    if (row.title && !calendarByTitle.has(row.title)) {
+      calendarByTitle.set(row.title, row);
+    }
   }
 
   const drafts: LinkedInDeskDraftListItem[] = [];
   for (const entry of LINKEDIN_DRAFT_CATALOG) {
     const loaded = await ensureCatalogDraft(entry);
-    const cal = calendarByRef.get(entry.opsSourceRef) ?? null;
-    const calendarStatus = (cal?.status ?? null) as LinkedInDeskDraftListItem["calendarStatus"];
+    const cal =
+      calendarByRef.get(entry.opsSourceRef) ??
+      calendarByTitle.get(entry.defaultTitle) ??
+      calendarByTitle.get(loaded.title) ??
+      null;
+    const rawStatus = String(cal?.status ?? "")
+      .trim()
+      .toUpperCase();
+    const calendarStatus = (rawStatus || null) as LinkedInDeskDraftListItem["calendarStatus"];
     const posted = calendarStatus === "DONE" || calendarStatus === "CANCELLED";
     drafts.push({
       id: loaded.id,

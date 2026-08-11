@@ -367,27 +367,52 @@ export default function PublishingDeskClient() {
         undefined,
         "Failed to list LinkedIn drafts.",
       );
-      const active = data.activeDrafts ?? (data.drafts ?? []).filter((d) => !d.posted);
-      const archived = data.postedArchive ?? (data.drafts ?? []).filter((d) => d.posted);
+      const isPostedSlot = (d: {
+        posted?: boolean;
+        calendarStatus?: string | null;
+      }) => {
+        const status = String(d.calendarStatus ?? "")
+          .trim()
+          .toUpperCase();
+        return d.posted === true || status === "DONE" || status === "CANCELLED";
+      };
+      // Prefer server buckets, but always re-partition so a DONE calendar card
+      // cannot linger under "Drafts awaiting paste" after refresh.
+      const combined = [
+        ...(data.activeDrafts ?? []),
+        ...(data.postedArchive ?? []),
+        ...(data.drafts ?? []),
+      ];
+      const byId = new Map<string, (typeof combined)[number]>();
+      for (const d of combined) {
+        if (d?.id) byId.set(d.id, d);
+      }
+      const unique = [...byId.values()];
+      const active = unique.filter((d) => !isPostedSlot(d));
+      const archived = unique.filter((d) => isPostedSlot(d));
       setLinkedinDrafts(active);
       setLinkedinPostedArchive(archived);
-      setLinkedinDraftCounts(
-        data.counts ?? {
-          total: active.length + archived.length,
-          active: active.length,
-          posted: archived.length,
-        },
-      );
+      setLinkedinDraftCounts({
+        total: unique.length,
+        active: active.length,
+        posted: archived.length,
+      });
+      const fallbackDefault =
+        active[0]?.id ?? archived[0]?.id ?? data.defaultId ?? "fri-collection";
       return {
-        defaultId: data.defaultId ?? "fri-collection",
+        defaultId: active.some((d) => d.id === data.defaultId)
+          ? (data.defaultId as string)
+          : fallbackDefault,
         activeIds: active.map((d) => d.id),
         postedIds: archived.map((d) => d.id),
       };
     } catch (err) {
       setLinkedinError(err instanceof Error ? err.message : "Failed to list LinkedIn drafts.");
+      // Do not invent an active Fri draft on list failure — that kept posted
+      // slots looking "open" after calendar Done.
       return {
         defaultId: "fri-collection",
-        activeIds: ["fri-collection"] as string[],
+        activeIds: [] as string[],
         postedIds: [] as string[],
       };
     }
@@ -457,8 +482,9 @@ export default function PublishingDeskClient() {
       const fromUrl = searchParams.get("li")?.trim();
       // Match Briefings/Newsletters: land on open work, not Published.
       let id = fromUrl || linkedinDraftId || list.defaultId;
-      if (fromUrl && list.postedIds.includes(fromUrl) && list.activeIds.length > 0) {
-        id = list.defaultId;
+      if (fromUrl && list.postedIds.includes(fromUrl)) {
+        // Posted deep link → next open draft when any remain; else keep archive view.
+        id = list.activeIds[0] ?? fromUrl;
       }
       if (!list.activeIds.includes(id) && !list.postedIds.includes(id)) {
         id = list.defaultId;
@@ -991,6 +1017,11 @@ export default function PublishingDeskClient() {
                               {draft.citationCount} citation
                               {draft.citationCount === 1 ? "" : "s"}
                             </span>
+                            {draft.calendarStatus ? (
+                              <span className="text-slate-400">Cal {draft.calendarStatus}</span>
+                            ) : (
+                              <span className="text-amber-400">Cal not linked</span>
+                            )}
                           </div>
                         </li>
                       );

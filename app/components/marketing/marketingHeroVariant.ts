@@ -1,11 +1,13 @@
-/**
- * Marketing homepage hero variant switch.
- *
- * - `v2` — cleaned hierarchy (brand-first, one H1, one support, primary CTA)
- * - `legacy` — pre-2026-08-11 hero (pill + duplicate audience H1 + dual paragraphs + SLA in hero)
- *
- * Flip to `legacy` to revert until the new composition is approved.
- */
-export type MarketingHeroVariant = "v2" | "legacy";
-
-export const MARKETING_HERO_VARIANT: MarketingHeroVariant = "legacy";
+/**
+ * Marketing homepage presentation switch (hero composition + marketing fonts).
+ *
+ * - `v2` — brand-first hierarchy, guided demo as text link, IBM Plex Sans on
+ *   marketing/public surfaces (Geist Mono kept for mark + city cycle)
+ * - `legacy` — pre-polish hero (dual CTA buttons, Geist/system sans everywhere)
+ *
+ * Flip to `legacy` to revert until the new presentation is approved.
+ */
+export type MarketingHeroVariant = "v2" | "legacy";
+
+export const MARKETING_HERO_VARIANT: MarketingHeroVariant = "v2";
+

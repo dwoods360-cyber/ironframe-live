@@ -13,6 +13,7 @@ import {
 } from "@/lib/ironframeProductKnowledge/beachheads";
 import {
   INBOUND_LEAD_REPLY_SLA_HOURS,
+  INBOUND_LEAD_REPLY_SLA_LABEL,
   INBOUND_SLA_WINDOW_COPY,
   resolveWorkflowReviewBookingUrl,
 } from "@/config/commercialGates";
@@ -141,14 +142,14 @@ export async function elevateInboundLeadPriority(input: {
     priority: 1,
     synopsis: [
       "Highest priority: public /register/contact hand-raiser.",
-      `SLA: reply ≤${INBOUND_LEAD_REPLY_SLA_HOURS} Central business hour`,
+      `SLA: reply ≤${INBOUND_LEAD_REPLY_SLA_LABEL}`,
       `Window: ${INBOUND_SLA_WINDOW_COPY}`,
       `Email ${input.email}`,
       aleLabel,
       "HITL DISPATCH for scheduling; T1 system ack may auto-send.",
     ].join(" · "),
     nextActions: [
-      `HITL DISPATCH scheduling reply within ${INBOUND_LEAD_REPLY_SLA_HOURS} Central business hour`,
+      `HITL DISPATCH scheduling reply within ${INBOUND_LEAD_REPLY_SLA_LABEL}`,
       "Host workflow review on LIVE desk",
       "Order form → admin Path B (after AGREED)",
     ],
@@ -182,7 +183,7 @@ export async function elevateInboundLeadPriority(input: {
           `Email: ${input.email}`,
           `Slug: ${slug}`,
           `ALE: ${aleLabel}`,
-          `Operator SLA: reply within ${INBOUND_LEAD_REPLY_SLA_HOURS} Central business hour.`,
+          `Operator SLA: reply within ${INBOUND_LEAD_REPLY_SLA_LABEL}.`,
           `Window: ${INBOUND_SLA_WINDOW_COPY}`,
           "",
           queuedDraftId

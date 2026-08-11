@@ -295,7 +295,7 @@ export async function processInboundLeadSlaBackupTick(
   return result;
 }
 
-/** Business-hour dueAt for a new inbound OpsActivity (1 Central business hour). */
+/** Business-day dueAt for a new inbound OpsActivity (1 Central business day). */
 export function inboundLeadSlaDueAt(from: Date = new Date()): Date {
   return addBusinessMilliseconds(from, INBOUND_LEAD_REPLY_SLA_HOURS * 60 * 60 * 1000);
 }

@@ -35,8 +35,9 @@ describe("commercialGates defaults", () => {
     expect(isPublicInstantCheckoutEnabled()).toBe(false);
     expect(isCounselPathBSendApproved()).toBe(false);
     expect(resolveWorkflowReviewBookingUrl()).toBeNull();
-    expect(INBOUND_LEAD_REPLY_SLA_HOURS).toBe(1);
+    expect(INBOUND_LEAD_REPLY_SLA_HOURS).toBe(8);
     expect(isInboundSlaT3AutosendEnabled()).toBe(false);
+    expect(inboundLeadSuccessCopy("10-15")).toContain("1 business day");
     expect(inboundLeadSuccessCopy("10-15")).toContain("Central Time");
   });
 });

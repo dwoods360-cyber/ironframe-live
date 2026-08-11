@@ -1,5 +1,8 @@
-import type { ReactNode } from "react";
-
-export default function MarketingRouteLayout({ children }: { children: ReactNode }) {
-  return children;
-}
+import type { ReactNode } from "react";
+
+import MarketingPresentationShell from "@/app/components/marketing/MarketingPresentationShell";
+
+export default function MarketingRouteLayout({ children }: { children: ReactNode }) {
+  return <MarketingPresentationShell>{children}</MarketingPresentationShell>;
+}
+

@@ -53,10 +53,10 @@ describe("inbound Central business hours", () => {
 });
 
 describe("inbound SLA copy + gates", () => {
-  it("exports 1h SLA and Central success copy", () => {
-    expect(INBOUND_LEAD_REPLY_SLA_HOURS).toBe(1);
+  it("exports 1 business day SLA and Central success copy", () => {
+    expect(INBOUND_LEAD_REPLY_SLA_HOURS).toBe(8);
     const copy = inboundLeadSuccessCopy("10–15");
-    expect(copy).toContain("1 business hour");
+    expect(copy).toContain("1 business day");
     expect(copy).toContain("Central Time");
     expect(copy).toContain("No workspace was created");
   });

@@ -1,4 +1,5 @@
 import {
+  INBOUND_LEAD_REPLY_SLA_LABEL,
   INBOUND_SLA_WINDOW_COPY,
 } from "@/config/commercialGates";
 import { WORKFLOW_REVIEW_CTA_MINUTES } from "@/lib/ironframeProductKnowledge/commercial";
@@ -10,7 +11,7 @@ export function buildInboundT1AckEmail(input: {
   const lines = [
     `Hi — thanks for requesting a ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review with Ironframe for ${input.orgName}.`,
     "",
-    `An operator will reply within 1 business hour (${INBOUND_SLA_WINDOW_COPY}) to schedule. This is a peer review on evidence / board-report friction — not a product demo.`,
+    `An operator will reply within ${INBOUND_LEAD_REPLY_SLA_LABEL} (${INBOUND_SLA_WINDOW_COPY}) to schedule. This is a peer review on evidence / board-report friction — not a product demo.`,
   ];
   if (input.bookingUrl) {
     lines.push("", `Prefer to pick a time now: ${input.bookingUrl}`);

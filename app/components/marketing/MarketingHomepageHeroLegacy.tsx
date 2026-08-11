@@ -12,7 +12,7 @@ import MarketingAnimatedLogo from "./MarketingAnimatedLogo";
 import MarketingCityCycleSubtitle from "./MarketingCityCycleSubtitle";
 
 /**
- * Pre-2026-08-11 marketing hero — preserved for revert.
+ * Pre-polish marketing hero — preserved for revert (dual CTA buttons, system/Geist sans).
  * Restore by setting MARKETING_HERO_VARIANT = "legacy" in marketingHeroVariant.ts.
  */
 export default function MarketingHomepageHeroLegacy() {

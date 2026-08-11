@@ -34,20 +34,24 @@ export function resolveWorkflowReviewBookingUrl(): string | null {
 }
 
 /**
- * Operator + prospect-facing reply SLA (business hours) for inbound hand-raisers.
- * Research: InsideSales/MIT — ≤5 min is peak conversion (21× vs 30 min);
- * HBR — ≤1 hour is ~7× more likely to qualify than waiting longer.
+ * Operator + prospect-facing reply SLA for inbound hand-raisers.
+ * Aligned with public Path B promise: 1 Central business day.
  * Clock: America/Chicago Mon–Fri 09:00–17:00, no weekends/US federal holidays.
  */
-export const INBOUND_LEAD_REPLY_SLA_HOURS = 1 as const;
+export const INBOUND_CENTRAL_BUSINESS_DAY_HOURS = 8 as const;
+export const INBOUND_LEAD_REPLY_SLA_BUSINESS_DAYS = 1 as const;
+/** Business-hours equivalent used for dueAt / elapsed math (1 day × 8h window). */
+export const INBOUND_LEAD_REPLY_SLA_HOURS =
+  (INBOUND_LEAD_REPLY_SLA_BUSINESS_DAYS * INBOUND_CENTRAL_BUSINESS_DAY_HOURS) as 8;
+export const INBOUND_LEAD_REPLY_SLA_LABEL = "1 business day" as const;
 
-/** T2 ops escalate after this much Central business time without HITL DISPATCH. */
-export const INBOUND_SLA_T2_ESCALATE_MINUTES = 45 as const;
+/** T2 ops escalate at 75% of SLA (6 of 8 Central business hours) without HITL DISPATCH. */
+export const INBOUND_SLA_T2_ESCALATE_MINUTES = 360 as const;
 
-/** T3 prospect hold after this much Central business time (env-gated autosend). */
-export const INBOUND_SLA_T3_HOLD_MINUTES = 60 as const;
+/** T3 prospect hold at full SLA (1 Central business day; env-gated autosend). */
+export const INBOUND_SLA_T3_HOLD_MINUTES = 480 as const;
 
-/** Accel mode: T2 wall-clock minutes (Sunday / QA without waiting a business hour). */
+/** Accel mode: T2 wall-clock minutes (Sunday / QA without waiting a business day). */
 export const INBOUND_SLA_TEST_ACCEL_T2_MINUTES = 2 as const;
 
 /** Accel mode: T3 wall-clock minutes. */
@@ -97,8 +101,8 @@ export function isInboundSlaT3AutosendEnabled(): boolean {
 /** On-page success copy after /register/contact submit. */
 export function inboundLeadSuccessCopy(workflowReviewMinutes: string): string {
   return [
-    "Thanks — we received your request. An Ironframe operator will contact you within 1 business hour",
+    `Thanks — we received your request. An Ironframe operator will contact you within ${INBOUND_LEAD_REPLY_SLA_LABEL}`,
     `(${INBOUND_SLA_WINDOW_COPY}) to schedule the ${workflowReviewMinutes}-minute workflow review.`,
-    "Outside those hours, expect a reply the next business day. No workspace was created.",
+    "No workspace was created.",
   ].join(" ");
 }

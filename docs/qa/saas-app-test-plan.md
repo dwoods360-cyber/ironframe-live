@@ -13,7 +13,7 @@
 
 ## Next up — QA-17 (T2/T3 Central SLA worker)
 
-Open P1 inbound with **no** HITL DISPATCH. After **45 Central business minutes**, cron `/api/internal/cron/inbound-lead-sla` (or wait for `*/15`) → ops “SLA risk — inbound still open” + `[SLA_T2_ESCALATED]`. T3 only if `IRONFRAME_INBOUND_SLA_AUTOSEND=true` and ≥60 business minutes. Weekend/holiday time does not count.
+Open P1 inbound with **no** HITL DISPATCH. After **6 Central business hours** (75% of the 1-business-day SLA), cron `/api/internal/cron/inbound-lead-sla` (or wait for `*/15`) → ops “SLA risk — inbound still open” + `[SLA_T2_ESCALATED]`. T3 only if `IRONFRAME_INBOUND_SLA_AUTOSEND=true` and ≥8 Central business hours (full SLA day). Weekend/holiday time does not count.
 
 Then: **QA-12 → QA-13 → QA-06 → QA-07**.
 
@@ -80,7 +80,7 @@ Optional after deploy `791a1c5`: re-spot LIVE mic STT under QA-05 (clients noun;
 **PASS evidence (session)**
 
 - Inbox subject: `We received your Ironframe workflow review request`
-- Body: 1 business hour + Central Time window; peer review not product demo; no workspace
+- Body: 1 business day + Central Time window; peer review not product demo; no workspace
 - Approvals draft remained PENDING (T1 ≠ HITL DISPATCH)
 - OpsActivity notes: `[SLA_T1_ACK]` when checked in GTM
 
@@ -107,16 +107,16 @@ Optional after deploy `791a1c5`: re-spot LIVE mic STT under QA-05 (clients noun;
 
 - Auth Bearer `IRONFRAME_CRON_SECRET`
 - Open P1 inbound with no HITL DISPATCH
-- T2: ≥45 Central business minutes elapsed (weekend/holiday time does not count)
-- T3: `IRONFRAME_INBOUND_SLA_AUTOSEND=true` and ≥60 Central business minutes
+- T2: ≥6 Central business hours elapsed (weekend/holiday time does not count)
+- T3: `IRONFRAME_INBOUND_SLA_AUTOSEND=true` and ≥8 Central business hours (1 business day)
 
 **Steps**
 
 1. Submit a throwaway lead during Central business hours (or wait across pause)
 2. Do not DISPATCH
-3. After 45 business min: cron or wait for `*/15` job → ops alert “SLA risk — inbound still open”
+3. After 6 business hours: cron or wait for `*/15` job → ops alert “SLA risk — inbound still open”
 4. OpsActivity notes gain `[SLA_T2_ESCALATED]`
-5. If autosend on + 60 business min: T3 hold email + `[SLA_T3_HOLD]`; ops “T3 SLA-hold auto-sent”
+5. If autosend on + 8 business hours: T3 hold email + `[SLA_T3_HOLD]`; ops “T3 SLA-hold auto-sent”
 6. DISPATCH a parallel lead early → that lead must skip T2/T3
 
 | PASS | FAIL |

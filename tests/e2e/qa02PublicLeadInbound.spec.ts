@@ -81,13 +81,12 @@ test.describe("QA-02 public lead inbound (guest)", () => {
     const status = page.getByRole("status");
     await expect(status).toBeVisible({ timeout: 15_000 });
     const copy = (await status.innerText()).replace(/\s+/g, " ");
-    expect(copy).toMatch(/1 business hour/i);
+    expect(copy).toMatch(/1 business day/i);
     expect(copy).toMatch(/Central Time/i);
     expect(copy).toMatch(/9:00\s*AM/i);
     expect(copy).toMatch(/5:00\s*PM/i);
     expect(copy).toMatch(/Mon.?Fri/i);
-    expect(copy).toMatch(/next business day/i);
     expect(copy).toMatch(/No workspace was created/i);
-    expect(copy).not.toMatch(/at the start of the next business day/i);
+    expect(copy).not.toMatch(/1 business hour/i);
   });
 });

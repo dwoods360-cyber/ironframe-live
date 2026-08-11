@@ -469,6 +469,16 @@ body {
   }
 }
 
+/**
+ * Marketing presentation v2: IBM Plex Sans for body/H1/CTAs; keep Geist Mono for mark + cities.
+ * Toggle via MARKETING_HERO_VARIANT in marketingHeroVariant.ts.
+ */
+.marketing-presentation-v2 {
+  --font-sans: var(--font-marketing-sans), "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-sans);
+}
+
 .command-center-surface {
   position: relative;
   isolation: isolate;

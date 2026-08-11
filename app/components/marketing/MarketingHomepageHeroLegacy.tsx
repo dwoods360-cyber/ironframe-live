@@ -63,9 +63,9 @@ export default function MarketingHomepageHeroLegacy() {
           not a free trial.
         </p>
         <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
-          {CUSTOMER_FACING_PATH_B_SKU}: {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}{" "}
-          days. Operator response within {INBOUND_LEAD_REPLY_SLA_HOURS} business hour (9 AM–5 PM
-          CT, Mon–Fri).
+          {CUSTOMER_FACING_PATH_B_SKU}: {formatPathBUsd()} / {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}
+          -day engagement. Operator replies within {INBOUND_LEAD_REPLY_SLA_HOURS} business hour
+          (Mon–Fri, 9 AM–5 PM CT).
         </p>
       </header>
     </>

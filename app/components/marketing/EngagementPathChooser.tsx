@@ -6,7 +6,6 @@ import {
 } from "@/lib/ironframeProductKnowledge/commercial";
 import {
   INBOUND_LEAD_REPLY_SLA_HOURS,
-  INBOUND_SLA_WINDOW_COPY,
 } from "@/config/commercialGates";
 
 type EngagementPathChooserProps = {
@@ -92,13 +91,16 @@ export default function EngagementPathChooser({
         </article>
       </div>
 
-      <p className="mt-5 text-sm leading-relaxed text-[var(--login-muted)]">
-        An operator typically responds within{" "}
-        <span className="font-medium text-[var(--text-main)]">
-          {INBOUND_LEAD_REPLY_SLA_HOURS} business hour
-        </span>{" "}
-        ({INBOUND_SLA_WINDOW_COPY}).
-      </p>
+      <ul className="mt-5 space-y-1.5 text-sm leading-relaxed text-[var(--login-muted)]">
+        <li>
+          <span className="text-[var(--text-main)]">•</span> {CUSTOMER_FACING_PATH_B_SKU}:{" "}
+          {formatPathBUsd()} ({DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scope)
+        </li>
+        <li>
+          <span className="text-[var(--text-main)]">•</span> Response SLA: Within{" "}
+          {INBOUND_LEAD_REPLY_SLA_HOURS} business hour (Mon–Fri, 9 AM–5 PM CT)
+        </li>
+      </ul>
     </section>
   );
 }

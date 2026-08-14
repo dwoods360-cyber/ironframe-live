@@ -4,7 +4,7 @@ category: desk-note
 status: QUARANTINED_DRAFT
 publishState: QUARANTINED_AWAITING_OPERATOR
 published: "2026-08-17"
-summary: "Mid-August is the practical prep window before a September 2026 Unified Agenda cluster: alongside CIRCIA, federal contracting rules on standardized cybersecurity requirements for unclassified IT and cyber threat/incident reporting & information sharing are projected for finalization. Separately, DoD has signaled an August DFARS NPRM update path for safeguarding covered defense information."
+summary: "Mid-August prep window before a September 2026 Unified Agenda contracting-cyber cluster (standardization + incident reporting), alongside CIRCIA. August DFARS NPRM remains an Agenda watch item; DFARS 7012 stays live despite the 13 July 2026 CMMC implementation pause."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
 tenantId: "00000000-0000-0000-0000-000000000000"
@@ -13,7 +13,7 @@ activeExposureCents: "0"
 requiresImmediatePromotion: false
 ---
 
-> **Signal (week of 17 August 2026):** The 2026 Unified Agenda preview projects **September 2026** finalization not only for CIRCIA but also for federal **contracting** cybersecurity standardization and cyber incident reporting/information-sharing rules. DoD has also been reported as expecting an **August** DFARS NPRM update related to safeguarding covered defense information and cyber incident reporting.
+> **Signal (week of 17 August 2026):** The 2026 Unified Agenda preview projects **September 2026** finalization not only for CIRCIA but also for federal **contracting** cybersecurity standardization and cyber threat/incident reporting & information-sharing rules. Separately, Agenda reporting projected an **August** DFARS NPRM update to the safeguarding / cyber-incident-reporting clause—treat that date as a watch item until the NPRM appears in the Federal Register.
 >
 > *Contract flow-downs move faster than “we are not critical infrastructure” narratives.*
 
@@ -23,13 +23,16 @@ Even operators outside CIRCIA’s eventual covered-entity set may face the same 
 
 Do not treat this as CIRCIA itself (covered in the July CIRCIA desk note). This note is about the **contracting** cluster riding the same Agenda month.
 
+A parallel mid-summer development matters for the same evidence pack: on **13 July 2026**, DoD/DoW announced a pause on CMMC program implementation pending review. Public analyses emphasize that **DFARS 252.204-7012** safeguarding and incident-reporting duties remain in effect even while third-party CMMC assessment cadence is held.
+
 ## Governance implication (one test)
 
 1. List active federal prime/sub contracts with cyber safeguarding or incident-reporting clauses.  
 2. Name the owner who monitors OIRA Unified Agenda + acquisition updates through September.  
-3. Separate three tracks: CIRCIA (critical infrastructure reporting), FAR cyber standardization, DFARS/CMMC verification—different evidence packs.
+3. Separate four tracks: CIRCIA (critical infrastructure reporting), FAR cyber standardization, DFARS 7012 (still live), and CMMC assessment status under the July pause—different evidence packs.
 
 ## V. Sources & Citations
 
 1. Federal News Network — CIRCIA and other big cyber rules expected this fall (July 2026 Unified Agenda reporting): https://federalnewsnetwork.com/cybersecurity/2026/07/circia-other-big-cyber-rules-expected-to-get-finalized-this-fall/  
-2. ExecutiveGov — CISA expects final CIRCIA rule in September (Agenda context): https://www.executivegov.com/articles/cisa-circia-final-incident-reporting-rule-september
+2. ExecutiveGov — CISA expects final CIRCIA rule in September (Agenda context): https://www.executivegov.com/articles/cisa-circia-final-incident-reporting-rule-september  
+3. Mayer Brown — FAR CUI proposed rule and DoW CMMC implementation pause (13 July 2026 context): https://www.mayerbrown.com/en/insights/publications/2026/07/far-council-proposes-revised-cui-safeguarding-and-incident-reporting-framework-while-dow-pauses-cmmc-implementation  

@@ -1,0 +1,16 @@
+{
+  "filename": "2026-07-27-draft-desk-note-arista-fortinet-kev.md",
+  "title": "Desk Note — CISA KEV: Arista VeloCloud + FortiOS (27 July 2026)",
+  "draftKind": "desk-note",
+  "readyForHumanOperator": true,
+  "stagedAt": "2026-08-11T15:05:58.746Z",
+  "agents": [
+    {
+      "id": "gf-operator",
+      "status": "staged",
+      "notes": [
+        "Quarantine → Approve/Hold/Deny on Publishing Desk → Desk notes."
+      ]
+    }
+  ]
+}

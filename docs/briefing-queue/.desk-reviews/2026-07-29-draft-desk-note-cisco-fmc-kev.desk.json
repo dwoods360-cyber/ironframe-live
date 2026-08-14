@@ -1,0 +1,16 @@
+{
+  "filename": "2026-07-29-draft-desk-note-cisco-fmc-kev.md",
+  "title": "Desk Note — CISA KEV: Cisco Secure FMC (29 July 2026)",
+  "draftKind": "desk-note",
+  "readyForHumanOperator": true,
+  "stagedAt": "2026-08-11T15:05:59.757Z",
+  "agents": [
+    {
+      "id": "gf-operator",
+      "status": "staged",
+      "notes": [
+        "Quarantine → Approve/Hold/Deny on Publishing Desk → Desk notes."
+      ]
+    }
+  ]
+}

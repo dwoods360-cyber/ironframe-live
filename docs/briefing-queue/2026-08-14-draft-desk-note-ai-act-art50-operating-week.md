@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Desk Note — EU AI Act Article 50: first full operating week (14 August 2026)"
 category: desk-note
 status: QUARANTINED_DRAFT

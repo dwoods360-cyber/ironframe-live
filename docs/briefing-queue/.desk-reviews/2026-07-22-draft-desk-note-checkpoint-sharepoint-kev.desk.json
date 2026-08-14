@@ -1,0 +1,16 @@
+{
+  "filename": "2026-07-22-draft-desk-note-checkpoint-sharepoint-kev.md",
+  "title": "Desk Note — CISA KEV: Check Point SmartConsole + SharePoint (22 July 2026)",
+  "draftKind": "desk-note",
+  "readyForHumanOperator": true,
+  "stagedAt": "2026-08-11T15:05:58.236Z",
+  "agents": [
+    {
+      "id": "gf-operator",
+      "status": "staged",
+      "notes": [
+        "Quarantine → Approve/Hold/Deny on Publishing Desk → Desk notes."
+      ]
+    }
+  ]
+}

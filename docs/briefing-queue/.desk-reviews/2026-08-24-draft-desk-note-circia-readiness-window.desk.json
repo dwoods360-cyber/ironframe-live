@@ -1,0 +1,16 @@
+{
+  "filename": "2026-08-24-draft-desk-note-circia-readiness-window.md",
+  "title": "Desk Note — CIRCIA readiness window before September final (24 August 2026)",
+  "draftKind": "desk-note",
+  "readyForHumanOperator": true,
+  "stagedAt": "2026-08-11T15:06:01.813Z",
+  "agents": [
+    {
+      "id": "gf-operator",
+      "status": "staged",
+      "notes": [
+        "Quarantine → Approve/Hold/Deny on Publishing Desk → Desk notes."
+      ]
+    }
+  ]
+}

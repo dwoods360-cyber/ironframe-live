@@ -11,7 +11,7 @@ import {
   shouldBlockProductionIngress,
 } from "@/app/lib/security/deploymentQuarantine";
 import { isAuthPublicPath, isInfraHealthPath, isIronleadsIngressPath, isPublicCloudIngressPath, isPublicRoute, isSalesteamIngressPath, isSuccessTeamIngressPath, isSupportTeamIngressPath } from "@/app/utils/grcRouteMatch";
-import { resolveAuthNextPathForHost } from "@/app/lib/auth/publicAppUrl";
+import { resolveAuthNextPathForHost, resolvePublicAppUrl } from "@/app/lib/auth/publicAppUrl";
 import { isAdminOnboardingPath } from "@/app/lib/auth/adminOnboardingRoute";
 import { tenantSlugFromHost, buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
 import { browserFacingUrl } from "@/app/lib/middlewareRequestOrigin";
@@ -260,6 +260,15 @@ function governanceFrameResearchHostResponse(request: NextRequest): NextResponse
     pathname === "/sitemap.xml"
   ) {
     return null;
+  }
+
+  /**
+   * Ops / Publishing Desk is the apex app (ironframegrc.com), not the public research host.
+   * Without this, `/dashboard/*` rewrites to `/gf-research/dashboard/*` and 404s.
+   */
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    const target = new URL(`${pathname}${request.nextUrl.search}`, resolvePublicAppUrl());
+    return NextResponse.redirect(target, 308);
   }
 
   // Charter .md / filesystem aliases before legacy /governance-frame → /briefings rewrite.

@@ -7,6 +7,11 @@ import {
   listMsspFreeDirectorySeeds,
   parseDirectoryImportPaste,
 } from "@/app/lib/ironleadsMsspFreeDirectorySeeds";
+import {
+  HOLD_ARCHIVE_SORT_OPTIONS,
+  sortHoldArchivePortalRows,
+  type HoldArchiveSortMode,
+} from "@/app/lib/ironleadsHoldArchiveSort";
 import type { IronleadsPortalSnapshot } from "@/app/lib/server/operationsTeamPortalsCore";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
@@ -58,6 +63,8 @@ export default function IronleadsPortalClient({
   const [runResearchAfterImport, setRunResearchAfterImport] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [holdArchiveSort, setHoldArchiveSort] =
+    useState<HoldArchiveSortMode>("fit_held_first");
 
   useEffect(() => {
     try {
@@ -824,29 +831,74 @@ export default function IronleadsPortalClient({
               </ul>
             </section>
 
-            <section className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-5 lg:col-span-2">
-              <h2 className="text-lg font-semibold text-amber-100">HOLD archive</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Parked after operator review (channel-competitors, enrich-later). Separate from the
-                pending pool. Not Path B cold until restored and re-qualified.
-              </p>
+                                                <section className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-5 lg:col-span-2">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-amber-100">HOLD archive</h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Parked after operator review (channel-competitors, enrich-later). Fit-held
+                    verified seats (email PASS, Fit not PASS) float to the top when Sort is
+                    Fit-held verified first. Showing{" "}
+                    {(snapshot.holdArchive ?? []).length}
+                    {typeof snapshot.holdCount === "number"
+                      ? ` of ${snapshot.holdCount} held`
+                      : ""}
+                    {typeof snapshot.fitHeldVerifiedCount === "number" &&
+                    snapshot.fitHeldVerifiedCount > 0
+                      ? ` - ${snapshot.fitHeldVerifiedCount} Fit-held verified`
+                      : ""}
+                    . Separate from the pending pool.
+                  </p>
+                </div>
+                <label className="flex shrink-0 flex-col gap-1 text-xs text-amber-100/90">
+                  <span className="font-semibold uppercase tracking-wide">Sort</span>
+                  <select
+                    value={holdArchiveSort}
+                    onChange={(e) =>
+                      setHoldArchiveSort(e.target.value as HoldArchiveSortMode)
+                    }
+                    className="min-w-[14rem] rounded-md border border-amber-800/60 bg-slate-950 px-2 py-1.5 text-sm text-slate-100"
+                  >
+                    {HOLD_ARCHIVE_SORT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
               <ul className="mt-4 space-y-2">
                 {(snapshot.holdArchive ?? []).length === 0 ? (
                   <li className="text-sm text-slate-500">
-                    Empty — use <span className="text-amber-200/90">Move to HOLD archive</span> on a
+                    Empty - use <span className="text-amber-200/90">Move to HOLD archive</span> on a
                     SUSPECT report after HITL.
                   </li>
                 ) : (
-                  (snapshot.holdArchive ?? []).map((row) => (
+                  sortHoldArchivePortalRows(
+                    snapshot.holdArchive ?? [],
+                    holdArchiveSort,
+                  ).map((row) => (
                     <li
                       key={row.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-900/30 bg-slate-950/40 px-3 py-2 text-sm"
+                      className={
+                        row.fitHeldVerified
+                          ? "flex flex-wrap items-center justify-between gap-2 rounded-lg border border-cyan-700/50 bg-cyan-950/25 px-3 py-2 text-sm"
+                          : "flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-900/30 bg-slate-950/40 px-3 py-2 text-sm"
+                      }
                     >
                       <div className="min-w-0">
-                        <span className="font-medium text-slate-100">{row.company}</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-slate-100">{row.company}</span>
+                          {row.fitHeldVerified ? (
+                            <span className="rounded border border-cyan-600/60 bg-cyan-950/50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-200">
+                              Fit-held / verified email
+                            </span>
+                          ) : null}
+                        </div>
                         <div className="mt-0.5 font-mono text-xs text-amber-200/80">
                           {row.holdClassification ?? "hold"}
-                          {row.holdAt ? ` · ${row.holdAt}` : ""}
+                          {row.fitHeldPromoteTo ? ` - ${row.fitHeldPromoteTo}` : ""}
+                          {row.holdAt ? ` - ${row.holdAt}` : ""}
                         </div>
                         {row.holdReason ? (
                           <div className="mt-1 text-xs text-slate-500">{row.holdReason}</div>
@@ -856,7 +908,7 @@ export default function IronleadsPortalClient({
                         href={`/dashboard/operations/ironleads/suspects/${row.id}?dossier=1`}
                         className="shrink-0 text-xs text-amber-200 hover:underline"
                       >
-                        Open / restore →
+                        Open / restore
                       </Link>
                     </li>
                   ))

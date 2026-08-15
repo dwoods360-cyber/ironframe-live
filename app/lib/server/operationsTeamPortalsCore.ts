@@ -16,6 +16,11 @@ import { purgeOsintTitleNoiseSuspects } from "@/app/lib/server/ironleadsOsintNoi
 import { isPendingBatchHold } from "@/app/lib/server/ironleadsPendingPoolCore";
 import { resolveSuspectLocationFields } from "@/app/lib/server/ironleadsSuspectLocation";
 import {
+  compareHoldArchiveRows,
+  isFitHeldVerifiedSuspect,
+  resolveFitHeldPromoteTo,
+} from "@/app/lib/ironleadsHoldArchiveSort";
+import {
   compareSuspectReadiness,
   scoreSuspectReadiness,
 } from "@/app/lib/ironleadsSuspectReadiness";
@@ -50,6 +55,13 @@ export type IronleadsPortalSuspectRow = {
   holdReason?: string | null;
   holdClassification?: string | null;
   holdAt?: string | null;
+  /**
+   * Verified person email parked only because Fit is not PASS —
+   * surfaces at the top of HOLD archive for Fit review.
+   */
+  fitHeldVerified?: boolean;
+  /** Promote-to email when `fitHeldVerified` (never an intake). */
+  fitHeldPromoteTo?: string | null;
 };
 
 export type IronleadsPortalSnapshot = {
@@ -67,9 +79,11 @@ export type IronleadsPortalSnapshot = {
   /** Directory overflow waiting to be pulled into the active batch of 20. */
   pendingPool: IronleadsPortalSuspectRow[];
   pendingCount: number;
-  /** Operator HOLD archive — parked for later retrieval (excludes pending pool). */
+  /** Operator HOLD archive — Fit-held verified seats first, then other holds. */
   holdArchive: IronleadsPortalSuspectRow[];
   holdCount: number;
+  /** Count of Fit-held verified seats inside HOLD archive (subset of holdCount). */
+  fitHeldVerifiedCount: number;
 };
 
 export type SuccessTeamPortalSnapshot = {
@@ -160,9 +174,17 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
   const pendingRows = collapsed
     .filter((row) => isPendingBatchHold(row.metadata))
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  const holdRows = collapsed.filter(
-    (row) => resolveOperatorHold(row.metadata) && !isPendingBatchHold(row.metadata),
-  );
+  const holdRows = collapsed
+    .filter((row) => resolveOperatorHold(row.metadata) && !isPendingBatchHold(row.metadata))
+    .sort((a, b) =>
+      compareHoldArchiveRows(
+        { metadata: a.metadata, createdAt: a.createdAt },
+        { metadata: b.metadata, createdAt: b.createdAt },
+      ),
+    );
+  const fitHeldVerifiedCount = holdRows.filter((row) =>
+    isFitHeldVerifiedSuspect(row.metadata),
+  ).length;
 
   const mapRow = (row: (typeof collapsed)[number]): IronleadsPortalSuspectRow => {
     const accountDomain = row.primaryDeals[0]?.accountDomain ?? null;
@@ -176,6 +198,7 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
       accountDomain,
       priorityScore: row.priorityScore,
     });
+    const fitHeldVerified = isFitHeldVerifiedSuspect(row.metadata);
     return {
       id: row.id,
       company: row.company,
@@ -189,6 +212,8 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
       holdReason: hold?.reason ?? null,
       holdClassification: hold?.classification ?? null,
       holdAt: hold?.at ?? null,
+      fitHeldVerified,
+      fitHeldPromoteTo: fitHeldVerified ? resolveFitHeldPromoteTo(row.metadata) : null,
     };
   };
 
@@ -199,8 +224,10 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
     activeCount: activeRows.length,
     pendingPool: pendingRows.slice(0, 80).map(mapRow),
     pendingCount: pendingRows.length,
-    holdArchive: holdRows.slice(0, 40).map(mapRow),
+    // Cap raised so Fit-held verified seats stay visible after sort-to-top.
+    holdArchive: holdRows.slice(0, 80).map(mapRow),
     holdCount: holdRows.length,
+    fitHeldVerifiedCount,
   };
 }
 

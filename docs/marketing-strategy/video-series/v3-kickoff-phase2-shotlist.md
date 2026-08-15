@@ -98,8 +98,10 @@ Local folder: `Videos/WhenRisk/V3/`
 | REF-ISOLATION-REPORT | `refs/REF-ISOLATION-REPORT.png` |
 | Title card | `cards/CARD-TITLE-V3.png` |
 | End card | `cards/CARD-END-V3.png` |
+| Shot 02 keyframe | `raw/SHOT-02-KEYFRAME.png` |
+| Shot 02 Flow card | `raw/SHOT-02-FLOW.txt` |
 
-**Status:** Phase 2 refs + series chrome locked. Next = Flow/Runway image-to-video for shots 02–10.
+**Status:** Refs + chrome locked. Shot 02 keyframe + Flow card ready in `raw/`. Next = generate Shot 02 clip, then 03–10.
 
 ---
 

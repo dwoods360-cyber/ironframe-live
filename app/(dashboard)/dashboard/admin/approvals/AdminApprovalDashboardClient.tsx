@@ -452,6 +452,13 @@ function AdminApprovalDashboardInner() {
   const filterTitle =
     kindFilter === "ALL" ? "All messaging tracks" : APPROVAL_KIND_META[kindFilter].title;
 
+  const salesQueueStatus =
+    kindFilter === "SALES"
+      ? `${geoFilter === "US" ? "US only" : "All geos"} · ${
+          salesSort === "GEO" ? "US first" : "Newest"
+        } · ${visibleDrafts.length} shown`
+      : null;
+
   return (
     <div className="relative min-h-screen bg-[#020617] p-4 text-slate-100 sm:p-6">
       <div className="relative z-10 mx-auto w-full max-w-7xl space-y-6">
@@ -642,15 +649,12 @@ function AdminApprovalDashboardInner() {
             <div className="mt-1 text-xs opacity-90">
               Source: {APPROVAL_KIND_META[kindFilter].source}.{" "}
               {APPROVAL_KIND_META[kindFilter].dispatchMeans}
-              {kindFilter === "SALES" && geoFilter === "US"
-                ? " US-only filter on — Path B cold wave."
-                : ""}
-              {kindFilter === "SALES" && salesSort === "GEO"
-                ? " Sorted US first by outreach geo band."
-                : kindFilter === "SALES" && salesSort === "RECENT"
-                  ? " Sorted newest first."
-                  : ""}
             </div>
+            {salesQueueStatus ? (
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-wide text-amber-200/90">
+                Queue: {salesQueueStatus}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="grid gap-2 sm:grid-cols-3">
@@ -689,6 +693,11 @@ function AdminApprovalDashboardInner() {
             <div className="space-y-3 lg:col-span-4">
               <div className="px-1 font-mono text-[10px] uppercase tracking-wider text-slate-500">
                 {filterTitle} · review queue
+                {salesQueueStatus ? (
+                  <span className="mt-1 block normal-case tracking-normal text-amber-200/80">
+                    {salesQueueStatus}
+                  </span>
+                ) : null}
               </div>
               {visibleDrafts.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-800 p-4 text-center font-sans text-xs text-slate-500">
@@ -800,6 +809,11 @@ function AdminApprovalDashboardInner() {
                     <p className="mt-1 text-xs opacity-90">
                       Queued by {selectedMeta.source}. {selectedMeta.dispatchMeans}
                     </p>
+                    {selectedDraft.draftKind === "SALES" && salesQueueStatus ? (
+                      <p className="mt-2 font-mono text-[10px] uppercase tracking-wide text-amber-200/90">
+                        List view: {salesQueueStatus}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-800/60 bg-slate-950/60 p-4 font-sans text-xs sm:grid-cols-2">

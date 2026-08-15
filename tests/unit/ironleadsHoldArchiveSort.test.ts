@@ -60,6 +60,83 @@ describe("ironleadsHoldArchiveSort", () => {
     expect(isFitHeldVerifiedSuspect(meta)).toBe(false);
   });
 
+  it("does not flag Fit FAIL or channel_competitor with person email as Fit-held", () => {
+    expect(
+      isFitHeldVerifiedSuspect({
+        namedBuyer: {
+          email: "rogerson@packetlabs.net",
+          emailStatus: "prospeo_verified",
+        },
+        emailGatekeeper: {
+          emailGate: "PASS",
+          promoteTo: null,
+          promoteReady: false,
+        },
+        accountResearchBrief: { gates: { fit: { result: "FAIL" } } },
+        pathBVerdict: { reason: "Fit FAIL (offensive pentest)" },
+        operatorHold: {
+          classification: "channel_competitor",
+          reason: "Channel / competitor",
+          at: "2026-08-11T00:00:00.000Z",
+        },
+      }),
+    ).toBe(false);
+
+    expect(
+      isFitHeldVerifiedSuspect({
+        namedBuyer: {
+          email: "jacob@fablesecurity.com",
+          emailStatus: "VERIFIED",
+        },
+        accountResearchBrief: { gates: { fit: { result: "FAIL" } } },
+        operatorHold: {
+          classification: "hold",
+          reason: "Operator HOLD archive after HITL review.",
+          at: "2026-08-05T00:00:00.000Z",
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects promote-to on a different employer domain", () => {
+    expect(
+      isFitHeldVerifiedSuspect(
+        fitHeldMeta({
+          emailGatekeeper: {
+            emailGate: "VERIFIED_HELD_FIT",
+            promoteTo: "mark.bailey@wheelhouseit.com",
+            promoteReady: false,
+          },
+          namedBuyer: {
+            email: "mark.bailey@wheelhouseit.com",
+            emailStatus: "verified",
+          },
+        }),
+        "corestackit.com",
+      ),
+    ).toBe(false);
+  });
+
+  it("does not flag Fit PASS holds (held for employment / other reasons)", () => {
+    expect(
+      isFitHeldVerifiedSuspect(
+        fitHeldMeta({
+          accountResearchBrief: { gates: { fit: { result: "PASS" } } },
+          emailGatekeeper: {
+            emailGate: "HELD",
+            promoteTo: "mark@corestackit.com",
+            promoteReady: false,
+          },
+          namedBuyer: {
+            email: "mark@corestackit.com",
+            emailStatus: "verified",
+          },
+        }),
+        "corestackit.com",
+      ),
+    ).toBe(false);
+  });
+
   it("sorts Fit-held verified seats to the top of HOLD archive", () => {
     const fitHeld = {
       metadata: fitHeldMeta(),

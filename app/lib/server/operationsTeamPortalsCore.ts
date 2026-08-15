@@ -178,12 +178,20 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
     .filter((row) => resolveOperatorHold(row.metadata) && !isPendingBatchHold(row.metadata))
     .sort((a, b) =>
       compareHoldArchiveRows(
-        { metadata: a.metadata, createdAt: a.createdAt },
-        { metadata: b.metadata, createdAt: b.createdAt },
+        {
+          metadata: a.metadata,
+          createdAt: a.createdAt,
+          accountDomain: a.primaryDeals[0]?.accountDomain ?? null,
+        },
+        {
+          metadata: b.metadata,
+          createdAt: b.createdAt,
+          accountDomain: b.primaryDeals[0]?.accountDomain ?? null,
+        },
       ),
     );
   const fitHeldVerifiedCount = holdRows.filter((row) =>
-    isFitHeldVerifiedSuspect(row.metadata),
+    isFitHeldVerifiedSuspect(row.metadata, row.primaryDeals[0]?.accountDomain ?? null),
   ).length;
 
   const mapRow = (row: (typeof collapsed)[number]): IronleadsPortalSuspectRow => {
@@ -198,7 +206,7 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
       accountDomain,
       priorityScore: row.priorityScore,
     });
-    const fitHeldVerified = isFitHeldVerifiedSuspect(row.metadata);
+    const fitHeldVerified = isFitHeldVerifiedSuspect(row.metadata, accountDomain);
     return {
       id: row.id,
       company: row.company,
@@ -213,7 +221,9 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
       holdClassification: hold?.classification ?? null,
       holdAt: hold?.at ?? null,
       fitHeldVerified,
-      fitHeldPromoteTo: fitHeldVerified ? resolveFitHeldPromoteTo(row.metadata) : null,
+      fitHeldPromoteTo: fitHeldVerified
+        ? resolveFitHeldPromoteTo(row.metadata, accountDomain)
+        : null,
     };
   };
 

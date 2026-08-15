@@ -19,13 +19,52 @@ function isPersonSeatEmail(email: string | null | undefined): boolean {
   return true;
 }
 
+function emailDomain(email: string): string | null {
+  const d = email.split("@")[1]?.toLowerCase().replace(/^www\./, "").trim();
+  return d || null;
+}
+
+function domainCore(domain: string | null | undefined): string | null {
+  const d = String(domain || "")
+    .toLowerCase()
+    .replace(/^www\./, "")
+    .trim();
+  return d || null;
+}
+
+/** Employer / promote-to domains must share the same registrable host. */
+export function domainsRelated(
+  emailOrHost: string | null | undefined,
+  accountDomain: string | null | undefined,
+): boolean {
+  const a = domainCore(
+    emailOrHost?.includes("@") ? emailDomain(emailOrHost) : emailOrHost,
+  );
+  const b = domainCore(accountDomain);
+  if (!a || !b) return true;
+  if (a === b) return true;
+  if (a.endsWith(`.${b}`) || b.endsWith(`.${a}`)) return true;
+  return a.split(".").slice(-2).join(".") === b.split(".").slice(-2).join(".");
+}
+
 /**
  * SUSPECT parked in HOLD with a verified person email blocked only on Fit
  * (Gatekeeper: restore → Fit PASS → Promote).
+ * Excludes Fit FAIL, Fit PASS (held for other reasons), and channel_competitor.
  */
-export function isFitHeldVerifiedSuspect(metadata: unknown): boolean {
+export function isFitHeldVerifiedSuspect(
+  metadata: unknown,
+  accountDomain?: string | null,
+): boolean {
   const meta = asRecord(metadata);
   if (!meta) return false;
+
+  const hold = asRecord(meta.operatorHold);
+  const classification =
+    typeof hold?.classification === "string" ? hold.classification.toLowerCase() : "";
+  if (classification === "channel_competitor" || classification === "pending_batch") {
+    return false;
+  }
 
   const gatekeeper = asRecord(meta.emailGatekeeper);
   const named = asRecord(meta.namedBuyer);
@@ -34,11 +73,15 @@ export function isFitHeldVerifiedSuspect(metadata: unknown): boolean {
   const fit = asRecord(gates?.fit);
   const fitResult = typeof fit?.result === "string" ? fit.result.toUpperCase() : null;
 
+  // Fit already decided — not the Fit-review stack.
+  if (fitResult === "FAIL" || fitResult === "PASS") return false;
+
   const promoteTo =
     (typeof gatekeeper?.promoteTo === "string" && gatekeeper.promoteTo.trim()) ||
     (typeof named?.email === "string" && named.email.trim()) ||
     null;
   if (!isPersonSeatEmail(promoteTo)) return false;
+  if (!domainsRelated(promoteTo, accountDomain)) return false;
 
   const emailGate =
     typeof gatekeeper?.emailGate === "string" ? gatekeeper.emailGate.toUpperCase() : "";
@@ -51,44 +94,33 @@ export function isFitHeldVerifiedSuspect(metadata: unknown): boolean {
     emailStatus === "prospeo_verified" ||
     emailStatus === "prospeo_verified_held" ||
     emailStatus.includes("verified");
+  if (!verifiedStatus) return false;
+  if (gatekeeper?.promoteReady === true) return false;
 
   const pathB = asRecord(meta.pathBVerdict);
   const reasonBlob = [
     typeof pathB?.reason === "string" ? pathB.reason : "",
     typeof gatekeeper?.prospeoNote === "string" ? gatekeeper.prospeoNote : "",
     typeof gatekeeper?.hunterNote === "string" ? gatekeeper.hunterNote : "",
-    typeof asRecord(meta.operatorHold)?.reason === "string"
-      ? String(asRecord(meta.operatorHold)?.reason)
-      : "",
+    typeof hold?.reason === "string" ? String(hold.reason) : "",
   ]
     .join(" ")
     .toLowerCase();
 
-  const fitBlocking =
-    fitResult !== "PASS" &&
-    (/fit not pass|fit unknown|fit not researched|held.?fit|verified_held_fit/i.test(
+  // Awaiting Fit research / PASS — not mere "Fit FAIL" language.
+  return (
+    fitResult === "UNKNOWN" ||
+    fitResult == null ||
+    /fit not pass|fit unknown|fit not researched|held.?fit|verified_held_fit/i.test(
       reasonBlob,
-    ) ||
-      fitResult === "UNKNOWN" ||
-      fitResult === "FAIL" ||
-      fitResult == null);
-
-  if (verifiedStatus && fitBlocking && gatekeeper?.promoteReady !== true) return true;
-
-  // Promote-to present + gate says not ready + Fit not PASS
-  if (
-    promoteTo &&
-    gatekeeper?.promoteReady === false &&
-    fitResult !== "PASS" &&
-    (emailGate.includes("HELD") || verifiedStatus || /fit/i.test(reasonBlob))
-  ) {
-    return true;
-  }
-
-  return false;
+    )
+  );
 }
 
-export function resolveFitHeldPromoteTo(metadata: unknown): string | null {
+export function resolveFitHeldPromoteTo(
+  metadata: unknown,
+  accountDomain?: string | null,
+): string | null {
   const meta = asRecord(metadata);
   if (!meta) return null;
   const gatekeeper = asRecord(meta.emailGatekeeper);
@@ -97,7 +129,9 @@ export function resolveFitHeldPromoteTo(metadata: unknown): string | null {
     (typeof gatekeeper?.promoteTo === "string" && gatekeeper.promoteTo.trim()) ||
     (typeof named?.email === "string" && named.email.trim()) ||
     null;
-  return isPersonSeatEmail(promoteTo) ? promoteTo!.toLowerCase() : null;
+  if (!isPersonSeatEmail(promoteTo)) return null;
+  if (!domainsRelated(promoteTo, accountDomain)) return null;
+  return promoteTo!.toLowerCase();
 }
 
 /** Sort key: Fit-held verified first, then enrich_later, then holdAt desc. */
@@ -107,16 +141,18 @@ export function compareHoldArchiveRows(
     createdAt?: Date | string;
     holdAt?: string | null;
     holdClassification?: string | null;
+    accountDomain?: string | null;
   },
   b: {
     metadata: unknown;
     createdAt?: Date | string;
     holdAt?: string | null;
     holdClassification?: string | null;
+    accountDomain?: string | null;
   },
 ): number {
-  const aFit = isFitHeldVerifiedSuspect(a.metadata) ? 1 : 0;
-  const bFit = isFitHeldVerifiedSuspect(b.metadata) ? 1 : 0;
+  const aFit = isFitHeldVerifiedSuspect(a.metadata, a.accountDomain) ? 1 : 0;
+  const bFit = isFitHeldVerifiedSuspect(b.metadata, b.accountDomain) ? 1 : 0;
   if (bFit !== aFit) return bFit - aFit;
 
   const rankClass = (c: string | null | undefined) => {

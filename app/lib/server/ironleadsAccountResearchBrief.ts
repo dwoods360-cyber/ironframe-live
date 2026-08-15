@@ -952,8 +952,8 @@ export function selectAccountResearchBriefForReport(
   // (common when namedBuyer briefly fails to merge or contact.email is mid-write).
   const rebuiltForcesHold =
     rebuiltBrief.outreach.status === "hold" ||
-    rebuiltBrief.competitiveConflict.classification === "competitor" ||
-    rebuiltBrief.competitiveConflict.classification === "hold" ||
+    rebuiltBrief.competitiveConflict?.classification === "competitor" ||
+    rebuiltBrief.competitiveConflict?.classification === "hold" ||
     rebuiltBrief.snapshot.status === "HOLD";
 
   const persistedPromoteReady =

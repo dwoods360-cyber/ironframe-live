@@ -63,6 +63,15 @@ function StatusBadge({ status }: { status?: string | null }) {
   );
 }
 
+const DEFAULT_COMPETITIVE_CONFLICT: AccountResearchBrief["competitiveConflict"] = {
+  proprietaryPlatform: null,
+  preferredPartners: [],
+  classification: "research_relationship",
+  finding: "Competitive / partner conflict not yet assessed for this brief.",
+  relationshipNote:
+    "Re-run Account Research Brief or rebuild from harvest to populate this block.",
+};
+
 /** Operator dossier patches may omit builder-only arrays — never throw on .length. */
 function normalizeBriefForPanel(brief: AccountResearchBrief): AccountResearchBrief {
   return {
@@ -106,13 +115,39 @@ function normalizeBriefForPanel(brief: AccountResearchBrief): AccountResearchBri
         : [],
     },
     snapshot: {
-      ...brief.snapshot,
+      ...(brief.snapshot ?? {}),
+      company: brief.snapshot?.company ?? "Unknown",
+      websiteUrl: brief.snapshot?.websiteUrl ?? null,
+      practiceType: brief.snapshot?.practiceType ?? null,
+      status: brief.snapshot?.status ?? "UNKNOWN",
       relevantServices: Array.isArray(brief.snapshot?.relevantServices)
         ? brief.snapshot.relevantServices
         : [],
       existingGrcProducts: Array.isArray(brief.snapshot?.existingGrcProducts)
         ? brief.snapshot.existingGrcProducts
         : [],
+    },
+    gates: {
+      ...(brief.gates ?? {}),
+      fit: brief.gates?.fit ?? { result: "UNKNOWN", finding: "Not assessed." },
+      pain: brief.gates?.pain ?? { result: "UNKNOWN", finding: "Not assessed." },
+      buyer: brief.gates?.buyer ?? { result: "UNKNOWN", finding: "Not assessed." },
+      email: brief.gates?.email,
+    },
+    competitiveConflict: {
+      ...DEFAULT_COMPETITIVE_CONFLICT,
+      ...(brief.competitiveConflict ?? {}),
+      preferredPartners: Array.isArray(brief.competitiveConflict?.preferredPartners)
+        ? brief.competitiveConflict.preferredPartners
+        : DEFAULT_COMPETITIVE_CONFLICT.preferredPartners,
+      classification:
+        brief.competitiveConflict?.classification ??
+        DEFAULT_COMPETITIVE_CONFLICT.classification,
+      finding:
+        brief.competitiveConflict?.finding ?? DEFAULT_COMPETITIVE_CONFLICT.finding,
+      relationshipNote:
+        brief.competitiveConflict?.relationshipNote ??
+        DEFAULT_COMPETITIVE_CONFLICT.relationshipNote,
     },
   };
 }
@@ -190,12 +225,12 @@ export default function AccountResearchBriefPanel({
             7 · Competitive / partner conflict
           </p>
           <p className="mt-1">
-            <StatusBadge status={competitiveConflict.classification} />
+            <StatusBadge status={competitiveConflict?.classification} />
           </p>
           <p className="mt-2 text-sm leading-relaxed text-slate-300">
-            {competitiveConflict.finding}
+            {competitiveConflict?.finding ?? DEFAULT_COMPETITIVE_CONFLICT.finding}
           </p>
-          <p className="mt-2 text-xs text-slate-500">{competitiveConflict.relationshipNote}</p>
+          <p className="mt-2 text-xs text-slate-500">{competitiveConflict?.relationshipNote ?? DEFAULT_COMPETITIVE_CONFLICT.relationshipNote}</p>
         </div>
       </div>
 

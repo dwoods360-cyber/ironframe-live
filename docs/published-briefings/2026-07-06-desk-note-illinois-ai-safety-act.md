@@ -1,16 +1,11 @@
 ---
 title: "Desk Note — Illinois enacts AI Safety Measures Act (6 July 2026)"
-category: desk-note
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-07-06T12:00:00.000Z"
 published: "2026-07-06"
-summary: "On 6 July 2026 Illinois enacted the Artificial Intelligence Safety Measures Act, becoming the third U.S. state—after California and New York—to impose transparency, safety, and reporting obligations on large AI developers, and going further by requiring independent third-party compliance audits for large frontier developers (audit obligation timing from 2028)."
+summary: "Ironframe Governance Frame briefing — Desk Note — Illinois enacts AI Safety Measures Act (6 July 2026)"
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+publishedBy: "54aac838-9094-4de5-ac24-993672505cbc"
 ---
 
 > **Signal (6 July 2026):** Illinois Governor JB Pritzker signed the **Artificial Intelligence Safety Measures Act**. Public legal analyses describe Illinois as the third state (after California and New York) to impose frontier-developer transparency/safety/reporting duties, with a distinctive requirement: large frontier developers must retain an **independent third party** for annual compliance audits (audit obligations generally described as beginning 2028, with the Act taking effect 1 January 2027 for other duties).

@@ -1,16 +1,11 @@
 ---
 title: "Desk Note — JetBrains TeamCity deserialization RCE added to CISA KEV (5 August 2026)"
-category: desk-note
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-08-05T12:00:00.000Z"
 published: "2026-08-05"
 summary: "On 5 August 2026 CISA added CVE-2026-63077 (JetBrains TeamCity deserialization of untrusted data) to the KEV catalog based on evidence of active exploitation. Compromised CI/CD servers expose credentials, build configs, and artifact integrity—making TeamCity a supply-chain governance asset, not only an engineering tool."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+publishedBy: "54aac838-9094-4de5-ac24-993672505cbc"
 ---
 
 > **Signal (5 August 2026):** CISA alerted that **CVE-2026-63077** — JetBrains TeamCity deserialization of untrusted data — was added to the KEV catalog. Public reporting cites a federal remediation due date around **8 August 2026**. CISA's alert also points operators to **BOD 26-04** risk-based prioritization and expectations to assess whether systems were compromised before patching.

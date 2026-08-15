@@ -1,16 +1,11 @@
 ---
 title: "Desk Note — Unified Agenda: federal contracting cyber rules target September 2026"
-category: desk-note
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
-published: "2026-08-17"
+publishedAt: "2026-08-14T22:27:23.722Z"
+published: "2026-08-14"
 summary: "Mid-August prep window before a September 2026 Unified Agenda contracting-cyber cluster (standardization + incident reporting), alongside CIRCIA. August DFARS NPRM remains an Agenda watch item; DFARS 7012 stays live despite the 13 July 2026 CMMC implementation pause."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+publishedBy: "54aac838-9094-4de5-ac24-993672505cbc"
 ---
 
 > **Signal (week of 17 August 2026):** The 2026 Unified Agenda preview projects **September 2026** finalization not only for CIRCIA but also for federal **contracting** cybersecurity standardization and cyber threat/incident reporting & information-sharing rules. Separately, Agenda reporting projected an **August** DFARS NPRM update to the safeguarding / cyber-incident-reporting clause—treat that date as a watch item until the NPRM appears in the Federal Register.
@@ -35,4 +30,4 @@ A parallel mid-summer development matters for the same evidence pack: on **13 Ju
 
 1. Federal News Network — CIRCIA and other big cyber rules expected this fall (July 2026 Unified Agenda reporting): https://federalnewsnetwork.com/cybersecurity/2026/07/circia-other-big-cyber-rules-expected-to-get-finalized-this-fall/  
 2. ExecutiveGov — CISA expects final CIRCIA rule in September (Agenda context): https://www.executivegov.com/articles/cisa-circia-final-incident-reporting-rule-september  
-3. Mayer Brown — FAR CUI proposed rule and DoW CMMC implementation pause (13 July 2026 context): https://www.mayerbrown.com/en/insights/publications/2026/07/far-council-proposes-revised-cui-safeguarding-and-incident-reporting-framework-while-dow-pauses-cmmc-implementation  
+3. Mayer Brown — FAR CUI proposed rule and DoW CMMC implementation pause (13 July 2026 context): https://www.mayerbrown.com/en/insights/publications/2026/07/far-council-proposes-revised-cui-safeguarding-and-incident-reporting-framework-while-dow-pauses-cmmc-implementation

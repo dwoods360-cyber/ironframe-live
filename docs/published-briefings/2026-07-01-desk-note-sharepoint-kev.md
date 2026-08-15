@@ -1,16 +1,11 @@
 ---
 title: "Desk Note — CISA KEV: SharePoint RCE added 1 July 2026"
-category: desk-note
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-07-01T12:00:00.000Z"
 published: "2026-07-01"
-summary: "On 1 July 2026 CISA added Microsoft SharePoint Server CVE-2026-45659 to the Known Exploited Vulnerabilities catalog with a 4 July 2026 remediation due date for federal civilian executive branch agencies. Operators should treat on-premises SharePoint exposure as confirmed-exploitation priority—not routine Patch Tuesday backlog."
+summary: "Ironframe Governance Frame briefing — Desk Note — CISA KEV: SharePoint RCE added 1 July 2026"
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+publishedBy: "54aac838-9094-4de5-ac24-993672505cbc"
 ---
 
 > **Signal (1 July 2026):** CISA added Microsoft SharePoint Server **CVE-2026-45659** to the Known Exploited Vulnerabilities (KEV) catalog. Public reporting places the federal remediation due date at **4 July 2026**. The addition confirms observed exploitation, elevating on-premises SharePoint patching from maintenance queue to operational priority.

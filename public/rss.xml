@@ -5,90 +5,237 @@
     <link>https://research.ironframegrc.com</link>
     <description>Independent Governance Frame research and industry briefings from Ironframe GRC.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 04 Aug 2026 21:21:01 GMT</lastBuildDate>
+    <lastBuildDate>Sat, 15 Aug 2026 15:09:00 GMT</lastBuildDate>
     <generator>Ironframe Governance Frame RSS Compiler</generator>
     <item>
-      <title>Industry Research Brief — DORA in Active Supervision: Examination Readiness Across EU Financial Authorities</title>
-      <link>https://research.ironframegrc.com/briefings/2026-07-16-research-dora-supervision</link>
-      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-16-research-dora-supervision</guid>
-      <pubDate>Tue, 04 Aug 2026 21:21:00 GMT</pubDate>
-      <description>DORA has applied since 17 January 2025. By August 2026, competent authorities are conducting active, authority-specific supervision—not one EU-wide examination programme. Financial entities need examination-ready evidence for management-body oversight, ICT-framework review, incident clocks, resilience testing, third-party registers and contracts, concentration and substitutability, exit planning, and remediation closure. Critical ICT third-party oversight is distinct from entity-level supervision.</description>
+      <title>Governance Frame U.S. Cyber Disclosure Review — August 2026: What Item 1.05 Filings Reveal About Materiality</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-16-newsletter-sec-item-105-filings</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-16-newsletter-sec-item-105-filings</guid>
+      <pubDate>Sun, 16 Aug 2026 12:00:00 GMT</pubDate>
+      <description>Two-plus years into the SEC’s cybersecurity disclosure rules, the useful August 2026 question is not what Item 1.05 says in the abstract—it is what recent filings show about materiality without operational shutdown, third-party environments, sensitive data, unauthorized AI use, and disclosure-committee evidence. This newsletter reads filing patterns against Item 1.05 and Item 106 duties while keeping discovery, materiality determination, the four-business-day clock, and amendments distinct. Information reviewed through August 4, 2026.</description>
     </item>
     <item>
-      <title>Industry Research Brief — Evolution of GRC: Persistent Pain Points and Historical Mitigations (2002–2026)</title>
-      <link>https://research.ironframegrc.com/briefings/2026-07-15-research-grc-evolution</link>
-      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-15-research-grc-evolution</guid>
-      <pubDate>Tue, 04 Aug 2026 19:09:02 GMT</pubDate>
-      <description>Governance, risk and compliance practices have evolved from formal internal-control assessment and document-centred assurance toward integrated cyber governance, operational resilience and automation-supported evidence. Across these periods, research and public enforcement records show persistent challenges involving spreadsheet lifecycle controls, evidence traceability, risk communication, third-party dependencies and access boundaries—without treating exact-dollar certainty, physical tenant separation or universal AI review as mandatory in every environment. Information reviewed through August 4, 2026.</description>
+      <title>Desk Note — Progress LoadMaster command injection added to CISA KEV (7 August 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-07-desk-note-loadmaster-kev</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-07-desk-note-loadmaster-kev</guid>
+      <pubDate>Fri, 14 Aug 2026 23:42:36 GMT</pubDate>
+      <description>On 7 August 2026 CISA added Progress LoadMaster CVE-2026-8037 (command injection) to the KEV catalog amid an already dense early-August exploited-vulnerability week. Edge/load-balancer appliances remain high-value targets; operators should pair patch evidence with exposure inventory and, where clocks demand it, pre-patch compromise triage.</description>
     </item>
     <item>
-      <title>Industry Research Brief — Current GRC Pain Points and Control-First Alleviation Paths</title>
-      <link>https://research.ironframegrc.com/briefings/2026-07-15-research-grc-current-pain</link>
-      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-15-research-grc-current-pain</guid>
-      <pubDate>Tue, 04 Aug 2026 19:03:57 GMT</pubDate>
-      <description>Organisations continue to face control risks when evidence is manually assembled, risk estimates conceal uncertainty, external data enters trusted workflows without validation, tenant boundaries depend only on application conventions, or AI-generated content is used without risk-appropriate review. This brief maps five current GRC pain themes to enforceable, testable alleviation requirements—correcting prior misattributions of SolarWinds and SOX 404 figures and refusing incomparable financial aggregation. Information reviewed through August 4, 2026.</description>
+      <title>Desk Note — BOD 26-04: federal vulnerability-management policy milestone (7 August 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-07-desk-note-bod-26-04-policy</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-07-desk-note-bod-26-04-policy</guid>
+      <pubDate>Fri, 14 Aug 2026 23:39:37 GMT</pubDate>
+      <description>7 August 2026 is widely treated as the first major compliance milestone for CISA Binding Operational Directive 26-04 (issued 10 June 2026): Federal Civilian Executive Branch agencies must have vulnerability-management policies and processes that support risk-based KEV remediation—including when forensic triage is required—rather than a single flat deadline model. BOD 26-04 supersedes BOD 22-01 and BOD 19-02 for covered FCEB systems.</description>
     </item>
     <item>
-      <title>Governance Frame Australia — August 2026: After the Tranche 2 Enrolment Deadline</title>
-      <link>https://research.ironframegrc.com/briefings/2026-06-16-newsletter-austrac-tranche-2</link>
-      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-06-16-newsletter-austrac-tranche-2</guid>
-      <pubDate>Tue, 04 Aug 2026 18:14:05 GMT</pubDate>
-      <description>Australia’s expanded AML/CTF regime is now in force for newly regulated designated services. This August newsletter reads the post–July 29 landscape: who is actually covered, what enrolment did and did not achieve, how senior-manager approval differs from governing-body oversight, and which dealer, CDD, officer-notification and independent-evaluation controls must still be evidenced. Information reviewed through August 4, 2026.</description>
+      <title>Desk Note — IBM Langflow and Apache Tomcat enter CISA KEV (early August 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-05-desk-note-langflow-tomcat-kev</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-05-desk-note-langflow-tomcat-kev</guid>
+      <pubDate>Fri, 14 Aug 2026 23:37:11 GMT</pubDate>
+      <description>In the early-August 2026 KEV wave, CISA listed actively exploited flaws in IBM Langflow (CVE-2026-9198) and Apache Tomcat clustering (CVE-2026-34486), with short federal remediation pressure commonly cited around 7 August 2026. Langflow puts AI-orchestration tooling on the exploit map; Tomcat clustering exposure remains a classic internet-facing serialization risk—even when adjacent AI-campaign reporting is noisier than the specific exploit path.</description>
+    </item>
+    <item>
+      <title>Desk Note — Unified Agenda: federal contracting cyber rules target September 2026</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-17-desk-note-federal-contracting-cyber-rules</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-17-desk-note-federal-contracting-cyber-rules</guid>
+      <pubDate>Fri, 14 Aug 2026 22:27:23 GMT</pubDate>
+      <description>Mid-August prep window before a September 2026 Unified Agenda contracting-cyber cluster (standardization + incident reporting), alongside CIRCIA. August DFARS NPRM remains an Agenda watch item; DFARS 7012 stays live despite the 13 July 2026 CMMC implementation pause.</description>
+    </item>
+    <item>
+      <title>Desk Note — EU AI Act Article 50: first full operating week (14 August 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-14-desk-note-ai-act-art50-operating-week</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-14-desk-note-ai-act-art50-operating-week</guid>
+      <pubDate>Fri, 14 Aug 2026 12:00:00 GMT</pubDate>
+      <description>Two weeks after Article 50 transparency obligations became applicable (2 August 2026), this desk note records the operating question for GRC teams: which in-scope interactive and generative systems have disclosure/marking evidence, and which still rely on a deferred high-risk narrative that does not pause transparency.</description>
+    </item>
+    <item>
+      <title>Desk Note — N-able N-central authentication-bypass KEVs (3–5 Aug 2026): patch ≠ validated closure</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-03-desk-note-ncentral-incomplete-fix</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-03-desk-note-ncentral-incomplete-fix</guid>
+      <pubDate>Thu, 13 Aug 2026 15:24:30 GMT</pubDate>
+      <description>In early August 2026 CISA added N-able N-central authentication-bypass vulnerabilities to the KEV catalog (including CVE-2026-18577 and related CVE-2026-18556). Public reporting describes an incomplete first fix that required a second patch—an MSP-critical reminder that ‘ticket closed: patched’ is not the same control as ‘exploit path closed and validated.’</description>
+    </item>
+    <item>
+      <title>Desk Note — EU AI Act Article 50 transparency obligations apply from 2 August 2026</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-02-desk-note-eu-ai-act-art50</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-02-desk-note-eu-ai-act-art50</guid>
+      <pubDate>Thu, 13 Aug 2026 15:01:07 GMT</pubDate>
+      <description>On 2 August 2026, Article 50 transparency obligations under the EU AI Act (Regulation (EU) 2024/1689) became applicable for providers and deployers of certain AI systems—including interactive systems, synthetic-content generators, emotion recognition / biometric categorisation, and deepfake / public-interest text use cases. This is not a postponement of the whole AI Act; high-risk Annex III timelines may differ.</description>
+    </item>
+    <item>
+      <title>Desk Note — ECB SSM-2026-0301: AI-enabled cybersecurity action plans (7 July 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-07-desk-note-ecb-ai-cyber-letter</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-07-desk-note-ecb-ai-cyber-letter</guid>
+      <pubDate>Tue, 11 Aug 2026 15:09:20 GMT</pubDate>
+      <description>Ironframe Governance Frame briefing — Desk Note — ECB SSM-2026-0301: AI-enabled cybersecurity action plans (7 July 2026)</description>
+    </item>
+    <item>
+      <title>Desk Note — FortiOS and LoadMaster KEV due clocks land (10 August 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-10-desk-note-fortios-loadmaster-due</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-10-desk-note-fortios-loadmaster-due</guid>
+      <pubDate>Mon, 10 Aug 2026 12:00:00 GMT</pubDate>
+      <description>10 August 2026 is the commonly cited federal remediation due date for Fortinet FortiOS CVE-2025-68686 (KEV-added 27 July) and Progress LoadMaster CVE-2026-8037 (KEV-added 7 August). The governance question this week is validated closure—patch evidence plus exposure and triage decisions—not calendar expiry alone.</description>
+    </item>
+    <item>
+      <title>Desk Note — JetBrains TeamCity deserialization RCE added to CISA KEV (5 August 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-05-desk-note-teamcity-cicd-kev</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-05-desk-note-teamcity-cicd-kev</guid>
+      <pubDate>Wed, 05 Aug 2026 12:00:00 GMT</pubDate>
+      <description>On 5 August 2026 CISA added CVE-2026-63077 (JetBrains TeamCity deserialization of untrusted data) to the KEV catalog based on evidence of active exploitation. Compromised CI/CD servers expose credentials, build configs, and artifact integrity—making TeamCity a supply-chain governance asset, not only an engineering tool.</description>
+    </item>
+    <item>
+      <title>Desk Note — CISA KEV: Cisco Secure Firewall Management Center (29 July 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-29-desk-note-cisco-fmc-kev</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-29-desk-note-cisco-fmc-kev</guid>
+      <pubDate>Wed, 29 Jul 2026 12:00:00 GMT</pubDate>
+      <description>On 29 July 2026 CISA added Cisco Secure Firewall Management Center (FMC) hard-coded credential vulnerability CVE-2026-20316 to the KEV catalog. Public trackers commonly list a federal remediation due date of 1 August 2026—another management-plane clock at month boundary.</description>
+    </item>
+    <item>
+      <title>Desk Note — CISA KEV: Arista VeloCloud Orchestrator and FortiOS (27 July 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-27-desk-note-arista-fortinet-kev</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-27-desk-note-arista-fortinet-kev</guid>
+      <pubDate>Mon, 27 Jul 2026 12:00:00 GMT</pubDate>
+      <description>On 27 July 2026 CISA added Arista VeloCloud Orchestrator on-prem OS command injection (CVE-2026-16812, CVSS 10.0) and Fortinet FortiOS sensitive-information exposure (CVE-2025-68686) to the KEV catalog. Public reporting places compressed federal clocks—VeloCloud commonly due 30 July; FortiOS commonly due 10 August.</description>
+    </item>
+    <item>
+      <title>Desk Note — EU AI Act Omnibus amendments enter into force (27 July 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-27-desk-note-eu-ai-omnibus-force</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-27-desk-note-eu-ai-omnibus-force</guid>
+      <pubDate>Mon, 27 Jul 2026 12:00:00 GMT</pubDate>
+      <description>On 27 July 2026, Regulation (EU) 2026/1744 amending the EU AI Act entered into force. It preserves near-term transparency duties (Article 50 from 2 August 2026) while deferring much of the high-risk Annex III regime—commonly to 2 December 2027—creating a category-error risk for teams that heard only “AI Act delayed.”</description>
+    </item>
+    <item>
+      <title>Desk Note — CISA KEV: Check Point SmartConsole and SharePoint (22 July 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-22-desk-note-checkpoint-sharepoint-kev</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-22-desk-note-checkpoint-sharepoint-kev</guid>
+      <pubDate>Wed, 22 Jul 2026 12:00:00 GMT</pubDate>
+      <description>On 22 July 2026 CISA added Check Point SmartConsole improper authentication (CVE-2026-16232) and another Microsoft SharePoint deserialization RCE (CVE-2026-50522) to the KEV catalog—management-plane and collaboration-plane failures in the same 24-hour window.</description>
+    </item>
+    <item>
+      <title>Desk Note — CISA KEV: WordPress Core and Langflow (21 July 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-21-desk-note-wordpress-langflow-kev</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-21-desk-note-wordpress-langflow-kev</guid>
+      <pubDate>Tue, 21 Jul 2026 12:00:00 GMT</pubDate>
+      <description>On 21 July 2026 CISA added four KEVs including WordPress Core interpretation-conflict and SQL-injection flaws (CVE-2026-63030, CVE-2026-60137), Langflow untrusted-control-sphere inclusion (CVE-2026-0770), and a DD-WRT buffer overflow (CVE-2021-27137)—a 48-hour stretch that also saw Check Point and SharePoint additions the next day.</description>
+    </item>
+    <item>
+      <title>Desk Note — CISA KEV: FortiSandbox and SharePoint RCE (16 July 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-16-desk-note-fortisandbox-sharepoint-kev</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-16-desk-note-fortisandbox-sharepoint-kev</guid>
+      <pubDate>Thu, 16 Jul 2026 12:00:00 GMT</pubDate>
+      <description>On 16 July 2026 CISA added three actively exploited vulnerabilities to the KEV catalog: Fortinet FortiSandbox OS command injection (CVE-2026-25089, CVE-2026-39808) and Microsoft SharePoint deserialization RCE (CVE-2026-58644). Public reporting places the federal remediation due date at 19 July 2026.</description>
     </item>
     <item>
       <title>Governance Frame Europe — July 2026: CSRD After Omnibus I and the Revised ESRS</title>
       <link>https://research.ironframegrc.com/briefings/2026-07-16-newsletter-csrd-omnibus-esrs</link>
       <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-16-newsletter-csrd-omnibus-esrs</guid>
-      <pubDate>Tue, 04 Aug 2026 18:05:03 GMT</pubDate>
+      <pubDate>Thu, 16 Jul 2026 12:00:00 GMT</pubDate>
       <description>On 3 July 2026 the European Commission adopted revised European Sustainability Reporting Standards under the Omnibus I simplification programme. Scope and datapoints are being reduced; governance duties for entities that remain in scope are not. This newsletter separates enacted CSRD requirements, Omnibus I changes, the revised ESRS delegated act, Official Journal / application timing, and voluntary options for smaller companies.</description>
     </item>
     <item>
-      <title>Governance Frame U.S. Cyber Disclosure Review — August 2026: What Item 1.05 Filings Reveal About Materiality</title>
-      <link>https://research.ironframegrc.com/briefings/2026-08-16-newsletter-sec-item-105-filings</link>
-      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-16-newsletter-sec-item-105-filings</guid>
-      <pubDate>Tue, 04 Aug 2026 17:16:03 GMT</pubDate>
-      <description>Two-plus years into the SEC’s cybersecurity disclosure rules, the useful August 2026 question is not what Item 1.05 says in the abstract—it is what recent filings show about materiality without operational shutdown, third-party environments, sensitive data, unauthorized AI use, and disclosure-committee evidence. This newsletter reads filing patterns against Item 1.05 and Item 106 duties while keeping discovery, materiality determination, the four-business-day clock, and amendments distinct. Information reviewed through August 4, 2026.</description>
+      <title>Industry Research Brief — DORA in Active Supervision: Examination Readiness Across EU Financial Authorities</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-16-research-dora-supervision</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-16-research-dora-supervision</guid>
+      <pubDate>Thu, 16 Jul 2026 12:00:00 GMT</pubDate>
+      <description>DORA has applied since 17 January 2025. By August 2026, competent authorities are conducting active, authority-specific supervision—not one EU-wide examination programme. Financial entities need examination-ready evidence for management-body oversight, ICT-framework review, incident clocks, resilience testing, third-party registers and contracts, concentration and substitutability, exit planning, and remediation closure. Critical ICT third-party oversight is distinct from entity-level supervision.</description>
+    </item>
+    <item>
+      <title>Industry Research Brief — Current GRC Pain Points and Control-First Alleviation Paths</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-15-research-grc-current-pain</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-15-research-grc-current-pain</guid>
+      <pubDate>Wed, 15 Jul 2026 12:00:00 GMT</pubDate>
+      <description>Organisations continue to face control risks when evidence is manually assembled, risk estimates conceal uncertainty, external data enters trusted workflows without validation, tenant boundaries depend only on application conventions, or AI-generated content is used without risk-appropriate review. This brief maps five current GRC pain themes to enforceable, testable alleviation requirements—correcting prior misattributions of SolarWinds and SOX 404 figures and refusing incomparable financial aggregation. Information reviewed through August 4, 2026.</description>
+    </item>
+    <item>
+      <title>Industry Research Brief — Evolution of GRC: Persistent Pain Points and Historical Mitigations (2002–2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-15-research-grc-evolution</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-15-research-grc-evolution</guid>
+      <pubDate>Wed, 15 Jul 2026 12:00:00 GMT</pubDate>
+      <description>Governance, risk and compliance practices have evolved from formal internal-control assessment and document-centred assurance toward integrated cyber governance, operational resilience and automation-supported evidence. Across these periods, research and public enforcement records show persistent challenges involving spreadsheet lifecycle controls, evidence traceability, risk communication, third-party dependencies and access boundaries—without treating exact-dollar certainty, physical tenant separation or universal AI review as mandatory in every environment. Information reviewed through August 4, 2026.</description>
+    </item>
+    <item>
+      <title>Desk Note — Unified Agenda: CIRCIA final rule targeted for September 2026</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-07-desk-note-circia-september-target</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-07-desk-note-circia-september-target</guid>
+      <pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+      <description>Ironframe Governance Frame briefing — Desk Note — Unified Agenda: CIRCIA final rule targeted for September 2026</description>
+    </item>
+    <item>
+      <title>Desk Note — Illinois enacts AI Safety Measures Act (6 July 2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-06-desk-note-illinois-ai-safety-act</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-06-desk-note-illinois-ai-safety-act</guid>
+      <pubDate>Mon, 06 Jul 2026 12:00:00 GMT</pubDate>
+      <description>Ironframe Governance Frame briefing — Desk Note — Illinois enacts AI Safety Measures Act (6 July 2026)</description>
+    </item>
+    <item>
+      <title>Desk Note — Federal AI cybersecurity clearinghouse deadline hits 2 July 2026</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-02-desk-note-ai-cyber-clearinghouse</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-02-desk-note-ai-cyber-clearinghouse</guid>
+      <pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+      <description>Ironframe Governance Frame briefing — Desk Note — Federal AI cybersecurity clearinghouse deadline hits 2 July 2026</description>
+    </item>
+    <item>
+      <title>Desk Note — Navient Item 1.05 filing (2 July 2026): materiality without registrant outage</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-02-desk-note-navient-item-105</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-02-desk-note-navient-item-105</guid>
+      <pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+      <description>Ironframe Governance Frame briefing — Desk Note — Navient Item 1.05 filing (2 July 2026): materiality without registrant outage</description>
+    </item>
+    <item>
+      <title>Desk Note — CISA KEV: SharePoint RCE added 1 July 2026</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-01-desk-note-sharepoint-kev</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-01-desk-note-sharepoint-kev</guid>
+      <pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+      <description>Ironframe Governance Frame briefing — Desk Note — CISA KEV: SharePoint RCE added 1 July 2026</description>
+    </item>
+    <item>
+      <title>Governance Frame Australia — August 2026: After the Tranche 2 Enrolment Deadline</title>
+      <link>https://research.ironframegrc.com/briefings/2026-06-16-newsletter-austrac-tranche-2</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-06-16-newsletter-austrac-tranche-2</guid>
+      <pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+      <description>Australia’s expanded AML/CTF regime is now in force for newly regulated designated services. This August newsletter reads the post–July 29 landscape: who is actually covered, what enrolment did and did not achieve, how senior-manager approval differs from governing-body oversight, and which dealer, CDD, officer-notification and independent-evaluation controls must still be evidenced. Information reviewed through August 4, 2026.</description>
     </item>
     <item>
       <title>CPS 230 at the Contract Deadline: Governing Material Service Providers, Fourth Parties, and Exit Risk</title>
       <link>https://research.ironframegrc.com/briefings/2026-06-16-research-cps-230-msp-contracts</link>
       <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-06-16-research-cps-230-msp-contracts</guid>
-      <pubDate>Tue, 04 Aug 2026 17:00:41 GMT</pubDate>
+      <pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
       <description>APRA’s final targeted amendments to CPS 230 and CPG 230 commence 1 July 2026. For many APRA-regulated entities, the same date closes the transitional window for pre-existing material service provider contracts. This briefing examines contract governance, fourth-party exposure, exit and substitution risk, and the narrow exemptions for certain nontraditional providers—while separating enforceable contract terms, entity-level operational duties, duties specifically disapplied for exempt arrangements, and prudent examination-readiness practice.</description>
     </item>
     <item>
       <title>The Fallacy of the Connector Count: Why Multi-Entity Operators Require Sovereign Audit Enclaves</title>
       <link>https://research.ironframegrc.com/briefings/2026-05-14-connector-count-sovereign-enclaves</link>
       <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-05-14-connector-count-sovereign-enclaves</guid>
-      <pubDate>Thu, 16 Jul 2026 17:04:02 GMT</pubDate>
+      <pubDate>Thu, 14 May 2026 12:00:00 GMT</pubDate>
       <description>A PE roll-up opens one GRC login for twelve legal entities and celebrates the connector count. Tonight an auditor for Clinic East can see more than Clinic East. This briefing keeps the connector-count thesis while anchoring public enforcement facts carefully—including a May 2023 NYDFS action against OneMain Financial Group that is not a multi-entity tenancy case—and the enclave disciplines that keep sticky labels from becoming the control system.</description>
     </item>
     <item>
       <title>Healthcare Perimeter Watch — When Edge Signals Become Board Exposure</title>
       <link>https://research.ironframegrc.com/briefings/2026-04-16-healthcare-perimeter-watch</link>
       <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-04-16-healthcare-perimeter-watch</guid>
-      <pubDate>Thu, 16 Jul 2026 16:40:19 GMT</pubDate>
+      <pubDate>Thu, 16 Apr 2026 12:00:00 GMT</pubDate>
       <description>A regional health system&apos;s perimeter monitoring produces eight validation signals before shift change. This briefing traces those signals from technical validation to executive governance, showing how boards can evaluate protected health information (PHI) custody risk without relying on raw technical alerts or unsupported financial estimates.</description>
     </item>
     <item>
       <title>Control-First GRC: Part 3 — Quantitative Risk, Continuous Resilience, and Governed Automation (2019–Today)</title>
       <link>https://research.ironframegrc.com/briefings/2026-03-12-market-grc-2019-today</link>
       <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-03-12-market-grc-2019-today</guid>
-      <pubDate>Thu, 16 Jul 2026 16:20:21 GMT</pubDate>
+      <pubDate>Thu, 12 Mar 2026 12:00:00 GMT</pubDate>
       <description>Modern governance operates under shorter reporting timelines, wider technology dependencies, operational-resilience requirements, and growing use of generative AI. Point-in-time questionnaires and color-coded dashboards remain useful summaries, but they cannot independently establish evidence integrity, materiality, control effectiveness, or decision provenance. The current era requires GRC systems that preserve traceable evidence, support quantified analysis without false precision, and govern automated assistance through bounded authority and human accountability.</description>
     </item>
     <item>
       <title>Control-First GRC: Part 2 — Cloud Migration and the Checklist Industrial Complex (2009–2018)</title>
       <link>https://research.ironframegrc.com/briefings/2026-02-12-market-grc-2009-2018</link>
       <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-02-12-market-grc-2009-2018</guid>
-      <pubDate>Thu, 16 Jul 2026 16:17:49 GMT</pubDate>
+      <pubDate>Thu, 12 Feb 2026 12:00:00 GMT</pubDate>
       <description>As infrastructure and business applications moved into hosted and cloud environments, compliance teams gained access to more machine-generated evidence. APIs and integrations reduced some manual collection work, while SOC reporting became increasingly important in technology-vendor assessments. Yet collection alone did not establish assurance. Evidence still required validation, correct legal-entity scope, durable provenance, access isolation, and human interpretation. The cloud era made evidence easier to gather; it did not make every collected record trustworthy.</description>
     </item>
     <item>
       <title>Control-First GRC: Part 1 — The Sarbanes-Oxley Era and the Foundations of Checklist Compliance (2000–2008)</title>
       <link>https://research.ironframegrc.com/briefings/2026-01-15-market-grc-2000-2008</link>
       <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-01-15-market-grc-2000-2008</guid>
-      <pubDate>Thu, 16 Jul 2026 15:29:57 GMT</pubDate>
+      <pubDate>Thu, 15 Jan 2026 12:00:00 GMT</pubDate>
       <description>The Sarbanes-Oxley Act transformed internal-control reporting from a largely managerial concern into a formal legal and audit obligation. Organizations responded by documenting controls, assigning owners, collecting attestations, and preserving evidence. Much of that work, however, remained dependent on spreadsheets, shared folders, email approvals, and document repositories. SOX made control assurance mandatory; it did not automatically make the underlying evidence immutable, correctly scoped, or resistant to unauthorized revision.</description>
     </item>
   </channel>

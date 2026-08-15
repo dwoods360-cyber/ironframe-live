@@ -1,16 +1,11 @@
 ---
 title: "Desk Note — BOD 26-04: federal vulnerability-management policy milestone (7 August 2026)"
-category: desk-note
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
-published: "2026-08-07"
+publishedAt: "2026-08-14T23:39:37.139Z"
+published: "2026-08-14"
 summary: "7 August 2026 is widely treated as the first major compliance milestone for CISA Binding Operational Directive 26-04 (issued 10 June 2026): Federal Civilian Executive Branch agencies must have vulnerability-management policies and processes that support risk-based KEV remediation—including when forensic triage is required—rather than a single flat deadline model. BOD 26-04 supersedes BOD 22-01 and BOD 19-02 for covered FCEB systems."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+publishedBy: "54aac838-9094-4de5-ac24-993672505cbc"
 ---
 
 > **Signal (7 August 2026):** Under **BOD 26-04** (*Prioritizing Security Updates Based on Risk*), FCEB agencies are expected to operate updated vulnerability-management **policy and process** supporting risk-scored remediation. The directive’s decision variables include asset exposure, KEV status, exploit automation, and technical impact (partial vs total control). High-risk combinations can require remediation on compressed clocks **and** forensic triage to assess pre-patch compromise.

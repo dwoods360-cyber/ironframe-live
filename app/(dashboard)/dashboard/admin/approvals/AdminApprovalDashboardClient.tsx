@@ -20,7 +20,9 @@ import {
 import {
   isUsSalesOutreachBand,
   parseApprovalGeoFilter,
+  parseApprovalSalesSort,
   type ApprovalGeoFilter,
+  type ApprovalSalesSort,
   type SalesOutreachGeoBand,
 } from "@/app/lib/approvalSalesGeo";
 import {
@@ -58,6 +60,7 @@ interface PendingDraft {
   outreachGeoLabel?: string;
   outreachGeoRank?: number;
   accountDomain?: string | null;
+  occurredAt?: string;
 }
 
 function kindSortRank(kind: ApprovalDraftKind): number {
@@ -71,6 +74,7 @@ function AdminApprovalDashboardInner() {
   const searchParams = useSearchParams();
   const kindFilter = parseApprovalKindFilter(searchParams.get("kind"));
   const geoFilter = parseApprovalGeoFilter(searchParams.get("geo"), kindFilter);
+  const salesSort = parseApprovalSalesSort(searchParams.get("sort"), kindFilter);
   const draftParam = (searchParams.get("draft") ?? "").trim();
 
   const [drafts, setDrafts] = useState<PendingDraft[]>([]);
@@ -112,23 +116,15 @@ function AdminApprovalDashboardInner() {
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to load approval queue.");
       }
-      const nextDrafts: PendingDraft[] = [...(data.drafts ?? [])]
-        .map((draft) => ({
-          ...draft,
-          contactEmail: draft.contactEmail ?? "",
-          contactPhone: draft.contactPhone ?? null,
-          dispatchChannel: (draft.dispatchChannel === "SMS" ? "SMS" : "EMAIL") as DispatchChannel,
-          outreachGeoRank:
-            typeof draft.outreachGeoRank === "number" ? draft.outreachGeoRank : 2,
-        }))
-        .sort((a, b) => {
-          const byKind = kindSortRank(a.draftKind) - kindSortRank(b.draftKind);
-          if (byKind !== 0) return byKind;
-          if (a.draftKind === "SALES" && b.draftKind === "SALES") {
-            return (a.outreachGeoRank ?? 2) - (b.outreachGeoRank ?? 2);
-          }
-          return 0;
-        });
+      const nextDrafts: PendingDraft[] = [...(data.drafts ?? [])].map((draft) => ({
+        ...draft,
+        contactEmail: draft.contactEmail ?? "",
+        contactPhone: draft.contactPhone ?? null,
+        dispatchChannel: (draft.dispatchChannel === "SMS" ? "SMS" : "EMAIL") as DispatchChannel,
+        outreachGeoRank:
+          typeof draft.outreachGeoRank === "number" ? draft.outreachGeoRank : 2,
+        occurredAt: typeof draft.occurredAt === "string" ? draft.occurredAt : "",
+      }));
       setDrafts(nextDrafts);
       setQueueTotal(typeof data.queueTotal === "number" ? data.queueTotal : nextDrafts.length);
       setQueueCap(typeof data.queueCap === "number" ? data.queueCap : null);
@@ -156,14 +152,39 @@ function AdminApprovalDashboardInner() {
   }, [drafts]);
 
   const visibleDrafts = useMemo(() => {
-    let rows = kindFilter === "ALL" ? drafts : drafts.filter((d) => d.draftKind === kindFilter);
+    let rows = kindFilter === "ALL" ? [...drafts] : drafts.filter((d) => d.draftKind === kindFilter);
     if (kindFilter === "SALES" && geoFilter === "US") {
-      rows = rows.filter((d) =>
-        isUsSalesOutreachBand(d.outreachGeoBand ?? "UNKNOWN"),
-      );
+      rows = rows.filter((d) => isUsSalesOutreachBand(d.outreachGeoBand ?? "UNKNOWN"));
     }
+
+    const useGeoSort =
+      (kindFilter === "SALES" || kindFilter === "ALL") &&
+      (kindFilter !== "SALES" || salesSort === "GEO");
+
+    rows.sort((a, b) => {
+      const byKind = kindSortRank(a.draftKind) - kindSortRank(b.draftKind);
+      if (byKind !== 0) return byKind;
+
+      if (
+        useGeoSort &&
+        a.draftKind === "SALES" &&
+        b.draftKind === "SALES"
+      ) {
+        const byGeo = (a.outreachGeoRank ?? 2) - (b.outreachGeoRank ?? 2);
+        if (byGeo !== 0) return byGeo;
+      }
+
+      if (kindFilter === "SALES" && salesSort === "RECENT") {
+        const aMs = Date.parse(a.occurredAt ?? "") || 0;
+        const bMs = Date.parse(b.occurredAt ?? "") || 0;
+        if (bMs !== aMs) return bMs - aMs;
+      }
+
+      return (a.company || "").localeCompare(b.company || "");
+    });
+
     return rows;
-  }, [drafts, kindFilter, geoFilter]);
+  }, [drafts, kindFilter, geoFilter, salesSort]);
 
   const geoCounts = useMemo(() => {
     const sales = drafts.filter((d) => d.draftKind === "SALES");
@@ -189,12 +210,18 @@ function AdminApprovalDashboardInner() {
 
   const setKindFilter = (next: ApprovalKindFilter) => {
     const nextGeo: ApprovalGeoFilter | null =
-      next === "SALES" ? geoFilter === "ALL" ? "ALL" : "US" : null;
-    router.replace(approvalsHref(next, nextGeo), { scroll: false });
+      next === "SALES" ? (geoFilter === "ALL" ? "ALL" : "US") : null;
+    const nextSort: ApprovalSalesSort | null =
+      next === "SALES" ? salesSort : null;
+    router.replace(approvalsHref(next, nextGeo, nextSort), { scroll: false });
   };
 
   const setGeoFilter = (next: ApprovalGeoFilter) => {
-    router.replace(approvalsHref(kindFilter, next), { scroll: false });
+    router.replace(approvalsHref(kindFilter, next, salesSort), { scroll: false });
+  };
+
+  const setSalesSort = (next: ApprovalSalesSort) => {
+    router.replace(approvalsHref(kindFilter, geoFilter, next), { scroll: false });
   };
 
   const patchSelectedDraft = (patch: Partial<PendingDraft>) => {
@@ -528,45 +555,80 @@ function AdminApprovalDashboardInner() {
         </div>
 
         {kindFilter === "SALES" ? (
-          <div
-            className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-900/40 bg-amber-950/20 p-2"
-            role="group"
-            aria-label="Sales geo filter"
-          >
-            <span className="px-2 text-[10px] uppercase tracking-wide text-amber-200/80">
-              Path B wave
-            </span>
-            <button
-              type="button"
-              aria-pressed={geoFilter === "US"}
-              onClick={() => setGeoFilter("US")}
-              className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                geoFilter === "US"
-                  ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
-                  : "text-amber-200/70 hover:bg-amber-950/40"
-              }`}
+          <div className="space-y-2 rounded-xl border border-amber-900/40 bg-amber-950/20 p-2">
+            <div
+              className="flex flex-wrap items-center gap-2"
+              role="group"
+              aria-label="Sales geo filter"
             >
-              US first
-              <span className="ml-2 font-mono text-xs opacity-70">{geoCounts.US}</span>
-            </button>
-            <button
-              type="button"
-              aria-pressed={geoFilter === "ALL"}
-              onClick={() => setGeoFilter("ALL")}
-              className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                geoFilter === "ALL"
-                  ? "bg-slate-800 text-white ring-1 ring-slate-600"
-                  : "text-slate-400 hover:bg-slate-900"
-              }`}
-            >
-              All geos
-              <span className="ml-2 font-mono text-xs opacity-70">{geoCounts.ALL}</span>
-            </button>
-            {geoCounts.NON_US > 0 ? (
-              <span className="ml-auto px-2 text-[10px] text-slate-500">
-                {geoCounts.NON_US} non-US under All geos
+              <span className="px-2 text-[10px] uppercase tracking-wide text-amber-200/80">
+                Filter
               </span>
-            ) : null}
+              <button
+                type="button"
+                aria-pressed={geoFilter === "US"}
+                onClick={() => setGeoFilter("US")}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  geoFilter === "US"
+                    ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
+                    : "text-amber-200/70 hover:bg-amber-950/40"
+                }`}
+              >
+                US only
+                <span className="ml-2 font-mono text-xs opacity-70">{geoCounts.US}</span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={geoFilter === "ALL"}
+                onClick={() => setGeoFilter("ALL")}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  geoFilter === "ALL"
+                    ? "bg-slate-800 text-white ring-1 ring-slate-600"
+                    : "text-slate-400 hover:bg-slate-900"
+                }`}
+              >
+                All geos
+                <span className="ml-2 font-mono text-xs opacity-70">{geoCounts.ALL}</span>
+              </button>
+              {geoCounts.NON_US > 0 ? (
+                <span className="ml-auto px-2 text-[10px] text-slate-500">
+                  {geoCounts.NON_US} non-US under All geos
+                </span>
+              ) : null}
+            </div>
+            <div
+              className="flex flex-wrap items-center gap-2 border-t border-amber-900/30 pt-2"
+              role="group"
+              aria-label="Sales sort"
+            >
+              <span className="px-2 text-[10px] uppercase tracking-wide text-amber-200/80">
+                Sort
+              </span>
+              <button
+                type="button"
+                aria-pressed={salesSort === "GEO"}
+                onClick={() => setSalesSort("GEO")}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  salesSort === "GEO"
+                    ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
+                    : "text-amber-200/70 hover:bg-amber-950/40"
+                }`}
+              >
+                US first
+              </button>
+              <button
+                type="button"
+                aria-pressed={salesSort === "RECENT"}
+                onClick={() => setSalesSort("RECENT")}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  salesSort === "RECENT"
+                    ? "bg-slate-800 text-white ring-1 ring-slate-600"
+                    : "text-slate-400 hover:bg-slate-900"
+                }`}
+              >
+                Newest
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -581,8 +643,13 @@ function AdminApprovalDashboardInner() {
               Source: {APPROVAL_KIND_META[kindFilter].source}.{" "}
               {APPROVAL_KIND_META[kindFilter].dispatchMeans}
               {kindFilter === "SALES" && geoFilter === "US"
-                ? " US-first filter on — Path B cold wave."
+                ? " US-only filter on — Path B cold wave."
                 : ""}
+              {kindFilter === "SALES" && salesSort === "GEO"
+                ? " Sorted US first by outreach geo band."
+                : kindFilter === "SALES" && salesSort === "RECENT"
+                  ? " Sorted newest first."
+                  : ""}
             </div>
           </div>
         ) : (

@@ -61,10 +61,14 @@ export function parseApprovalKindFilter(raw: string | null | undefined): Approva
 export function approvalsHref(
   kind: ApprovalKindFilter = "ALL",
   geo?: "US" | "ALL" | null,
+  sort?: "GEO" | "RECENT" | null,
 ): string {
   const params = new URLSearchParams();
   if (kind !== "ALL") params.set("kind", kind);
   if (geo === "US" || geo === "ALL") params.set("geo", geo);
+  if (kind === "SALES" && (sort === "GEO" || sort === "RECENT")) {
+    params.set("sort", sort);
+  }
   const q = params.toString();
   return q ? `/dashboard/admin/approvals?${q}` : "/dashboard/admin/approvals";
 }
@@ -74,8 +78,13 @@ export function approvalsDraftHref(
   interactionId: string,
   kind: ApprovalKindFilter = "SALES",
   geo?: "US" | "ALL" | null,
+  sort?: "GEO" | "RECENT" | null,
 ): string {
-  const base = approvalsHref(kind, geo ?? (kind === "SALES" ? "US" : null));
+  const base = approvalsHref(
+    kind,
+    geo ?? (kind === "SALES" ? "US" : null),
+    sort ?? (kind === "SALES" ? "GEO" : null),
+  );
   const sep = base.includes("?") ? "&" : "?";
   return `${base}${sep}draft=${encodeURIComponent(interactionId)}`;
 }

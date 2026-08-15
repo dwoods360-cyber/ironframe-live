@@ -5,7 +5,11 @@
 
 export type SalesOutreachGeoBand = "US_PREFERRED" | "US" | "UNKNOWN" | "NON_US";
 
+/** Queue membership: US-only Path B wave vs full Sales list. */
 export type ApprovalGeoFilter = "US" | "ALL";
+
+/** List order within the current geo filter. */
+export type ApprovalSalesSort = "GEO" | "RECENT";
 
 const NON_US_TLD =
   /\.(ca|uk|co\.uk|au|nz|de|fr|nl|be|ch|at|ie|it|es|pt|se|no|dk|fi|pl|cz|ro|hu|gr|tr|za|in|np|pk|bd|lk|sg|my|id|ph|th|vn|jp|kr|cn|hk|tw|mx|br|ar|cl|co|pe|ec|uy|cr|pa|gt|ru|ua|il|ae|sa|ng|ke|gh|eg)(\.|$)/i;
@@ -48,6 +52,19 @@ export function parseApprovalGeoFilter(
   const kind = (kindHint ?? "").trim().toUpperCase();
   if (kind === "SALES" && !raw) return "US";
   return "ALL";
+}
+
+export function parseApprovalSalesSort(
+  raw: string | null | undefined,
+  kindHint?: string | null,
+): ApprovalSalesSort {
+  const value = (raw ?? "").trim().toUpperCase();
+  if (value === "RECENT" || value === "NEWEST" || value === "DATE") return "RECENT";
+  if (value === "GEO" || value === "US_FIRST" || value === "US-FIRST") return "GEO";
+  // Default SALES to geo rank (US preferred → US → unknown → non-US).
+  const kind = (kindHint ?? "").trim().toUpperCase();
+  if (kind === "SALES" && !raw) return "GEO";
+  return "RECENT";
 }
 
 export function inferSalesOutreachGeo(input: {

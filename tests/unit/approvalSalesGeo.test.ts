@@ -4,6 +4,7 @@ import {
   inferSalesOutreachGeo,
   isUsSalesOutreachBand,
   parseApprovalGeoFilter,
+  parseApprovalSalesSort,
 } from "@/app/lib/approvalSalesGeo";
 
 describe("approvalSalesGeo", () => {
@@ -12,6 +13,14 @@ describe("approvalSalesGeo", () => {
     expect(parseApprovalGeoFilter(undefined, "SALES")).toBe("US");
     expect(parseApprovalGeoFilter("ALL", "SALES")).toBe("ALL");
     expect(parseApprovalGeoFilter(null, "SUPPORT")).toBe("ALL");
+  });
+
+  it("defaults SALES sort to GEO and parses Newest", () => {
+    expect(parseApprovalSalesSort(null, "SALES")).toBe("GEO");
+    expect(parseApprovalSalesSort("RECENT", "SALES")).toBe("RECENT");
+    expect(parseApprovalSalesSort("newest", "SALES")).toBe("RECENT");
+    expect(parseApprovalSalesSort("GEO", "SALES")).toBe("GEO");
+    expect(parseApprovalSalesSort(null, "SUPPORT")).toBe("RECENT");
   });
 
   it("ranks clear non-US TLDs below US", () => {

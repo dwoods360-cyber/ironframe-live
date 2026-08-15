@@ -56,6 +56,8 @@ export type PendingApprovalDraft = {
   outreachGeoLabel: string;
   outreachGeoRank: number;
   accountDomain: string | null;
+  /** ISO timestamp for Newest sort (CRM interaction occurredAt). */
+  occurredAt: string;
 };
 
 export function isPendingDraftSummary(summary: string): boolean {
@@ -197,6 +199,7 @@ function mapRowToDraft(row: {
   contactId: string | null;
   channel: string | null;
   summary: string;
+  occurredAt: Date;
   contact: {
     fullName: string;
     company: string;
@@ -246,6 +249,7 @@ function mapRowToDraft(row: {
     outreachGeoLabel: geo.label,
     outreachGeoRank: geo.rank,
     accountDomain,
+    occurredAt: row.occurredAt.toISOString(),
   };
 }
 
@@ -273,6 +277,7 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
       contactId: true,
       channel: true,
       summary: true,
+      occurredAt: true,
       deal: { select: { accountDomain: true } },
       contact: {
         select: {
@@ -287,6 +292,7 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
     },
   });
 
+  // Preserve occurredAt desc from the query. Client applies Path B geo vs Newest sort.
   const drafts = rows
     .map(mapRowToDraft)
     .filter((draft): draft is PendingApprovalDraft => draft != null)
@@ -297,15 +303,6 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
       const row = rows.find((r) => r.id === draft.id);
       if (row?.contact && isOperatorHoldArchived(row.contact.metadata)) return false;
       return true;
-    })
-    .sort((a, b) => {
-      const kindRank = (k: DraftKind) => (k === "SALES" ? 0 : k === "SUPPORT" ? 1 : 2);
-      const byKind = kindRank(a.draftKind) - kindRank(b.draftKind);
-      if (byKind !== 0) return byKind;
-      if (a.draftKind === "SALES" && b.draftKind === "SALES") {
-        return a.outreachGeoRank - b.outreachGeoRank;
-      }
-      return 0;
     });
 
   return Promise.all(

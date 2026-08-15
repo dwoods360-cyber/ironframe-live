@@ -58,14 +58,24 @@ export function parseApprovalKindFilter(raw: string | null | undefined): Approva
   return "ALL";
 }
 
-export function approvalsHref(kind: ApprovalKindFilter = "ALL"): string {
-  if (kind === "ALL") return "/dashboard/admin/approvals";
-  return `/dashboard/admin/approvals?kind=${kind}`;
+export function approvalsHref(
+  kind: ApprovalKindFilter = "ALL",
+  geo?: "US" | "ALL" | null,
+): string {
+  const params = new URLSearchParams();
+  if (kind !== "ALL") params.set("kind", kind);
+  if (geo === "US" || geo === "ALL") params.set("geo", geo);
+  const q = params.toString();
+  return q ? `/dashboard/admin/approvals?${q}` : "/dashboard/admin/approvals";
 }
 
 /** Sales Approvals with a specific draft selected (CRM interaction id). */
-export function approvalsDraftHref(interactionId: string, kind: ApprovalKindFilter = "SALES"): string {
-  const base = approvalsHref(kind);
+export function approvalsDraftHref(
+  interactionId: string,
+  kind: ApprovalKindFilter = "SALES",
+  geo?: "US" | "ALL" | null,
+): string {
+  const base = approvalsHref(kind, geo ?? (kind === "SALES" ? "US" : null));
   const sep = base.includes("?") ? "&" : "?";
   return `${base}${sep}draft=${encodeURIComponent(interactionId)}`;
 }

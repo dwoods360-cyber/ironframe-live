@@ -3,6 +3,10 @@ import "server-only";
 import prisma from "@/lib/prisma";
 import { isSalesSmsDraft } from "@/app/lib/approvalDraftChannel";
 import { isSalesDispatchHoldCompany } from "@/app/lib/approvalDispatchValidation";
+import {
+  inferSalesOutreachGeo,
+  type SalesOutreachGeoBand,
+} from "@/app/lib/approvalSalesGeo";
 import { isOperatorHoldArchived } from "@/app/lib/server/ironleadsOperatorHoldCore";
 
 export { isSalesSmsDraft };
@@ -24,6 +28,9 @@ export const HOLD_PARKED_DRAFT_TAG = "[HOLD PARKED DRAFT]";
 
 export const PENDING_DRAFT_TAGS = [PENDING_DRAFT_TAG, PENDING_SALES_DRAFT_TAG, PENDING_CS_ADVISORY_TAG] as const;
 
+/** Hard fetch cap for Approvals UI — raise if queue regularly exceeds this. */
+export const APPROVAL_QUEUE_FETCH_CAP = 200;
+
 export type ApprovalTier = "Gridcore" | "Vaultbank" | "Medshield";
 export type DraftKind = "SUPPORT" | "SALES" | "CUSTOMER_SUCCESS";
 
@@ -44,6 +51,11 @@ export type PendingApprovalDraft = {
   contactPhone: string | null;
   /** Suggested wire channel for this draft (SALES may be SMS). */
   dispatchChannel: ApprovalDispatchChannel;
+  /** Path B geo band for US-first queue ordering. */
+  outreachGeoBand: SalesOutreachGeoBand;
+  outreachGeoLabel: string;
+  outreachGeoRank: number;
+  accountDomain: string | null;
 };
 
 export function isPendingDraftSummary(summary: string): boolean {
@@ -135,6 +147,50 @@ export function parsePendingDraftSummary(summary: string): {
   return { subject: subjectLine, proposedReply, incomingQuery };
 }
 
+function asMetaRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function readAccountDomain(metadata: unknown): string | null {
+  const meta = asMetaRecord(metadata);
+  if (!meta) return null;
+  const website = typeof meta.websiteUrl === "string" ? meta.websiteUrl : null;
+  const loc = asMetaRecord(meta.location);
+  const fromLoc = typeof loc?.websiteUrl === "string" ? loc.websiteUrl : null;
+  const alias = asMetaRecord(meta.domainAliasHitl);
+  const emailDomain = typeof alias?.emailDomain === "string" ? alias.emailDomain : null;
+  const raw = emailDomain || website || fromLoc;
+  if (!raw) return null;
+  try {
+    const host = raw
+      .replace(/^https?:\/\//i, "")
+      .split("/")[0]
+      ?.replace(/^www\./i, "")
+      .toLowerCase();
+    return host && host.includes(".") ? host : null;
+  } catch {
+    return null;
+  }
+}
+
+function readCountryLocation(metadata: unknown): { country: string | null; location: string | null } {
+  const meta = asMetaRecord(metadata);
+  if (!meta) return { country: null, location: null };
+  const loc = asMetaRecord(meta.location);
+  const address = asMetaRecord(meta.postalAddress) || asMetaRecord(loc?.postalAddress);
+  const country =
+    (typeof address?.country === "string" && address.country) ||
+    (typeof loc?.country === "string" && loc.country) ||
+    (typeof meta.country === "string" && meta.country) ||
+    null;
+  const location =
+    (typeof loc?.location === "string" && loc.location) ||
+    (typeof meta.locationHint === "string" && meta.locationHint) ||
+    null;
+  return { country, location };
+}
+
 function mapRowToDraft(row: {
   id: string;
   tenantId: string;
@@ -149,6 +205,7 @@ function mapRowToDraft(row: {
     title: string;
     metadata: unknown;
   } | null;
+  deal?: { accountDomain: string | null } | null;
 }): PendingApprovalDraft | null {
   if (!row.contactId || !row.contact) return null;
   if (!isPendingDraftSummary(row.summary)) return null;
@@ -157,6 +214,18 @@ function mapRowToDraft(row: {
   const draftKind = inferDraftKind(row.summary);
   const dispatchChannel: ApprovalDispatchChannel =
     draftKind === "SALES" && isSalesSmsDraft(row.summary, row.channel) ? "SMS" : "EMAIL";
+
+  const accountDomain =
+    (typeof row.deal?.accountDomain === "string" && row.deal.accountDomain) ||
+    readAccountDomain(row.contact.metadata);
+  const { country, location } = readCountryLocation(row.contact.metadata);
+  const geo = inferSalesOutreachGeo({
+    email: row.contact.email,
+    company: row.contact.company,
+    accountDomain,
+    country,
+    location,
+  });
 
   return {
     id: row.id,
@@ -173,6 +242,10 @@ function mapRowToDraft(row: {
     tier: inferTierFromContact(row.contact.title, row.contact.metadata),
     draftKind,
     dispatchChannel,
+    outreachGeoBand: geo.band,
+    outreachGeoLabel: geo.label,
+    outreachGeoRank: geo.rank,
+    accountDomain,
   };
 }
 
@@ -193,13 +266,14 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
       contactId: { not: null },
     },
     orderBy: { occurredAt: "desc" },
-    take: 50,
+    take: APPROVAL_QUEUE_FETCH_CAP,
     select: {
       id: true,
       tenantId: true,
       contactId: true,
       channel: true,
       summary: true,
+      deal: { select: { accountDomain: true } },
       contact: {
         select: {
           fullName: true,
@@ -223,6 +297,15 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
       const row = rows.find((r) => r.id === draft.id);
       if (row?.contact && isOperatorHoldArchived(row.contact.metadata)) return false;
       return true;
+    })
+    .sort((a, b) => {
+      const kindRank = (k: DraftKind) => (k === "SALES" ? 0 : k === "SUPPORT" ? 1 : 2);
+      const byKind = kindRank(a.draftKind) - kindRank(b.draftKind);
+      if (byKind !== 0) return byKind;
+      if (a.draftKind === "SALES" && b.draftKind === "SALES") {
+        return a.outreachGeoRank - b.outreachGeoRank;
+      }
+      return 0;
     });
 
   return Promise.all(
@@ -236,6 +319,26 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
       };
     }),
   );
+}
+
+/** Raw pending-tag row count before HOLD soft-filters (for UI total accuracy). */
+export async function countPendingApprovalDraftRows(): Promise<number> {
+  return prisma.ironboardCrmInteraction.count({
+    where: {
+      OR: PENDING_DRAFT_TAGS.map((tag) => ({ summary: { contains: tag } })),
+      NOT: {
+        OR: [
+          { summary: { contains: PURGED_DRAFT_TAG } },
+          { summary: { startsWith: "[PURGED DRAFT]" } },
+          { summary: { contains: NEEDS_ENRICHMENT_DRAFT_TAG } },
+          { summary: { startsWith: "[NEEDS ENRICHMENT]" } },
+          { summary: { contains: HOLD_PARKED_DRAFT_TAG } },
+          { summary: { startsWith: "[HOLD PARKED DRAFT]" } },
+        ],
+      },
+      contactId: { not: null },
+    },
+  });
 }
 
 /** Soft-park pending SALES drafts for shortlist HOLD / Ironleads-archived companies. */

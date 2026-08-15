@@ -18,6 +18,12 @@ import {
   type ApprovalKindFilter,
 } from "@/app/lib/approvalDraftKinds";
 import {
+  isUsSalesOutreachBand,
+  parseApprovalGeoFilter,
+  type ApprovalGeoFilter,
+  type SalesOutreachGeoBand,
+} from "@/app/lib/approvalSalesGeo";
+import {
   SALES_SMS_MAX_CHARS,
   isIronleadsLocalEmail,
   isOperatorDryRunEmail,
@@ -48,6 +54,10 @@ interface PendingDraft {
   contactEmail: string;
   contactPhone: string | null;
   dispatchChannel: DispatchChannel;
+  outreachGeoBand?: SalesOutreachGeoBand;
+  outreachGeoLabel?: string;
+  outreachGeoRank?: number;
+  accountDomain?: string | null;
 }
 
 function kindSortRank(kind: ApprovalDraftKind): number {
@@ -60,9 +70,13 @@ function AdminApprovalDashboardInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const kindFilter = parseApprovalKindFilter(searchParams.get("kind"));
+  const geoFilter = parseApprovalGeoFilter(searchParams.get("geo"), kindFilter);
   const draftParam = (searchParams.get("draft") ?? "").trim();
 
   const [drafts, setDrafts] = useState<PendingDraft[]>([]);
+  const [queueTotal, setQueueTotal] = useState<number | null>(null);
+  const [queueCap, setQueueCap] = useState<number | null>(null);
+  const [queueCapped, setQueueCapped] = useState(false);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [isDispatching, setIsDispatching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,7 +102,13 @@ function AdminApprovalDashboardInner() {
     setLoadError(null);
     try {
       const response = await fetch("/api/admin/approvals", { cache: "no-store" });
-      const data = (await response.json()) as { drafts?: PendingDraft[]; error?: string };
+      const data = (await response.json()) as {
+        drafts?: PendingDraft[];
+        error?: string;
+        queueTotal?: number;
+        queueCap?: number;
+        queueCapped?: boolean;
+      };
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to load approval queue.");
       }
@@ -98,12 +118,27 @@ function AdminApprovalDashboardInner() {
           contactEmail: draft.contactEmail ?? "",
           contactPhone: draft.contactPhone ?? null,
           dispatchChannel: (draft.dispatchChannel === "SMS" ? "SMS" : "EMAIL") as DispatchChannel,
+          outreachGeoRank:
+            typeof draft.outreachGeoRank === "number" ? draft.outreachGeoRank : 2,
         }))
-        .sort((a, b) => kindSortRank(a.draftKind) - kindSortRank(b.draftKind));
+        .sort((a, b) => {
+          const byKind = kindSortRank(a.draftKind) - kindSortRank(b.draftKind);
+          if (byKind !== 0) return byKind;
+          if (a.draftKind === "SALES" && b.draftKind === "SALES") {
+            return (a.outreachGeoRank ?? 2) - (b.outreachGeoRank ?? 2);
+          }
+          return 0;
+        });
       setDrafts(nextDrafts);
+      setQueueTotal(typeof data.queueTotal === "number" ? data.queueTotal : nextDrafts.length);
+      setQueueCap(typeof data.queueCap === "number" ? data.queueCap : null);
+      setQueueCapped(Boolean(data.queueCapped));
     } catch (err: unknown) {
       setLoadError(err instanceof Error ? err.message : "Queue load failure.");
       setDrafts([]);
+      setQueueTotal(null);
+      setQueueCap(null);
+      setQueueCapped(false);
       setActiveDraftId(null);
     } finally {
       setIsLoading(false);
@@ -121,9 +156,23 @@ function AdminApprovalDashboardInner() {
   }, [drafts]);
 
   const visibleDrafts = useMemo(() => {
-    if (kindFilter === "ALL") return drafts;
-    return drafts.filter((draft) => draft.draftKind === kindFilter);
-  }, [drafts, kindFilter]);
+    let rows = kindFilter === "ALL" ? drafts : drafts.filter((d) => d.draftKind === kindFilter);
+    if (kindFilter === "SALES" && geoFilter === "US") {
+      rows = rows.filter((d) =>
+        isUsSalesOutreachBand(d.outreachGeoBand ?? "UNKNOWN"),
+      );
+    }
+    return rows;
+  }, [drafts, kindFilter, geoFilter]);
+
+  const geoCounts = useMemo(() => {
+    const sales = drafts.filter((d) => d.draftKind === "SALES");
+    return {
+      US: sales.filter((d) => isUsSalesOutreachBand(d.outreachGeoBand ?? "UNKNOWN")).length,
+      ALL: sales.length,
+      NON_US: sales.filter((d) => d.outreachGeoBand === "NON_US").length,
+    };
+  }, [drafts]);
 
   useEffect(() => {
     setActiveDraftId((current) => {
@@ -139,7 +188,13 @@ function AdminApprovalDashboardInner() {
   const selectedMeta = selectedDraft ? APPROVAL_KIND_META[selectedDraft.draftKind] : null;
 
   const setKindFilter = (next: ApprovalKindFilter) => {
-    router.replace(approvalsHref(next), { scroll: false });
+    const nextGeo: ApprovalGeoFilter | null =
+      next === "SALES" ? geoFilter === "ALL" ? "ALL" : "US" : null;
+    router.replace(approvalsHref(next, nextGeo), { scroll: false });
+  };
+
+  const setGeoFilter = (next: ApprovalGeoFilter) => {
+    router.replace(approvalsHref(kindFilter, next), { scroll: false });
   };
 
   const patchSelectedDraft = (patch: Partial<PendingDraft>) => {
@@ -414,7 +469,10 @@ function AdminApprovalDashboardInner() {
             <div className="rounded-lg border border-slate-800 bg-slate-900/80 px-4 py-2 text-center font-mono">
               <div className="text-[10px] uppercase text-slate-500">Showing</div>
               <div className="text-lg font-bold text-cyan-400">{visibleDrafts.length}</div>
-              <div className="text-[9px] text-slate-500">of {drafts.length} total</div>
+              <div className="text-[9px] text-slate-500">
+                of {queueTotal ?? drafts.length} total
+                {queueCapped && queueCap != null ? ` (cap ${queueCap})` : ""}
+              </div>
             </div>
           </div>
         </header>
@@ -469,6 +527,49 @@ function AdminApprovalDashboardInner() {
           })}
         </div>
 
+        {kindFilter === "SALES" ? (
+          <div
+            className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-900/40 bg-amber-950/20 p-2"
+            role="group"
+            aria-label="Sales geo filter"
+          >
+            <span className="px-2 text-[10px] uppercase tracking-wide text-amber-200/80">
+              Path B wave
+            </span>
+            <button
+              type="button"
+              aria-pressed={geoFilter === "US"}
+              onClick={() => setGeoFilter("US")}
+              className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                geoFilter === "US"
+                  ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
+                  : "text-amber-200/70 hover:bg-amber-950/40"
+              }`}
+            >
+              US first
+              <span className="ml-2 font-mono text-xs opacity-70">{geoCounts.US}</span>
+            </button>
+            <button
+              type="button"
+              aria-pressed={geoFilter === "ALL"}
+              onClick={() => setGeoFilter("ALL")}
+              className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                geoFilter === "ALL"
+                  ? "bg-slate-800 text-white ring-1 ring-slate-600"
+                  : "text-slate-400 hover:bg-slate-900"
+              }`}
+            >
+              All geos
+              <span className="ml-2 font-mono text-xs opacity-70">{geoCounts.ALL}</span>
+            </button>
+            {geoCounts.NON_US > 0 ? (
+              <span className="ml-auto px-2 text-[10px] text-slate-500">
+                {geoCounts.NON_US} non-US under All geos
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
         {kindFilter !== "ALL" ? (
           <div
             className={`rounded-xl border px-4 py-3 text-sm ${draftKindBannerClass(kindFilter)}`}
@@ -479,6 +580,9 @@ function AdminApprovalDashboardInner() {
             <div className="mt-1 text-xs opacity-90">
               Source: {APPROVAL_KIND_META[kindFilter].source}.{" "}
               {APPROVAL_KIND_META[kindFilter].dispatchMeans}
+              {kindFilter === "SALES" && geoFilter === "US"
+                ? " US-first filter on — Path B cold wave."
+                : ""}
             </div>
           </div>
         ) : (
@@ -563,6 +667,21 @@ function AdminApprovalDashboardInner() {
                           {draft.company}
                         </span>
                         <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                          {draft.draftKind === "SALES" && draft.outreachGeoLabel ? (
+                            <span
+                              className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${
+                                draft.outreachGeoBand === "NON_US"
+                                  ? "border-rose-800/50 bg-rose-950/40 text-rose-300"
+                                  : draft.outreachGeoBand === "US_PREFERRED" ||
+                                      draft.outreachGeoBand === "US"
+                                    ? "border-emerald-800/50 bg-emerald-950/40 text-emerald-300"
+                                    : "border-slate-700 bg-slate-800 text-slate-400"
+                              }`}
+                              title="Path B outreach geo band"
+                            >
+                              {draft.outreachGeoLabel}
+                            </span>
+                          ) : null}
                           <span
                             className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${draftKindBadgeClass(draft.draftKind)}`}
                             title={meta.title}

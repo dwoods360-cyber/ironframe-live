@@ -18,6 +18,9 @@ describe("approvalDraftKinds", () => {
   it("builds filtered approvals hrefs", () => {
     expect(approvalsHref("ALL")).toBe("/dashboard/admin/approvals");
     expect(approvalsHref("SALES")).toBe("/dashboard/admin/approvals?kind=SALES");
+    expect(approvalsHref("SALES", "US")).toBe(
+      "/dashboard/admin/approvals?kind=SALES&geo=US",
+    );
     expect(approvalsHref("SUPPORT")).toBe("/dashboard/admin/approvals?kind=SUPPORT");
     expect(approvalsHref("CUSTOMER_SUCCESS")).toBe(
       "/dashboard/admin/approvals?kind=CUSTOMER_SUCCESS",

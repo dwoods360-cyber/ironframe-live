@@ -137,6 +137,26 @@ describe("ironleadsHoldArchiveSort", () => {
     ).toBe(false);
   });
 
+  it("does not flag Fit ADJACENT as Fit-held verified", () => {
+    expect(
+      isFitHeldVerifiedSuspect(
+        fitHeldMeta({
+          accountResearchBrief: { gates: { fit: { result: "ADJACENT" } } },
+          emailGatekeeper: {
+            emailGate: "VERIFIED_HELD_FIT",
+            promoteTo: "william.flannery@dataprise.com",
+            promoteReady: false,
+          },
+          namedBuyer: {
+            email: "william.flannery@dataprise.com",
+            emailStatus: "valid",
+          },
+        }),
+        "dataprise.com",
+      ),
+    ).toBe(false);
+  });
+
   it("sorts Fit-held verified seats to the top of HOLD archive", () => {
     const fitHeld = {
       metadata: fitHeldMeta(),

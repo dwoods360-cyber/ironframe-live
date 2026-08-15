@@ -1,37 +1,4 @@
-import type {
-  AccountResearchBrief,
-  AccountResearchBriefBuyer,
-  BriefPurchaseRole,
-} from "@/app/lib/server/ironleadsAccountResearchBrief";
-
-function coercePurchaseRole(raw: unknown): BriefPurchaseRole {
-  const s = String(raw ?? "")
-    .trim()
-    .toLowerCase();
-  if (s === "economic_buyer" || s === "economic") return "economic_buyer";
-  if (
-    s === "operational_buyer" ||
-    s === "ops" ||
-    s === "operational" ||
-    s === "technical" ||
-    s === "delivery" ||
-    s === "sales"
-  ) {
-    return "operational_buyer";
-  }
-  if (s === "influencer") return "influencer";
-  return "influencer";
-}
-
-function coerceBuyerConfidence(
-  raw: unknown,
-): AccountResearchBriefBuyer["confidence"] {
-  const s = String(raw ?? "")
-    .trim()
-    .toLowerCase();
-  if (s === "high" || s === "medium" || s === "low") return s;
-  return "low";
-}
+import type { AccountResearchBrief } from "@/app/lib/server/ironleadsAccountResearchBrief";
 
 function GateBadge({ result }: { result: "PASS" | "FAIL" | "UNKNOWN" | "ADJACENT" }) {
   const cls =
@@ -50,9 +17,8 @@ function GateBadge({ result }: { result: "PASS" | "FAIL" | "UNKNOWN" | "ADJACENT
   );
 }
 
-function StatusBadge({ status }: { status?: string | null }) {
-  const label = String(status ?? "unknown");
-  const hot = label === "HOLD" || label === "DROP" || label === "hold" || label === "drop";
+function StatusBadge({ status }: { status: string }) {
+  const hot = status === "HOLD" || status === "DROP" || status === "hold" || status === "drop";
   return (
     <span
       className={`rounded px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide ring-1 ${
@@ -61,19 +27,10 @@ function StatusBadge({ status }: { status?: string | null }) {
           : "bg-cyan-950/50 text-cyan-200 ring-cyan-800"
       }`}
     >
-      {label.replace(/_/g, " ")}
+      {status.replace(/_/g, " ")}
     </span>
   );
 }
-
-const DEFAULT_COMPETITIVE_CONFLICT: AccountResearchBrief["competitiveConflict"] = {
-  proprietaryPlatform: null,
-  preferredPartners: [],
-  classification: "research_relationship",
-  finding: "Competitive / partner conflict not yet assessed for this brief.",
-  relationshipNote:
-    "Re-run Account Research Brief or rebuild from harvest to populate this block.",
-};
 
 /** Operator dossier patches may omit builder-only arrays — never throw on .length. */
 function normalizeBriefForPanel(brief: AccountResearchBrief): AccountResearchBrief {
@@ -81,27 +38,7 @@ function normalizeBriefForPanel(brief: AccountResearchBrief): AccountResearchBri
     ...brief,
     triggerEvidence: Array.isArray(brief.triggerEvidence) ? brief.triggerEvidence : [],
     sourceLedger: Array.isArray(brief.sourceLedger) ? brief.sourceLedger : [],
-    buyerMap: Array.isArray(brief.buyerMap)
-      ? brief.buyerMap.map((person) => {
-          const row = person as AccountResearchBriefBuyer & {
-            role?: string;
-            purchaseRole?: string;
-          };
-          return {
-            ...person,
-            name: row.name ?? "Unknown",
-            title: row.title ?? "",
-            purchaseRole: coercePurchaseRole(row.purchaseRole ?? row.role),
-            confidence: coerceBuyerConfidence(row.confidence),
-            whyOwnsWorkflow: row.whyOwnsWorkflow ?? "",
-            linkedInUrl: row.linkedInUrl ?? null,
-            biographyUrl: row.biographyUrl ?? null,
-            email: row.email ?? null,
-            emailStatus: row.emailStatus ?? null,
-            phone: row.phone ?? null,
-          } satisfies AccountResearchBriefBuyer;
-        })
-      : [],
+    buyerMap: Array.isArray(brief.buyerMap) ? brief.buyerMap : [],
     linkedInIntelligence: brief.linkedInIntelligence ?? {
       urls: [],
       operatorPrompt:
@@ -118,11 +55,7 @@ function normalizeBriefForPanel(brief: AccountResearchBrief): AccountResearchBri
         : [],
     },
     snapshot: {
-      ...(brief.snapshot ?? {}),
-      company: brief.snapshot?.company ?? "Unknown",
-      websiteUrl: brief.snapshot?.websiteUrl ?? null,
-      practiceType: brief.snapshot?.practiceType ?? null,
-      status: brief.snapshot?.status ?? "UNKNOWN",
+      ...brief.snapshot,
       relevantServices: Array.isArray(brief.snapshot?.relevantServices)
         ? brief.snapshot.relevantServices
         : [],
@@ -130,45 +63,13 @@ function normalizeBriefForPanel(brief: AccountResearchBrief): AccountResearchBri
         ? brief.snapshot.existingGrcProducts
         : [],
     },
-    gates: {
-      ...(brief.gates ?? {}),
-      fit: brief.gates?.fit ?? { result: "UNKNOWN", finding: "Not assessed." },
-      pain: brief.gates?.pain ?? { result: "UNKNOWN", finding: "Not assessed." },
-      buyer: brief.gates?.buyer ?? { result: "UNKNOWN", finding: "Not assessed." },
-      email: brief.gates?.email,
-    },
-    competitiveConflict: {
-      ...DEFAULT_COMPETITIVE_CONFLICT,
-      ...(brief.competitiveConflict ?? {}),
-      preferredPartners: Array.isArray(brief.competitiveConflict?.preferredPartners)
-        ? brief.competitiveConflict.preferredPartners
-        : DEFAULT_COMPETITIVE_CONFLICT.preferredPartners,
-      classification:
-        brief.competitiveConflict?.classification ??
-        DEFAULT_COMPETITIVE_CONFLICT.classification,
-      finding:
-        brief.competitiveConflict?.finding ?? DEFAULT_COMPETITIVE_CONFLICT.finding,
-      relationshipNote:
-        brief.competitiveConflict?.relationshipNote ??
-        DEFAULT_COMPETITIVE_CONFLICT.relationshipNote,
-    },
   };
 }
 
-export default function AccountResearchBriefPanel({
-  brief,
-  contactId,
-}: {
-  brief: AccountResearchBrief;
-  contactId?: string;
-}) {
+export default function AccountResearchBriefPanel({ brief }: { brief: AccountResearchBrief }) {
   const safe = normalizeBriefForPanel(brief);
   const { snapshot, gates, outreach, competitiveConflict } = safe;
   brief = safe;
-  const harvestThin =
-    gates.buyer.result === "FAIL" &&
-    (gates.email?.result ?? "UNKNOWN") !== "PASS" &&
-    /^Public site signals:/i.test(gates.fit.finding);
 
   return (
     <section className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-5">
@@ -228,25 +129,18 @@ export default function AccountResearchBriefPanel({
             7 · Competitive / partner conflict
           </p>
           <p className="mt-1">
-            <StatusBadge status={competitiveConflict?.classification} />
+            <StatusBadge status={competitiveConflict.classification} />
           </p>
           <p className="mt-2 text-sm leading-relaxed text-slate-300">
-            {competitiveConflict?.finding ?? DEFAULT_COMPETITIVE_CONFLICT.finding}
+            {competitiveConflict.finding}
           </p>
-          <p className="mt-2 text-xs text-slate-500">{competitiveConflict?.relationshipNote ?? DEFAULT_COMPETITIVE_CONFLICT.relationshipNote}</p>
+          <p className="mt-2 text-xs text-slate-500">{competitiveConflict.relationshipNote}</p>
         </div>
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-lg border border-slate-800">
         <p className="border-b border-slate-800 bg-slate-950/60 px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">
           2 · Fit · Pain · Buyer · Email
-        </p>
-        <p className="border-b border-slate-800 bg-slate-950/40 px-3 py-1.5 font-mono text-[10px] text-slate-400">
-          Account: {snapshot.company}
-          {contactId ? ` | id ${contactId.slice(0, 8)}` : ""}
-          {harvestThin
-            ? " | thin harvest brief (no promote-ready dossier on this contact)"
-            : ""}
         </p>
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-950/40 text-slate-500">
@@ -300,7 +194,7 @@ export default function AccountResearchBriefPanel({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-white">{person.name ?? "Unknown"}</span>
                   <span className="font-mono text-[10px] uppercase text-violet-300">
-                    {String(person.purchaseRole ?? "unknown").replace(/_/g, " ")}
+                    {(person.purchaseRole ?? "buyer").replace(/_/g, " ")}
                   </span>
                   <span className="text-slate-500">confidence {person.confidence}</span>
                 </div>

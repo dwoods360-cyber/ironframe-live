@@ -9,7 +9,7 @@ import {
   type PublicSocialLink,
 } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 
-export type GateResult = "PASS" | "FAIL" | "UNKNOWN";
+export type GateResult = "PASS" | "FAIL" | "UNKNOWN" | "ADJACENT";
 
 export type BriefAccountStatus = "SUSPECT" | "HOLD" | "APPROVED" | "DROP";
 

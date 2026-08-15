@@ -74,7 +74,9 @@ export function isFitHeldVerifiedSuspect(
   const fitResult = typeof fit?.result === "string" ? fit.result.toUpperCase() : null;
 
   // Fit already decided — not the Fit-review stack.
-  if (fitResult === "FAIL" || fitResult === "PASS") return false;
+  if (fitResult === "FAIL" || fitResult === "PASS" || fitResult === "ADJACENT") {
+    return false;
+  }
 
   const promoteTo =
     (typeof gatekeeper?.promoteTo === "string" && gatekeeper.promoteTo.trim()) ||

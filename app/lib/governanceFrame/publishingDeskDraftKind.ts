@@ -107,6 +107,18 @@ export const PUBLISHING_VIDEO_NARRATIVE_LINKS: Array<{
         label: "V1 production script — shots + AI prompts",
         href: `${VIDEO_SERIES_DOCS_PREFIX}/v1-production-script`,
       },
+      {
+        label: "V3 kickoff — Phase 2 + shot list",
+        href: `${VIDEO_SERIES_DOCS_PREFIX}/v3-kickoff-phase2-shotlist`,
+      },
+      {
+        label: "V3 production script — shots + AI prompts",
+        href: `${VIDEO_SERIES_DOCS_PREFIX}/v3-production-script`,
+      },
+      {
+        label: "V3 full form — The Boundary",
+        href: `${VIDEO_SERIES_DOCS_PREFIX}/v3-the-boundary-production-form`,
+      },
     ],
   },
   {

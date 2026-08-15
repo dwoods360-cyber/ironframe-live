@@ -2,7 +2,7 @@
 Document Type: Marketing Production Plan
 Status: ACTIVE
 Security Classification: INTERNAL ONLY
-Last Updated: 2026-08-04
+Last Updated: 2026-08-14
 Series: When Risk Enters the Room
 Canonical hub: Videos page for Ops Publishing Desk and Ops Calendar — plan + index of narrative files in this folder.
 Source: Documents/SaaS/Videos/Series.txt (2026-07-18 ChatGPT export), split into separate files 2026-08-04.
@@ -32,6 +32,10 @@ Public cinematic series for Ironframe. Fully AI-generated scenes. **This is the 
 | V4 | [v4-the-ai-generated-board-report.md](./v4-the-ai-generated-board-report.md) |
 | V5 | [v5-the-connector.md](./v5-the-connector.md) |
 | V6 | [v6-the-complete-ironframe-story.md](./v6-the-complete-ironframe-story.md) |
+
+**V1 production:** [kickoff / Phase 0](./v1-kickoff-phase0-shotlist.md) · [shot-by-shot + AI prompts](./v1-production-script.md) · [full form (scenes / VO / caption)](./v1-the-number-production-form.md)
+
+**V3 production:** [kickoff / Phase 2](./v3-kickoff-phase2-shotlist.md) · [shot-by-shot + AI prompts](./v3-production-script.md) · [full form (scenes / VO / caption)](./v3-the-boundary-production-form.md)
 
 Condensed stub: [episode-scripts.md](./episode-scripts.md) → points here.
 

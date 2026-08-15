@@ -78,3 +78,7 @@ daily_code_diff.txt
 **/__pycache__/
 *.py[cod]
 *$py.class
+
+# Local AI video production assets (refs/raw/selects)
+Videos/
+

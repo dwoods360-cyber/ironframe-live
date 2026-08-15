@@ -11,7 +11,7 @@ Full scene-by-scene scripts are separate files in this folder:
 
 - [V1 — The Risk Register](./v1-the-risk-register.md)
 - [V2 — The Audit Request](./v2-the-audit-request.md)
-- [V3 — The Wrong Client](./v3-the-wrong-client.md)
+- [V3 — The Wrong Client](./v3-the-wrong-client.md) — production: [kickoff](./v3-kickoff-phase2-shotlist.md) · [shots + prompts](./v3-production-script.md) · [full form](./v3-the-boundary-production-form.md)
 - [V4 — The AI-Generated Board Report](./v4-the-ai-generated-board-report.md)
 - [V5 — The Connector](./v5-the-connector.md)
 - [V6 — The Complete Ironframe Story](./v6-the-complete-ironframe-story.md)

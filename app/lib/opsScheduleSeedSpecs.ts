@@ -699,7 +699,7 @@ export function ironframeRollout2026SeedSpecs(): OpsScheduleSeedSpec[] {
       dueAt: "2026-08-24T15:00:00.000Z",
       sourceRef: "rollout/first-salesteam-dispatch",
       synopsis:
-        "Board-first HITL outbound batch to the Path B design-partner cohort. [2026-08-10] Rescheduled to Mon Aug 24 — after cold outreach gate (Aug 17).",
+        "Board-first HITL outbound batch to the Path B design-partner cohort. [2026-08-15] Kept Mon Aug 24 — same day as cold outreach gate.",
     },
     {
       title: "Rollout — 2A Stripe subscription lifecycle PASS",
@@ -714,10 +714,10 @@ export function ironframeRollout2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Rollout — 2B entitlement matrix PASS",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-15T17:00:00.000Z",
+      dueAt: "2026-09-14T17:00:00.000Z",
       sourceRef: "rollout/fl2-2b-entitlement-matrix",
       synopsis:
-        "FL2 commercial gate: entitlement matrix matches SKU/plan access for paying partners.",
+        "FL2 commercial gate: entitlement matrix matches SKU/plan access for paying partners. [2026-08-15] Rescheduled to Mon Sep 14 (was Aug 15).",
     },
     {
       title: "Rollout — 2C public SKU / pricing align",
@@ -1008,12 +1008,12 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "LinkedIn Mon — “Last audited” is not “working now”",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-17T20:00:00.000Z",
+      dueAt: "2026-08-24T20:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-08-17-ccm",
       href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-17-ccm",
       priorityHint: 4,
       synopsis:
-        "Founder LinkedIn (Mon): point-in-time audit packs vs continuous control proof — ‘last audited’ ≠ ‘working now.’",
+        "Founder LinkedIn (Mon): point-in-time audit packs vs continuous control proof — ‘last audited’ ≠ ‘working now.’ [2026-08-15] Rescheduled from Mon Aug 17 to Mon Aug 24.",
       nextActions: [
         "Open Publishing Desk → LinkedIn (this calendar card)",
         "Verify research citations, Copy body → LinkedIn",
@@ -1071,11 +1071,11 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Marketing — Cold outreach gate (after free marketing)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-17T15:00:00.000Z",
+      dueAt: "2026-08-24T15:00:00.000Z",
       sourceRef: "marketing/cold-outreach-gate",
       priorityHint: 11,
       synopsis:
-        "Do not start cold Path B DISPATCH until LinkedIn week-1 + pre-outreach checklist + live surfaces pass. [2026-08-10] Rescheduled to Mon Aug 17 — wait for LinkedIn week-1 posts + Video Phase 0 before cold Path B DISPATCH.",
+        "Do not start cold Path B DISPATCH until LinkedIn week-1 + pre-outreach checklist + live surfaces pass. [2026-08-15] Rescheduled to Mon Aug 24 — week-1 LinkedIn and Video Phase 0 are DONE; keep gate with first DISPATCH (Canada CRM still not promote-ready).",
     },
     {
       title: "Control-First GRC founder newsletter — next edition outline",
@@ -1094,11 +1094,11 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Companion story bank — schedule Friday lessons (post style freeze)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-15T17:00:00.000Z",
+      dueAt: "2026-09-14T17:00:00.000Z",
       sourceRef: "marketing/companion-story-bank",
       priorityHint: 55,
       synopsis:
-        "After video Phase 1 style freeze (~14 Aug), schedule Friday companion story-bank lessons.",
+        "After video Phase 1 style freeze, schedule Friday companion story-bank lessons. [2026-08-15] Rescheduled to Mon Sep 14 (was Aug 15).",
     },
   ];
 }

@@ -1,7 +1,7 @@
 # LinkedIn Mon — “Last audited” is not “working now”
 
 **Slot intent:** Monday problem post  
-**Ops calendar:** `marketing/linkedin-2026-08-17-ccm` — due **Mon 2026-08-17**  
+**Ops calendar:** `marketing/linkedin-2026-08-17-ccm` — due **Mon 2026-08-24** (rescheduled from 2026-08-17)  
 **Complements:** Collection ≠ verification (provenance) and AI ≠ evidence (promote gates) — this one is about **time**: point-in-time packs vs continuous proof  
 **Avoids:** heatmaps, soft tenancy, residual-vs-spend, evidence→scenario→exposure tour  
 **Industry pull:** Continuous control monitoring / continuous assurance — boards asking “are controls working *right now*?”  

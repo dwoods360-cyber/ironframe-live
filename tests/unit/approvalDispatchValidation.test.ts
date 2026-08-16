@@ -12,6 +12,11 @@ import {
 const LOCKED_EMAIL_BODY = `
 Hi — Command Design Partner is $4,999 for a 90-day co-builder seat.
 Open to a 10–15 minute workflow review on evidence / board-report pain?
+
+Best,
+Dereck
+Founder, Ironframe
+dereck@ironframegrc.com
 `.trim();
 
 describe("validateApprovalDispatch", () => {
@@ -116,12 +121,28 @@ describe("validateApprovalDispatch", () => {
     const freePilot = validateApprovalDispatch({
       draftKind: "SALES",
       channel: "EMAIL",
-      body: "Command Design Partner is $4,999. Free PoC first, then workflow review.",
+      body: `Command Design Partner is $4,999. Free PoC first, then workflow review.
+
+Best,
+Dereck
+Founder, Ironframe
+dereck@ironframegrc.com`,
       recipientEmail: "buyer@acme.com",
       recipientPhone: null,
       company: "Acme",
     });
     expect(freePilot.ok).toBe(false);
+
+    const noSignature = validateApprovalDispatch({
+      draftKind: "SALES",
+      channel: "EMAIL",
+      body: "Command Design Partner is $4,999. Open to a workflow review?",
+      recipientEmail: "buyer@acme.com",
+      recipientPhone: null,
+      company: "Acme",
+    });
+    expect(noSignature.ok).toBe(false);
+    expect(noSignature.errors.some((e) => /founder signature/i.test(e))).toBe(true);
   });
 
   it("blocks Sales SMS over max length and with URLs", () => {

@@ -1,5 +1,7 @@
 /** Shared HITL DISPATCH guards — client disable + server 422. Never auto-send. */
 
+import { hasC1FounderEmailSignature } from "@/app/lib/salesC1FounderSignature";
+
 export type ApprovalDispatchChannel = "EMAIL" | "SMS";
 
 export const SALES_SMS_MAX_CHARS = 160;
@@ -155,6 +157,14 @@ export function validateApprovalDispatch(
     }
     if (/free\s*(trial|poc|pilot)|proof\s*of\s*concept/i.test(body)) {
       errors.push("Sales EMAIL must not offer a free pilot / PoC / trial.");
+    }
+    if (!hasC1FounderEmailSignature(body)) {
+      errors.push(
+        "Sales EMAIL must end with founder signature: Best, / Dereck / Founder, Ironframe / dereck@ironframegrc.com (C1 lock).",
+      );
+    }
+    if (/ironframe\s+governance\s+frame/i.test(body)) {
+      errors.push("Sales EMAIL must not use Governance Frame as the sales signature (C1 lock).");
     }
   }
 

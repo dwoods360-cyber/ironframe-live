@@ -1,13 +1,18 @@
 import {
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   DESIGN_PARTNER_PATH_B_USD,
-  PLANNED_GA_COMMAND_USD,
 } from "@/lib/ironframeProductKnowledge/commercial";
+import { C1_FOUNDER_EMAIL_SIGNATURE } from "@/app/lib/salesC1FounderSignature";
 
 export type C1DraftProspect = {
   company: string;
   fullName: string;
 };
+
+export {
+  C1_FOUNDER_EMAIL_SIGNATURE,
+  hasC1FounderEmailSignature,
+} from "@/app/lib/salesC1FounderSignature";
 
 function formatUsd(n: number): string {
   return n.toLocaleString("en-US");
@@ -22,6 +27,7 @@ function greetingName(fullName: string): string {
 /**
  * C1-locked cold EMAIL — Command Design Partner only (never Path B in body).
  * Beachhead D opener: multi-client isolation first (not invented hiring; heatmap amnesty is CISO/CFO lane).
+ * Cold first touch: no planned GA list price (defer to Touch 2 / pricing questions).
  */
 export function buildC1LockedEmailBody(prospect: C1DraftProspect): {
   subject: string;
@@ -36,13 +42,11 @@ export function buildC1LockedEmailBody(prospect: C1DraftProspect): {
     "",
     "Ironframe is built for that: hard tenant walls, residual risk in whole cents, and exportable evidence — so leadership sees dollar exposure, not another color chart.",
     "",
-    `We're opening a small Command Design Partner cohort: $${formatUsd(DESIGN_PARTNER_PATH_B_USD)} flat for a ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day co-builder seat around 2–3 success criteria you set. Planned GA for Ironframe Command is ~$${formatUsd(PLANNED_GA_COMMAND_USD)}/year.`,
+    `We're opening a small Command Design Partner cohort: $${formatUsd(DESIGN_PARTNER_PATH_B_USD)} flat for a ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day co-builder seat around 2–3 success criteria you set.`,
     "",
     "If that multi-client friction is real, the next step is a 10–15 minute workflow review on your evidence path — not a product tour.",
     "",
-    "Best,",
-    "Dereck",
-    "Founder, Ironframe",
+    C1_FOUNDER_EMAIL_SIGNATURE,
   ].join("\n");
   return { subject, body };
 }

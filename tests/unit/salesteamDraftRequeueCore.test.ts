@@ -61,6 +61,7 @@ describe("buildC1LockedEmailBody", () => {
     expect(body).toContain("10–15 minute workflow review");
     expect(body).toContain("Dereck");
     expect(body).toContain("Founder, Ironframe");
+    expect(body).toContain("dereck@ironframegrc.com");
     expect(body.toLowerCase()).not.toContain("path b");
     expect(body.toLowerCase()).not.toContain("hiring signal");
     expect(body).not.toMatch(/expanding its compliance/i);

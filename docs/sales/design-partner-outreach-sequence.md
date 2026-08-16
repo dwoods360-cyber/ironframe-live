@@ -1,7 +1,8 @@
 # Design-partner outreach sequence (3 touches)
 
 **Rule:** SalesTeam / Approvals draft only — never auto-send. Operator DISPATCH after review.  
-**Commercial lock:** Path B **$4,999** · planned GA **~$35k/yr** · CTA = **10–15 min workflow review**.  
+**Commercial lock:** Path B **$4,999** · CTA = **10–15 min workflow review**.  
+**Cold first touch:** no planned GA list price (defer ~$35k/yr to Touch 2 / pricing questions).  
 **Ban:** demo slugs, free pilot, “fastest certification,” seat/month licensing language.  
 **Priority-1 CISO/CFO sequence:** use [Heatmap Amnesty campaign](./heatmap-amnesty-campaign.md) copy (landing `/marketing/heatmap-amnesty`) when board-dollar exposure is the wedge — same HITL DISPATCH rules.  
 **Doctrine:** [Control-to-Capital narrative](./control-to-capital-market-narrative.md)
@@ -30,13 +31,14 @@ When {{company}} runs compliance across client environments, how do you keep evi
 
 Ironframe is built for that: hard tenant walls, residual risk in whole cents, and exportable evidence — so leadership sees dollar exposure, not another color chart.
 
-We're opening a small Command Design Partner cohort: $4,999 flat for a 90-day co-builder seat around 2–3 success criteria you set. Planned GA for Ironframe Command is ~$35,000/year.
+We're opening a small Command Design Partner cohort: $4,999 flat for a 90-day co-builder seat around 2–3 success criteria you set.
 
 If that multi-client friction is real, the next step is a 10–15 minute workflow review on your evidence path — not a product tour.
 
 Best,
 Dereck
 Founder, Ironframe
+dereck@ironframegrc.com
 ```
 
 **SMS (≤160 chars):**
@@ -56,17 +58,20 @@ Hi {{firstName}},
 
 Short follow-up: cohort is capped at 3–5 seats so we can honor roadmap influence without scope sprawl.
 
-If SOC 2 / ISO / ESG pressure is real but tools still force color charts, the paid Path B seat ($4,999) is the on-ramp — convert or exit at day 90 with criteria you named.
+If SOC 2 / ISO / ESG pressure is real but tools still force color charts, the paid Command Design Partner seat ($4,999) is the on-ramp — convert or exit at day 90 with criteria you named.
 
 Worth a 10–15 min workflow review this week?
 
-— Ironframe
+Best,
+Dereck
+Founder, Ironframe
+dereck@ironframegrc.com
 ```
 
 **SMS:**
 
 ```
-{{firstName}} — still recruiting 3–5 Ironframe co-builders ($4,999 Path B). Workflow review, not a demo. Reply YES / later / stop.
+{{firstName}} — still recruiting 3–5 Ironframe co-builders ($4,999). Workflow review, not a demo. Reply YES / later / stop.
 ```
 
 ---
@@ -80,9 +85,12 @@ Hi {{firstName}},
 
 I’ll close the loop so this doesn’t linger. If a paid design-partner Command Tier seat isn’t useful right now, no hard feelings — reply “pause” and we’ll leave you alone.
 
-If timing is better after {{audit-or-board-event}}, a 10–15 min workflow review still opens the Path B seat ($4,999).
+If timing is better after {{audit-or-board-event}}, a 10–15 min workflow review still opens the Command Design Partner seat ($4,999).
 
-— Ironframe
+Best,
+Dereck
+Founder, Ironframe
+dereck@ironframegrc.com
 ```
 
 ---

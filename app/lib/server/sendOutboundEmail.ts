@@ -2,8 +2,9 @@ import "server-only";
 
 import { Resend } from "resend";
 
-const DEFAULT_FROM_EMAIL = "partners@ironframegrc.com";
-const DEFAULT_FROM_NAME = "Ironframe Partners";
+/** Path B founder outreach — mailbox/alias must exist on ImproVMX for replies. */
+const DEFAULT_FROM_EMAIL = "dereck@ironframegrc.com";
+const DEFAULT_FROM_NAME = "Dereck Woods";
 
 export type OutboundEmailPayload = {
   to: string[];

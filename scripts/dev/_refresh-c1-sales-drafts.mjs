@@ -15,7 +15,6 @@ config({ path: resolve(process.cwd(), ".env"), override: false });
 const PENDING_TAG = "[PENDING SALES DRAFT APPROVAL]";
 const PATH_B_USD = 4999;
 const WINDOW_DAYS = 90;
-const GA_USD = 35000;
 
 const dry = process.argv.includes("--dry");
 
@@ -41,13 +40,14 @@ function buildEmail(prospect) {
     "",
     "Ironframe is built for that: hard tenant walls, residual risk in whole cents, and exportable evidence — so leadership sees dollar exposure, not another color chart.",
     "",
-    `We're opening a small Command Design Partner cohort: $${formatUsd(PATH_B_USD)} flat for a ${WINDOW_DAYS}-day co-builder seat around 2–3 success criteria you set. Planned GA for Ironframe Command is ~$${formatUsd(GA_USD)}/year.`,
+    `We're opening a small Command Design Partner cohort: $${formatUsd(PATH_B_USD)} flat for a ${WINDOW_DAYS}-day co-builder seat around 2–3 success criteria you set.`,
     "",
     "If that multi-client friction is real, the next step is a 10–15 minute workflow review on your evidence path — not a product tour.",
     "",
     "Best,",
     "Dereck",
     "Founder, Ironframe",
+    "dereck@ironframegrc.com",
   ].join("\n");
   return { subject, body };
 }

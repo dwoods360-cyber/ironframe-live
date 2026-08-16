@@ -1,15 +1,14 @@
 import "server-only";
 
-import {
-  DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
-  DESIGN_PARTNER_PATH_B_USD,
-  PLANNED_GA_COMMAND_USD,
-} from "@/lib/ironframeProductKnowledge/commercial";
 import { CORE_BEACHHEAD_SECTORS } from "@/lib/crm/leadPrioritization";
 import {
   PENDING_SALES_DRAFT_TAG,
   PURGED_DRAFT_TAG,
 } from "@/app/lib/server/approvalQueueCore";
+import {
+  buildC1LockedEmailBody,
+  buildC1LockedSmsBody,
+} from "@/app/lib/server/salesteamC1LockedCopy";
 import {
   buildSalesTeamPendingDraftSummary,
   listSalesteamProspectQueue,
@@ -36,16 +35,6 @@ export type RequeueDraftResult = {
   errors: Array<{ company: string; dealId: string; message: string }>;
 };
 
-function formatUsd(n: number): string {
-  return n.toLocaleString("en-US");
-}
-
-function greetingName(fullName: string): string {
-  const part = fullName.trim().split(/\s+/)[0] || "";
-  if (!part || /^(ops|contact|info|admin|lead|unknown)$/i.test(part)) return "Team";
-  return part;
-}
-
 function resolveSector(raw: string | null): (typeof CORE_BEACHHEAD_SECTORS)[number] {
   const sector = (raw ?? "REGIONAL_BHC").trim().toUpperCase();
   if ((CORE_BEACHHEAD_SECTORS as readonly string[]).includes(sector)) {
@@ -54,40 +43,8 @@ function resolveSector(raw: string | null): (typeof CORE_BEACHHEAD_SECTORS)[numb
   return "REGIONAL_BHC";
 }
 
-/** C1-locked cold EMAIL — Command Design Partner only (no Path B), Option A hiring opener, founder sign-off. */
-export function buildC1LockedEmailBody(prospect: SalesteamProspectWire): {
-  subject: string;
-  body: string;
-} {
-  const name = greetingName(prospect.fullName);
-  const subject = `Command Design Partner — ${prospect.company}`;
-  const body = [
-    `Hi ${name},`,
-    "",
-    `Noticed ${prospect.company} is expanding its compliance / GRC team recently. Quick question: how does your team handle evidence and board reporting today — especially where heatmaps or spreadsheets are still feeding leadership?`,
-    "",
-    "Ironframe is a control-first GRC platform — quantified risk in whole cents, strict tenant isolation, and auditor-ready evidence — not heatmap theater or spreadsheet governance.",
-    "",
-    `We're currently opening a small Command Design Partner cohort ($${formatUsd(DESIGN_PARTNER_PATH_B_USD)} flat for a ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day co-builder seat, structured around 2–3 success criteria you set). Planned GA for Ironframe Command is ~$${formatUsd(PLANNED_GA_COMMAND_USD)}/year.`,
-    "",
-    "If that friction is real on your side, the next step is a 10–15 minute workflow review on evidence and board-report pain — zero product preview or sales pitch.",
-    "",
-    "Best,",
-    "Dereck",
-    "Founder, Ironframe",
-  ].join("\n");
-  return { subject, body };
-}
-
-function buildSmsBody(prospect: SalesteamProspectWire): { subject: string; body: string } {
-  const name = greetingName(prospect.fullName);
-  const body = [
-    `${name} — Ironframe Command Design Partner ($${DESIGN_PARTNER_PATH_B_USD}, ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days).`,
-    "Quantified GRC, not heatmaps. 10-15 min workflow review on your evidence pain?",
-    "Reply YES or STOP.",
-  ].join(" ");
-  return { subject: `SMS · ${prospect.company}`, body };
-}
+/** Re-export C1-locked EMAIL for callers that previously imported from this module. */
+export { buildC1LockedEmailBody } from "@/app/lib/server/salesteamC1LockedCopy";
 
 async function findOpenPendingDraft(
   dealId: string,
@@ -163,7 +120,8 @@ export async function requeueSalesteamApprovalDrafts(options?: {
       continue;
     }
 
-    const draft = channel === "EMAIL" ? buildC1LockedEmailBody(prospect) : buildSmsBody(prospect);
+    const draft =
+      channel === "EMAIL" ? buildC1LockedEmailBody(prospect) : buildC1LockedSmsBody(prospect);
     const sector = resolveSector(prospect.industrySector);
 
     try {

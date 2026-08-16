@@ -38,7 +38,7 @@ type DispatchChannel = "EMAIL" | "SMS";
 
 /** Peer SMS lock — ≤160 chars, no Path B / URLs. Ironframe + STOP prevent server double-brand. */
 const SALES_SMS_LOCK_BODY =
-  "Hi Team, Dereck @ Ironframe. Opening design-partner seats for MSSPs replacing heatmaps w/ dollar risk. Open to a 10–15 min workflow review? Reply YES or STOP.";
+  "Hi Team, Dereck @ Ironframe. MSSP seats: client walls + dollar risk, not shared heatmaps. 10–15 min workflow review? Reply YES or STOP.";
 
 function looksLikeLongEmailBody(text: string): boolean {
   return text.length > 200 || /\n\s*\n/.test(text) || /^Hi\b/i.test(text.trim());

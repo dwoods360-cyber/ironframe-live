@@ -148,7 +148,7 @@ describe("validateApprovalDispatch", () => {
 
   it("accepts locked Sales SMS body", () => {
     const body =
-      "Hi Team, Dereck @ Ironframe. Opening design-partner seats for MSSPs replacing heatmaps w/ dollar risk. Open to a 10–15 min workflow review? Reply YES or STOP.";
+      "Hi Team, Dereck @ Ironframe. MSSP seats: client walls + dollar risk, not shared heatmaps. 10–15 min workflow review? Reply YES or STOP.";
     expect(body.length).toBeLessThanOrEqual(SALES_SMS_MAX_CHARS);
     const result = validateApprovalDispatch({
       draftKind: "SALES",

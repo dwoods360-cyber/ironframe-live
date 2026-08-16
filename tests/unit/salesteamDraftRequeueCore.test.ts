@@ -51,9 +51,11 @@ describe("resolveRequeueChannel", () => {
 });
 
 describe("buildC1LockedEmailBody", () => {
-  it("uses Option A opener, Command Design Partner, no Path B, founder sign-off", () => {
-    const { body } = buildC1LockedEmailBody(prospect({}));
-    expect(body).toContain("Noticed BlueRadius Cyber is expanding its compliance / GRC team recently");
+  it("uses MSSP isolation opener, Command Design Partner, no Path B, founder sign-off", () => {
+    const { subject, body } = buildC1LockedEmailBody(prospect({}));
+    expect(subject).toContain("BlueRadius Cyber");
+    expect(body).toContain("runs compliance across client environments");
+    expect(body).toContain("hard tenant walls");
     expect(body).toContain("Command Design Partner");
     expect(body).toContain("$4,999");
     expect(body).toContain("10–15 minute workflow review");
@@ -61,6 +63,7 @@ describe("buildC1LockedEmailBody", () => {
     expect(body).toContain("Founder, Ironframe");
     expect(body.toLowerCase()).not.toContain("path b");
     expect(body.toLowerCase()).not.toContain("hiring signal");
+    expect(body).not.toMatch(/expanding its compliance/i);
     expect(body).not.toMatch(/— Ironframe\s*$/m);
   });
 });
@@ -75,9 +78,11 @@ describe("buildC1LockedSmsBody", () => {
     expect(body).toContain("Dereck @ Ironframe");
     expect(body).toContain("10–15 min workflow review");
     expect(body).toMatch(/\bSTOP\b/);
+    expect(body).toContain("client walls");
     expect(body.toLowerCase()).not.toContain("path b");
     expect(body).not.toMatch(/https?:\/\//i);
     expect(C1_LOCKED_SMS_BODY_GENERIC.length).toBeLessThanOrEqual(160);
     expect(C1_LOCKED_SMS_BODY_GENERIC).toContain("Dereck @ Ironframe");
+    expect(C1_LOCKED_SMS_BODY_GENERIC).toContain("client walls");
   });
 });

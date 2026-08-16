@@ -15,32 +15,34 @@ SalesTeam `outboundDraftsman` generates Touch 1–shaped first drafts. Use this 
 | Surface | Use |
 |---------|-----|
 | **Partner-facing SKU** | **Command Design Partner** |
-| **Internal / R2 / Stripe / ops** | **Path B** (always keep in Touch 1 commercials) |
-| **Audience umbrella** | **multi-entity GRC operators** |
-| **Beachhead face names** | multi-entity banks · grid / CIP operators · multi-client partners · regulated care operators |
+| **Internal / R2 / Stripe / ops** | **Path B** — never in cold EMAIL/SMS bodies |
+| **Audience umbrella** | **multi-entity GRC operators / MSSPs** |
+| **Beachhead D wedge** | multi-client isolation + dollar exposure (not invented hiring) |
 
 ## Touch 1 — Open (day 0)
 
-**Subject:** {{short-compliance-hook}} at {{company}}
+**Subject:** Multi-client GRC walls — {{company}}
 
 ```
 Hi {{firstName}},
 
-Saw {{trigger}} at {{company}}. Quick question: how does your team handle {{compliance-or-evidence}} today — especially where heatmaps or spreadsheets still feed board reporting?
+When {{company}} runs compliance across client environments, how do you keep evidence and board reporting isolated today — without mixing registers in a shared GRC stack?
 
-Ironframe helps {{audience-face}} like yours {{guide-plan}} — {{plain-cents-wedge}}.
+Ironframe is built for that: hard tenant walls, residual risk in whole cents, and exportable evidence — so leadership sees dollar exposure, not another color chart.
 
-We're recruiting a small cohort of multi-entity GRC operators into Command Design Partner — Path B $4,999, 90-day co-builder seat, 2–3 success criteria you set. Planned GA for Ironframe Command is ~$35,000/yr.
+We're opening a small Command Design Partner cohort: $4,999 flat for a 90-day co-builder seat around 2–3 success criteria you set. Planned GA for Ironframe Command is ~$35,000/year.
 
-If that friction is real on your side, the next step is a 10–15 minute workflow review on evidence / board-report pain — not a product preview.
+If that multi-client friction is real, the next step is a 10–15 minute workflow review on your evidence path — not a product tour.
 
-— Ironframe
+Best,
+Dereck
+Founder, Ironframe
 ```
 
-**SMS (≤320 chars):**
+**SMS (≤160 chars):**
 
 ```
-{{firstName}} — Ironframe Command Design Partner (Path B $4,999, 90 days). Quantified GRC, not heatmaps. 10-15 min workflow review on your evidence pain? Reply YES or STOP.
+{{firstName}} — Dereck @ Ironframe. MSSP seats: client walls + dollar risk, not shared heatmaps. 10–15 min workflow review? Reply YES or STOP.
 ```
 
 ---
@@ -90,8 +92,8 @@ If timing is better after {{audit-or-board-event}}, a 10–15 min workflow revie
 | Check | Action |
 |-------|--------|
 | Channel | EMAIL needs valid email; SMS needs E.164 phone on prospect |
-| Price | Must say **$4,999** Path B / Command — never only $35k without “planned GA” |
+| Price | Must say **$4,999** Command Design Partner — never only $35k without “planned GA”; **no Path B** in body |
 | CTA | Workflow review — not 20-min demo / free pilot |
-| PENDING tenants | After yes → provision + Path B link, **not** `/pricing` |
+| PENDING tenants | After yes → provision + Path B (ops) link, **not** `/pricing` |
 
 **Related:** [Offer sheet](./design-partner-offer-sheet.md) · [Heatmap Amnesty](./heatmap-amnesty-campaign.md) · [Control-to-Capital](./control-to-capital-market-narrative.md) · [Workflow review protocol](./design-partner-workflow-review-protocol.md) · [Operator launch checklist](./design-partner-operator-launch-checklist.md)

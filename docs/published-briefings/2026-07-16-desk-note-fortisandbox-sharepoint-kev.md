@@ -1,16 +1,22 @@
 ---
 title: "Desk Note — CISA KEV: FortiSandbox and SharePoint RCE (16 July 2026)"
-category: desk-note
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-07-16T12:00:00.000Z"
 published: "2026-07-16"
 summary: "On 16 July 2026 CISA added three actively exploited vulnerabilities to the KEV catalog: Fortinet FortiSandbox OS command injection (CVE-2026-25089, CVE-2026-39808) and Microsoft SharePoint deserialization RCE (CVE-2026-58644). Public reporting places the federal remediation due date at 19 July 2026."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+publishedBy: "ops-desk-catchup"
+---
+
+---
+title: "Desk Note — CISA KEV: FortiSandbox and SharePoint RCE (16 July 2026)"
+category: "desk-note"
+publishedAt: "2026-07-16T12:00:00.000Z"
+published: "2026-07-16"
+summary: "On 16 July 2026 CISA added three actively exploited vulnerabilities to the KEV catalog: Fortinet FortiSandbox OS command injection (CVE-2026-25089, CVE-2026-39808) and Microsoft SharePoint deserialization RCE (CVE-2026-58644). Public reporting places the federal remediation due date at 19 July 2026."
+classification: "Institutional Governance"
+author: "Ironframe Governance Frame"
+publishedBy: "ops-desk-catchup"
 ---
 
 > **Signal (16 July 2026):** CISA added **CVE-2026-25089**, **CVE-2026-39808** (FortiSandbox OS command injection), and **CVE-2026-58644** (SharePoint deserialization) to the Known Exploited Vulnerabilities catalog. Federal civilian agencies face a short remediation clock—commonly reported as **19 July 2026**—under BOD 26-04 risk-based KEV handling.

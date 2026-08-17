@@ -15,6 +15,7 @@ import {
 } from "@/app/lib/governanceFrame/briefingFilesystemLedger";
 import { briefingBodyMarkdown } from "@/app/lib/governanceFrame/briefingMarkdown";
 import { stripFrontmatter } from "@/app/lib/governanceFrame/briefingDraftValidation";
+import { resolvePublishedBriefingDisplayAt } from "@/app/lib/governanceFrame/deskNotePublishDate";
 import { resolvePublishedBriefingSlug } from "@/app/lib/governanceFrame/publishedBriefingSlugRedirects";
 
 export {
@@ -33,15 +34,20 @@ export type { GovernanceBriefing };
 
 /** Map Postgres `published_briefings` row → reader view model (single ledger source). */
 export function mapPublishedBriefingRecord(record: PublishedBriefingRecord): GovernanceBriefing {
+  const display = resolvePublishedBriefingDisplayAt({
+    content: record.content,
+    createdAt: record.createdAt,
+    slug: record.slug,
+  });
   return {
     slug: record.slug,
     filename: `${record.slug}.md`,
     title: record.title,
     author: record.publishedBy?.trim() || null,
     classification: null,
-    publishedAt: record.createdAt.toISOString(),
+    publishedAt: display.iso,
     markdown: record.content,
-    sortKey: record.createdAt.getTime(),
+    sortKey: display.sortKey,
   };
 }
 

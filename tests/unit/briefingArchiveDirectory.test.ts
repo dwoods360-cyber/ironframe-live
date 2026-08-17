@@ -4,6 +4,7 @@ import type { GovernanceBriefing } from "@/app/lib/governanceFrame/briefingFiles
 import {
   briefingArchiveExcluding,
   listBriefingArchiveEntries,
+  listPublishedLedgerEntriesForKind,
   partitionHomeBriefings,
 } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
 
@@ -42,7 +43,7 @@ describe("listBriefingArchiveEntries", () => {
     expect(entries[0]?.synopsis).toMatch(/sovereign audit enclaves/i);
   });
 
-  it("excludes industry research briefs and newsletters", () => {
+  it("excludes industry research briefs, newsletters, and desk notes", () => {
     const entries = listBriefingArchiveEntries([
       item(),
       item({
@@ -55,8 +56,52 @@ describe("listBriefingArchiveEntries", () => {
         title: "CSRD newsletter",
         markdown: `---\ncategory: newsletter\n---\n> Summary`,
       }),
+      item({
+        slug: "2026-07-01-draft-desk-note-sharepoint-kev",
+        title: "Desk Note — SharePoint KEV",
+        markdown: `---\ncategory: desk-note\n---\n> Summary`,
+      }),
     ]);
     expect(entries.map((e) => e.slug)).toEqual(["2026-01-15-market-grc-2000-2008"]);
+  });
+});
+
+describe("listPublishedLedgerEntriesForKind", () => {
+  it("keeps each publication enclave isolated", () => {
+    const ledger = [
+      item(),
+      item({
+        slug: "2026-07-01-desk-note-sharepoint-kev",
+        title: "Desk Note — SharePoint KEV",
+        publishedAt: "2026-07-01T12:00:00.000Z",
+        markdown: `---\ncategory: desk-note\ntitle: "Desk Note — SharePoint KEV"\n---\n`,
+      }),
+      item({
+        slug: "2026-08-07-desk-note-bod-26-04",
+        title: "Desk Note — BOD 26-04",
+        publishedAt: "2026-08-07T12:00:00.000Z",
+        markdown: `---\ncategory: desk-note\n---\n`,
+      }),
+      item({
+        slug: "2026-07-16-newsletter-csrd-omnibus-esrs",
+        title: "CSRD newsletter",
+        markdown: `---\ncategory: newsletter\n---\n`,
+      }),
+    ];
+
+    const deskNotes = listPublishedLedgerEntriesForKind(ledger, "desk_note");
+    expect(deskNotes.map((e) => e.slug)).toEqual([
+      "2026-08-07-desk-note-bod-26-04",
+      "2026-07-01-desk-note-sharepoint-kev",
+    ]);
+
+    const briefings = listPublishedLedgerEntriesForKind(ledger, "briefing");
+    expect(briefings.map((e) => e.slug)).toEqual(["2026-01-15-market-grc-2000-2008"]);
+
+    const newsletters = listPublishedLedgerEntriesForKind(ledger, "newsletter");
+    expect(newsletters.map((e) => e.slug)).toEqual([
+      "2026-07-16-newsletter-csrd-omnibus-esrs",
+    ]);
   });
 });
 

@@ -1,16 +1,22 @@
 ---
 title: "Desk Note — CISA KEV: WordPress Core and Langflow (21 July 2026)"
-category: desk-note
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-07-21T12:00:00.000Z"
 published: "2026-07-21"
 summary: "On 21 July 2026 CISA added four KEVs including WordPress Core interpretation-conflict and SQL-injection flaws (CVE-2026-63030, CVE-2026-60137), Langflow untrusted-control-sphere inclusion (CVE-2026-0770), and a DD-WRT buffer overflow (CVE-2021-27137)—a 48-hour stretch that also saw Check Point and SharePoint additions the next day."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+publishedBy: "ops-desk-catchup"
+---
+
+---
+title: "Desk Note — CISA KEV: WordPress Core and Langflow (21 July 2026)"
+category: "desk-note"
+publishedAt: "2026-07-21T12:00:00.000Z"
+published: "2026-07-21"
+summary: "On 21 July 2026 CISA added four KEVs including WordPress Core interpretation-conflict and SQL-injection flaws (CVE-2026-63030, CVE-2026-60137), Langflow untrusted-control-sphere inclusion (CVE-2026-0770), and a DD-WRT buffer overflow (CVE-2021-27137)—a 48-hour stretch that also saw Check Point and SharePoint additions the next day."
+classification: "Institutional Governance"
+author: "Ironframe Governance Frame"
+publishedBy: "ops-desk-catchup"
 ---
 
 > **Signal (21 July 2026):** CISA added **CVE-2026-63030** and **CVE-2026-60137** (WordPress Core), **CVE-2026-0770** (Langflow), and **CVE-2021-27137** (DD-WRT) to the KEV catalog on evidence of active exploitation.

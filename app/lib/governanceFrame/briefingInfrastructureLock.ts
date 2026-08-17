@@ -13,7 +13,10 @@ import {
   resolveDocsRoot,
 } from "@/app/lib/governanceFrame/briefingFilesystemLedger";
 import { parseFrontmatterField } from "@/app/lib/governanceFrame/briefingMarkdown";
-import { scanPublicBriefingDeclassification } from "@/app/lib/governanceFrame/publicBriefingDeclassification";
+import {
+  resolvePublicBriefingProfile,
+  scanPublicBriefingDeclassification,
+} from "@/app/lib/governanceFrame/publicBriefingDeclassification";
 import { scanPublishedBriefingsForRss } from "../../../scripts/compile-rss";
 
 export type BriefingInfrastructureLockIssue = {
@@ -95,12 +98,14 @@ export function scanPublishedLedgerExposure(
       continue;
     }
 
-    const profile =
-      parseFrontmatterField(markdown, "classification")?.toLowerCase().includes("emerging threat")
-        ? "emerging-threats-notice"
-        : "governance-triad";
+    // Must match promote/validation profile resolution — desk notes and Emerging
+    // Threats Notices may keep public CVE catalog keys; governance triads may not.
+    const profile = resolvePublicBriefingProfile(markdown, filename);
 
-    for (const finding of scanPublicBriefingDeclassification(markdown, { profile })) {
+    for (const finding of scanPublicBriefingDeclassification(markdown, {
+      profile,
+      filename,
+    })) {
       if (finding.severity !== "error") continue;
       issues.push(
         issue(

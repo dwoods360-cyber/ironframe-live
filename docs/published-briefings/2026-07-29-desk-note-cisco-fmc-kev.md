@@ -1,19 +1,25 @@
 ---
 title: "Desk Note — CISA KEV: Cisco Secure Firewall Management Center (29 July 2026)"
-category: desk-note
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-07-29T12:00:00.000Z"
 published: "2026-07-29"
-summary: "On 29 July 2026 CISA added Cisco Secure Firewall Management Center (FMC) CVE-2026-20316 to the KEV catalog. Public trackers commonly list a federal remediation due date of 1 August 2026—another management-plane clock at month boundary."
+summary: "On 29 July 2026 CISA added Cisco Secure Firewall Management Center (FMC) hard-coded credential vulnerability CVE-2026-20316 to the KEV catalog. Public trackers commonly list a federal remediation due date of 1 August 2026—another management-plane clock at month boundary."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+publishedBy: "ops-desk-catchup"
 ---
 
-> **Signal (29 July 2026):** CISA added **CVE-2026-20316** (Cisco Secure Firewall Management Center) to the Known Exploited Vulnerabilities catalog. Public mirrors commonly show a due date of **1 August 2026**.
+---
+title: "Desk Note — CISA KEV: Cisco Secure Firewall Management Center (29 July 2026)"
+category: "desk-note"
+publishedAt: "2026-07-29T12:00:00.000Z"
+published: "2026-07-29"
+summary: "On 29 July 2026 CISA added Cisco Secure Firewall Management Center (FMC) hard-coded credential vulnerability CVE-2026-20316 to the KEV catalog. Public trackers commonly list a federal remediation due date of 1 August 2026—another management-plane clock at month boundary."
+classification: "Institutional Governance"
+author: "Ironframe Governance Frame"
+publishedBy: "ops-desk-catchup"
+---
+
+> **Signal (29 July 2026):** CISA added **CVE-2026-20316** (Cisco Secure Firewall Management Center � hard-coded credential) to the Known Exploited Vulnerabilities catalog. Public mirrors commonly show a due date of **1 August 2026**.
 >
 > *Firewall managers sit above the devices boards assume are “already secured.”*
 

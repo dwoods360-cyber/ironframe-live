@@ -1,16 +1,22 @@
 ---
 title: "Desk Note — CISA KEV: Arista VeloCloud Orchestrator and FortiOS (27 July 2026)"
-category: desk-note
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-07-27T12:00:00.000Z"
 published: "2026-07-27"
 summary: "On 27 July 2026 CISA added Arista VeloCloud Orchestrator on-prem OS command injection (CVE-2026-16812, CVSS 10.0) and Fortinet FortiOS sensitive-information exposure (CVE-2025-68686) to the KEV catalog. Public reporting places compressed federal clocks—VeloCloud commonly due 30 July; FortiOS commonly due 10 August."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+publishedBy: "ops-desk-catchup"
+---
+
+---
+title: "Desk Note — CISA KEV: Arista VeloCloud Orchestrator and FortiOS (27 July 2026)"
+category: "desk-note"
+publishedAt: "2026-07-27T12:00:00.000Z"
+published: "2026-07-27"
+summary: "On 27 July 2026 CISA added Arista VeloCloud Orchestrator on-prem OS command injection (CVE-2026-16812, CVSS 10.0) and Fortinet FortiOS sensitive-information exposure (CVE-2025-68686) to the KEV catalog. Public reporting places compressed federal clocks—VeloCloud commonly due 30 July; FortiOS commonly due 10 August."
+classification: "Institutional Governance"
+author: "Ironframe Governance Frame"
+publishedBy: "ops-desk-catchup"
 ---
 
 > **Signal (27 July 2026):** CISA added **CVE-2026-16812** (Arista VeloCloud Orchestrator on-prem OS command injection) and **CVE-2025-68686** (Fortinet FortiOS exposure of sensitive information) to the KEV catalog on evidence of active exploitation.

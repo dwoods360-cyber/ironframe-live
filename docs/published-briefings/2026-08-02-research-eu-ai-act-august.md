@@ -1,19 +1,11 @@
 ---
 title: "The EU AI Act on August 2, 2026: What Applies, What Was Deferred, and What Organizations Must Prove"
-date: "2026-08-02T00:00:00.000Z"
-status: "QUARANTINED_DRAFT"
-classification: "Institutional Governance"
-category: "research-briefing"
-seriesId: "governance-frame-summer-2026"
-installmentId: "GF-SUM-2026-08-B"
+publishedAt: "2026-08-15T16:31:06.019Z"
+published: "2026-08-15"
 summary: "August 2, 2026 is a major EU AI Act application threshold—especially for Article 50 transparency obligations—while high-risk system timelines have been reshaped through the AI Omnibus / Digital Omnibus process. This briefing separates obligations already applicable since 2025, provisions applying on 2 August 2026, provider versus deployer duties, GPAI expectations, and revised high-risk dates. Organizations must prove scope decisions with inventories, role maps, transparency controls, human oversight, and documentation—not slogans."
+classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-audience: "Public — brief.ironframegrc.com"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "industry-research"
-requiresImmediatePromotion: false
-activeExposureCents: "0"
-publishState: "QUARANTINED_AWAITING_OPERATOR"
+publishedBy: "ops-desk-wil"
 ---
 
 > **Executive Summary:** Treat 2 August 2026 as an operational GRC threshold for transparency and related AI Act duties—not as a mythic date on which every high-risk obligation suddenly crystallises. Commission materials state that transparency rules come into effect in August 2026, while GPAI rules became effective earlier (August 2025) and prohibited practices earlier still (February 2025). High-risk applicability has been subject to Omnibus revision. Boards need evidence of what applies now, what was deferred, and how the organisation proves its scope and control choices.

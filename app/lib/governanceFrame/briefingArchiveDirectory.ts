@@ -5,9 +5,12 @@ import {
   extractExecutiveSummary,
   parseFrontmatterField,
 } from "@/app/lib/governanceFrame/briefingMarkdown";
-import { isBriefingIndexItem } from "@/app/lib/governanceFrame/publishedLedgerKind";
+import {
+  classifyPublishedLedgerItem,
+  type PublishedLedgerKind,
+} from "@/app/lib/governanceFrame/publishedLedgerKind";
 
-/** Research-site vertical archive row (briefings index only). */
+/** Research-site vertical archive row (one publication enclave). */
 export type BriefingArchiveEntry = {
   slug: string;
   title: string;
@@ -34,14 +37,18 @@ export function briefingSynopsisFromMarkdown(markdown: string): string {
 }
 
 /**
- * Newest-first list of ordinary briefings (excludes newsletters and industry
- * research briefs, which have their own indexes).
+ * Newest-first artifacts for a single publication enclave.
+ * Desk notes never appear in the briefings enclave (and vice versa).
  */
-export function listBriefingArchiveEntries(
+export function listPublishedLedgerEntriesForKind(
   ledger: GovernanceBriefing[],
+  kind: PublishedLedgerKind,
 ): BriefingArchiveEntry[] {
   return ledger
-    .filter((item) => isBriefingIndexItem(item.markdown, item.slug, item.title))
+    .filter(
+      (item) =>
+        classifyPublishedLedgerItem(item.markdown, item.slug, item.title) === kind,
+    )
     .map((item) => ({
       slug: item.slug,
       title: item.title,
@@ -49,6 +56,16 @@ export function listBriefingArchiveEntries(
       synopsis: resolveSynopsis(item.markdown),
     }))
     .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+}
+
+/**
+ * Newest-first list of ordinary briefings (excludes desk notes, newsletters,
+ * and industry research briefs — each has its own enclave).
+ */
+export function listBriefingArchiveEntries(
+  ledger: GovernanceBriefing[],
+): BriefingArchiveEntry[] {
+  return listPublishedLedgerEntriesForKind(ledger, "briefing");
 }
 
 /** How many briefings the research home main body lists before the archive. */

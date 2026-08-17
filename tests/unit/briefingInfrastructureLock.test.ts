@@ -99,6 +99,28 @@ Should not be published.
     expect(evaluateBriefingInfrastructureLock({ docsRoot }).ok).toBe(false);
   });
 
+  it("allows CVE catalog keys on published desk notes (not governance-triad)", () => {
+    const docsRoot = makeTempDocsRoot();
+    tempRoots.push(docsRoot);
+
+    fs.writeFileSync(
+      path.join(docsRoot, "published-briefings", "2026-07-01-desk-note-sharepoint-kev.md"),
+      `---
+title: "Desk Note — SharePoint KEV"
+category: "desk-note"
+classification: "Institutional Governance"
+---
+
+> CISA added CVE-2026-45659 to the KEV catalog.
+`,
+      "utf8",
+    );
+
+    const issues = scanPublishedLedgerExposure(docsRoot);
+    expect(issues.some((issue) => issue.code === "PUBLISHED_CVE_LITERAL")).toBe(false);
+    expect(evaluateBriefingInfrastructureLock({ docsRoot }).ok).toBe(true);
+  });
+
   it("fails when published ledger contains internal API routes", () => {
     const docsRoot = makeTempDocsRoot();
     tempRoots.push(docsRoot);

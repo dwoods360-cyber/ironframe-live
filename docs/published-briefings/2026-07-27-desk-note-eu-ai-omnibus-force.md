@@ -1,16 +1,22 @@
 ---
 title: "Desk Note — EU AI Act Omnibus amendments enter into force (27 July 2026)"
-category: desk-note
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-07-27T12:00:00.000Z"
 published: "2026-07-27"
 summary: "On 27 July 2026, Regulation (EU) 2026/1744 amending the EU AI Act entered into force. It preserves near-term transparency duties (Article 50 from 2 August 2026) while deferring much of the high-risk Annex III regime—commonly to 2 December 2027—creating a category-error risk for teams that heard only “AI Act delayed.”"
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+publishedBy: "ops-desk-catchup"
+---
+
+---
+title: "Desk Note — EU AI Act Omnibus amendments enter into force (27 July 2026)"
+category: "desk-note"
+publishedAt: "2026-07-27T12:00:00.000Z"
+published: "2026-07-27"
+summary: "On 27 July 2026, Regulation (EU) 2026/1744 amending the EU AI Act entered into force. It preserves near-term transparency duties (Article 50 from 2 August 2026) while deferring much of the high-risk Annex III regime—commonly to 2 December 2027—creating a category-error risk for teams that heard only “AI Act delayed.”"
+classification: "Institutional Governance"
+author: "Ironframe Governance Frame"
+publishedBy: "ops-desk-catchup"
 ---
 
 > **Signal (27 July 2026):** The AI Omnibus (**Regulation (EU) 2026/1744**) enters into force. It amends timelines for high-risk AI system obligations without suspending prohibitions already in force, GPAI duties already applicable, or the **2 August 2026** Article 50 transparency applicability date (subject to a limited generative-marking transition commonly described through **2 December 2026** for legacy systems).

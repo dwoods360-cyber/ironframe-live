@@ -11,6 +11,7 @@ import {
   parseFrontmatterField,
   parseTitleFromMarkdown,
 } from "@/app/lib/governanceFrame/briefingMarkdown";
+import { resolvePublishedBriefingDisplayAt } from "@/app/lib/governanceFrame/deskNotePublishDate";
 import { resolvePublishedBriefingSlug } from "@/app/lib/governanceFrame/publishedBriefingSlugRedirects";
 
 export const PUBLISHED_BRIEFINGS_DIR = "published-briefings";
@@ -40,19 +41,6 @@ export function resolveDocsRoot(): string {
   return candidates[0];
 }
 
-function parsePublishedAt(markdown: string, mtimeMs: number): { iso: string; sortKey: number } {
-  const raw =
-    parseFrontmatterField(markdown, "publishedAt") ??
-    parseFrontmatterField(markdown, "published") ??
-    parseFrontmatterField(markdown, "date");
-  if (raw) {
-    const parsed = Date.parse(raw);
-    if (!Number.isNaN(parsed)) {
-      return { iso: new Date(parsed).toISOString(), sortKey: parsed };
-    }
-  }
-  return { iso: new Date(mtimeMs).toISOString(), sortKey: mtimeMs };
-}
 
 /** Draft quarantine — `briefing-queue/` is never compiled. */
 export function enforceBriefingQuarantine(docsRoot: string): void {
@@ -98,7 +86,11 @@ export function loadPublishedBriefingsFromFilesystem(docsRoot = resolveDocsRoot(
     const markdown = fs.readFileSync(absolute, "utf-8");
     const stat = fs.statSync(absolute);
     const slug = entry.name.replace(/\.md$/i, "");
-    const { iso, sortKey } = parsePublishedAt(markdown, stat.mtimeMs);
+    const display = resolvePublishedBriefingDisplayAt({
+      content: markdown,
+      createdAt: new Date(stat.mtimeMs),
+      slug,
+    });
 
     briefings.push({
       slug,
@@ -106,9 +98,9 @@ export function loadPublishedBriefingsFromFilesystem(docsRoot = resolveDocsRoot(
       title: parseTitleFromMarkdown(markdown, slug.replace(/-/g, " ")),
       author: parseFrontmatterField(markdown, "author"),
       classification: parseFrontmatterField(markdown, "classification"),
-      publishedAt: iso,
+      publishedAt: display.iso,
       markdown,
-      sortKey,
+      sortKey: display.sortKey,
     });
   }
 

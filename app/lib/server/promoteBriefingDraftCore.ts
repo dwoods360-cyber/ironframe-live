@@ -17,6 +17,8 @@ import {
   BRIEFING_QUEUE_DIR,
   resolveDocsRoot,
 } from "@/app/lib/governanceFrame/briefingFilesystemLedger";
+import { resolveGfSlatePublishedAtIso } from "@/app/lib/governanceFrame/deskNotePublishDate";
+import { isDeskNotesDeskDraft } from "@/app/lib/governanceFrame/publishingDeskDraftKind";
 import {
   cleanBodyForPublication,
   extractQueueMetadata,
@@ -183,9 +185,29 @@ export async function promoteBriefingDraftCore(
     };
   }
 
-  const cleanMarkdownBody = cleanBodyForPublication(markdown);
-  const publishedAtIso = new Date().toISOString();
   const queueMeta = extractQueueMetadata(markdown);
+  const isDeskNote = isDeskNotesDeskDraft(file);
+  /** Slate / signal week on the note — never Approve-day "today". */
+  const publishedAtIso =
+    resolveGfSlatePublishedAtIso(file, markdown) ?? new Date().toISOString();
+  const publishedDay = publishedAtIso.slice(0, 10);
+  const bodyOnly = cleanBodyForPublication(markdown);
+  const cleanMarkdownBody = isDeskNote
+    ? [
+        "---",
+        `title: ${JSON.stringify(parsedFrontmatter.title)}`,
+        `category: ${JSON.stringify("desk-note")}`,
+        `publishedAt: ${JSON.stringify(publishedAtIso)}`,
+        `published: ${JSON.stringify(publishedDay)}`,
+        `summary: ${JSON.stringify(queueMeta.summary ?? parsedFrontmatter.title)}`,
+        `classification: ${JSON.stringify(queueMeta.classification ?? "Institutional Governance")}`,
+        `author: ${JSON.stringify("Ironframe Governance Frame")}`,
+        `publishedBy: ${JSON.stringify(operator)}`,
+        "---",
+        "",
+        bodyOnly,
+      ].join("\n")
+    : bodyOnly;
 
   const record = await prisma.publishedBriefing.create({
     data: {
@@ -196,6 +218,8 @@ export async function promoteBriefingDraftCore(
       exposureCents: parsedFrontmatter.activeExposureCents,
       doraScore: parsedFrontmatter.doraScore,
       publishedBy: operator,
+      // Ledger createdAt = slate week on the note (filename / draft published:), not Approve day.
+      createdAt: new Date(publishedAtIso),
     },
   });
 

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyPublishedLedgerItem } from "@/app/lib/governanceFrame/publishedLedgerKind";
+import {
+  classifyPublishedLedgerItem,
+  publicationEnclaveMeta,
+} from "@/app/lib/governanceFrame/publishedLedgerKind";
 
 describe("classifyPublishedLedgerItem", () => {
   it("classifies newsletter slugs", () => {
@@ -48,5 +51,12 @@ describe("classifyPublishedLedgerItem", () => {
         "CPS 230 at the Contract Deadline",
       ),
     ).toBe("briefing");
+  });
+
+  it("maps each kind to its own enclave index", () => {
+    expect(publicationEnclaveMeta("desk_note").indexHref).toBe("/desk-notes");
+    expect(publicationEnclaveMeta("briefing").indexHref).toBe("/briefings");
+    expect(publicationEnclaveMeta("newsletter").indexHref).toBe("/newsletters");
+    expect(publicationEnclaveMeta("industry_research").indexHref).toBe("/research-papers");
   });
 });

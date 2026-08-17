@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 
 import type { BoardContextPayload } from "@/app/lib/board/sharedBoardContext";
+import { SYNTHETIC_DEMO_SEED_SLUGS } from "@/app/lib/board/boardMarketTruthMandate";
 import {
   buildBriefingDraftFrontmatter,
   evaluateAlertThresholds,
@@ -27,11 +28,21 @@ export type WriteBriefingQueueDraftResult = {
   requiresImmediatePromotion: boolean;
   currentExposureCents: string;
   thresholdCents: string;
+  /** True when narrate targeted a synthetic demo tenant and nothing was staged. */
+  skippedSyntheticDemo?: boolean;
 };
+
+function isSyntheticDemoTenantSlug(slug: string): boolean {
+  const normalized = slug.trim().toLowerCase();
+  return (SYNTHETIC_DEMO_SEED_SLUGS as readonly string[]).includes(normalized);
+}
 
 /**
  * Persist nightly narrate output to `docs/briefing-queue/` with quarantine frontmatter
  * including exposure-threshold escalation flags.
+ *
+ * Synthetic demo seeds (medshield / vaultbank / gridcore) are never staged — illustrative
+ * fixtures only, not public GF promote candidates.
  */
 export function writeBriefingQueueDraftFromNarrate(
   payload: BoardContextPayload,
@@ -46,6 +57,22 @@ export function writeBriefingQueueDraftFromNarrate(
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+  if (isSyntheticDemoTenantSlug(safeSlug || tenantSlug)) {
+    const filename = `${operationalDate}-draft-${safeSlug || "tenant"}.md`;
+    console.warn(
+      `[BRIEFING DRAFT SKIP] ${filename}: synthetic demo tenant narrate — not staged to briefing-queue.`,
+    );
+    return {
+      absolutePath: "",
+      filename,
+      requiresImmediatePromotion: false,
+      currentExposureCents: currentExposureCents.toString(),
+      thresholdCents: threshold.thresholdCents.toString(),
+      skippedSyntheticDemo: true,
+    };
+  }
+
   const filename = `${operationalDate}-draft-${safeSlug || "tenant"}.md`;
 
   const title = `Governance Frame Briefing — ${operationalDate}`;

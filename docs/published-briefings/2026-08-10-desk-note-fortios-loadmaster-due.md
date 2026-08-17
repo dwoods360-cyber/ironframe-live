@@ -1,16 +1,22 @@
 ---
 title: "Desk Note — FortiOS and LoadMaster KEV due clocks land (10 August 2026)"
-category: desk-note
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-08-10T12:00:00.000Z"
 published: "2026-08-10"
 summary: "10 August 2026 is the commonly cited federal remediation due date for Fortinet FortiOS CVE-2025-68686 (KEV-added 27 July) and Progress LoadMaster CVE-2026-8037 (KEV-added 7 August). The governance question this week is validated closure—patch evidence plus exposure and triage decisions—not calendar expiry alone."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+publishedBy: "ops-desk-catchup"
+---
+
+---
+title: "Desk Note — FortiOS and LoadMaster KEV due clocks land (10 August 2026)"
+category: "desk-note"
+publishedAt: "2026-08-10T12:00:00.000Z"
+published: "2026-08-10"
+summary: "10 August 2026 is the commonly cited federal remediation due date for Fortinet FortiOS CVE-2025-68686 (KEV-added 27 July) and Progress LoadMaster CVE-2026-8037 (KEV-added 7 August). The governance question this week is validated closure—patch evidence plus exposure and triage decisions—not calendar expiry alone."
+classification: "Institutional Governance"
+author: "Ironframe Governance Frame"
+publishedBy: "ops-desk-catchup"
 ---
 
 > **Signal (10 August 2026):** Two active KEV clocks converge: **CVE-2025-68686** (FortiOS, added 27 July) and **CVE-2026-8037** (Progress LoadMaster command injection, added 7 August). Public KEV mirrors list **10 August 2026** as the action due date for both.

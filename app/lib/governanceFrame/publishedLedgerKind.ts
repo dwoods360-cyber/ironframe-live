@@ -71,3 +71,74 @@ export function isBriefingIndexItem(
 ): boolean {
   return classifyPublishedLedgerItem(markdown, slug, title) === "briefing";
 }
+
+/**
+ * Classify from slug/title alone (Ops desk published rows may lack markdown).
+ * Same precedence as {@link classifyPublishedLedgerItem} without category frontmatter.
+ */
+export function classifyPublishedLedgerRow(
+  slug: string,
+  title?: string | null,
+): PublishedLedgerKind {
+  return classifyPublishedLedgerItem("", slug, title);
+}
+
+/** Reader-facing enclave chrome for a published ledger kind. */
+export type PublicationEnclaveMeta = {
+  kind: PublishedLedgerKind;
+  /** Research-site index path (under research base). */
+  indexHref: string;
+  /** Back-link label on the article page. */
+  backLabel: string;
+  /** Sidebar archive heading. */
+  archiveHeading: string;
+  /** Sidebar archive blurb. */
+  archiveBlurb: string;
+  /** Empty-state copy. */
+  archiveEmpty: string;
+  /** Nav aria-label. */
+  archiveNavLabel: string;
+};
+
+const ENCLAVE_META: Record<PublishedLedgerKind, PublicationEnclaveMeta> = {
+  briefing: {
+    kind: "briefing",
+    indexHref: "/briefings",
+    backLabel: "← All briefings",
+    archiveHeading: "Archive",
+    archiveBlurb: "Other briefings in this enclave — title, date, and synopsis.",
+    archiveEmpty: "No other briefings in this enclave yet.",
+    archiveNavLabel: "Briefing archive",
+  },
+  desk_note: {
+    kind: "desk_note",
+    indexHref: "/desk-notes",
+    backLabel: "← All desk notes",
+    archiveHeading: "Desk notes",
+    archiveBlurb: "Other desk notes in this enclave — title, date, and synopsis.",
+    archiveEmpty: "No other desk notes in this enclave yet.",
+    archiveNavLabel: "Desk note archive",
+  },
+  newsletter: {
+    kind: "newsletter",
+    indexHref: "/newsletters",
+    backLabel: "← All newsletters",
+    archiveHeading: "Editions",
+    archiveBlurb: "Other newsletter editions in this enclave — title, date, and synopsis.",
+    archiveEmpty: "No other newsletter editions in this enclave yet.",
+    archiveNavLabel: "Newsletter archive",
+  },
+  industry_research: {
+    kind: "industry_research",
+    indexHref: "/research-papers",
+    backLabel: "← All research papers",
+    archiveHeading: "Research briefs",
+    archiveBlurb: "Other industry research briefs in this enclave — title, date, and synopsis.",
+    archiveEmpty: "No other industry research briefs in this enclave yet.",
+    archiveNavLabel: "Industry research archive",
+  },
+};
+
+export function publicationEnclaveMeta(kind: PublishedLedgerKind): PublicationEnclaveMeta {
+  return ENCLAVE_META[kind];
+}

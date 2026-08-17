@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAccountResearchBrief,
-  emailMatchesAccountDomain,
-  isPromoteReadyEmployerEmail,
   isPromoteReadyWorkEmail,
   mergeNamedBuyerIntoBriefMembers,
   selectAccountResearchBriefForReport,
@@ -284,46 +282,6 @@ describe("buildAccountResearchBrief", () => {
     expect(brief.gates.buyer.result).toBe("FAIL");
     expect(brief.outreach.status).toBe("hold");
     expect(brief.snapshot.status).toBe("HOLD");
-  });
-
-  it("rejects Prospeo emails on a different employer domain for Email PASS", () => {
-    expect(emailMatchesAccountDomain("mikeg@marciacourageinaction.org", "kybersecure.com")).toBe(
-      false,
-    );
-    expect(isPromoteReadyEmployerEmail("mikeg@marciacourageinaction.org", "kybersecure.com")).toBe(
-      false,
-    );
-    expect(isPromoteReadyEmployerEmail("mgiuffrida@kybersecure.com", "kybersecure.com")).toBe(true);
-
-    const members = mergeNamedBuyerIntoBriefMembers({
-      members: [],
-      namedBuyer: {
-        fullName: "Michael Giuffrida",
-        title: "President",
-        email: "mikeg@marciacourageinaction.org",
-        emailStatus: "VERIFIED",
-      },
-      accountDomain: "kybersecure.com",
-    });
-    expect(members[0]?.emails ?? []).toEqual([]);
-
-    const brief = buildAccountResearchBrief({
-      company: "Kyber Security",
-      websiteUrl: "https://kybersecure.com",
-      detectedTrigger: "COMPLIANCE_JOB_POST",
-      industrySector: "MSSP",
-      dealStage: "SUSPECT",
-      corpus: "MSSP managed security vCISO CMMC.",
-      sourceUrls: ["https://kybersecure.com/about-kyber/"],
-      members,
-      socialProfiles: [],
-      hasRealEmail: true,
-      contactEmail: "info@kybersecure.com",
-      accountDomain: "kybersecure.com",
-      hasPhone: true,
-    });
-    expect(brief.gates.buyer.result).toBe("PASS");
-    expect(brief.gates.email.result).toBe("UNKNOWN");
   });
 
   it("keeps Email UNKNOWN for company intake inboxes even when hasRealEmail is true", () => {

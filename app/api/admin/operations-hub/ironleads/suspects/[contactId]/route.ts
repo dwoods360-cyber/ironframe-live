@@ -80,6 +80,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     discardSuspect: body.discardSuspect === true,
     enrichWithApollo: body.enrichWithApollo === true,
     enrichWithProspeo: body.enrichWithProspeo === true,
+    enrichWithHunter: body.enrichWithHunter === true,
     holdReason: typeof body.holdReason === "string" ? body.holdReason : undefined,
     holdClassification:
       body.holdClassification === "hold" ||

@@ -14,6 +14,7 @@ import {
   type OperatorHoldRecord,
 } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import { enrichIronleadsSuspectWithApollo } from "@/app/lib/server/ironleadsApolloEnrichCore";
+import { enrichIronleadsSuspectWithHunter } from "@/app/lib/server/ironleadsHunterEnrichCore";
 import { enrichIronleadsSuspectWithProspeo } from "@/app/lib/server/ironleadsProspeoEnrichCore";
 import { discardIronleadsSuspectContact } from "@/app/lib/server/ironleadsOsintNoisePurgeCore";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
@@ -41,6 +42,8 @@ export type SuspectOperatorUpdateInput = {
   enrichWithApollo?: boolean;
   /** HITL Prospeo named-buyer enrich (consumes Prospeo credits). */
   enrichWithProspeo?: boolean;
+  /** HITL Hunter Email Finder (consumes Hunter credits; valid-only auto-apply). */
+  enrichWithHunter?: boolean;
   holdReason?: string | null;
   holdClassification?: OperatorHoldRecord["classification"] | null;
   operatorNote?: string | null;
@@ -111,6 +114,10 @@ export async function updateIronleadsSuspectContact(
 
   if (input.enrichWithProspeo) {
     return enrichIronleadsSuspectWithProspeo(contactId, { applyContactFields: true });
+  }
+
+  if (input.enrichWithHunter) {
+    return enrichIronleadsSuspectWithHunter(contactId, { applyContactFields: true });
   }
 
   const deal = contact.primaryDeals[0] ?? null;

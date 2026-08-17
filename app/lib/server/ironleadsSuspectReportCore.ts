@@ -16,6 +16,7 @@ import {
   type QualificationSignalsDisplay,
 } from "@/app/lib/ironleadsOperatorDisplay";
 import type { ApolloEnrichSnapshot } from "@/app/lib/server/apolloEnrichmentClient";
+import type { HunterEnrichSnapshot } from "@/app/lib/server/hunterEnrichmentClient";
 import type { ProspeoEnrichSnapshot } from "@/app/lib/server/prospeoEnrichmentClient";
 import {
   resolveOperatorHold,
@@ -79,6 +80,8 @@ export type IronleadsSuspectReport = {
   apolloEnrichment: ApolloEnrichSnapshot | null;
   /** Last Prospeo enrich-person snapshot (HITL; credits consumed on Prospeo side). */
   prospeoEnrichment: ProspeoEnrichSnapshot | null;
+  /** Last Hunter email-finder snapshot (HITL; credits consumed on Hunter side). */
+  hunterEnrichment: HunterEnrichSnapshot | null;
   /**
    * Public DNS mail footprint (MX / SPF / DMARC / provider guess).
    * Decision aid only — not mailbox ownership proof.
@@ -262,7 +265,7 @@ export async function buildIronleadsSuspectReport(
   }
   if (!hasRealEmail) {
     nextActions.push(
-      "Replace @ironleads.local with a real buyer email (Enrich with Apollo or Prospeo after Named buyer is set, or paste manually).",
+      "Replace @ironleads.local with a real buyer email (Enrich with Apollo, Prospeo, or Hunter after Named buyer is set, or paste manually).",
     );
   }
   if (!location.websiteUrl) {
@@ -299,94 +302,72 @@ export async function buildIronleadsSuspectReport(
   // Rebuild only when missing — empty corpus here previously forced Fit UNKNOWN
   // even when websiteUrl was already on the contact.
   const persistedBrief = resolveAccountResearchBrief(contact.metadata);
+  const briefMembers = mergeNamedBuyerIntoBriefMembers({
+    members: location.buyingCommittee?.members ?? [],
+    namedBuyer: location.namedBuyer
+      ? {
+          fullName: location.namedBuyer.fullName,
+          title: location.namedBuyer.title,
+          role: location.namedBuyer.role,
+          email: location.namedBuyer.email,
+          emailStatus: location.namedBuyer.emailStatus,
+          linkedinUrl: location.namedBuyer.linkedinUrl,
+          sourceUrls: location.namedBuyer.sourceUrls,
+          note: location.namedBuyer.note,
+        }
+      : null,
+    contactEmail: hasRealEmail ? contact.email : null,
+    contactTitle: contact.title,
+  });
+  const reportCorpus = [
+    contact.company,
+    contact.industrySector,
+    location.websiteUrl,
+    contact.detectedTrigger,
+    contact.title,
+    location.namedBuyer?.fullName,
+    location.namedBuyer?.title,
+    location.namedBuyer?.role,
+    // Boutique founder/vCISO sites often lack a scraped committee; seed Fit from sector + buyer title.
+    /mssp|vciso|grc|compliance|cyber/i.test(
+      `${contact.industrySector ?? ""} ${location.namedBuyer?.title ?? ""} ${contact.title ?? ""}`,
+    )
+      ? "MSSP vCISO compliance advisory cybersecurity"
+      : null,
+    ...briefMembers.flatMap((m) =>
+      [m.fullName, m.title, m.note, ...m.emails.map((e) => e.email)].filter(Boolean),
+    ),
+    ...(location.candidateEmails.map((e) => `${e.person} ${e.email}`) ?? []),
+  ]
+    .filter(Boolean)
+    .join("\n");
   const operatorHold = resolveOperatorHold(contact.metadata);
   const pathBHold =
     operatorHold?.classification === "channel_competitor" ||
     operatorHold?.classification === "hold";
-
-  // Nuclear keep: never thin-rebuild a promote-ready operator/Prospeo dossier.
-  // Harvest Fit/Buyer FAIL text ("Public site signals…") means the wrong brief was selected.
-  const persistedPromoteReady =
-    !pathBHold &&
-    persistedBrief?.gates.buyer.result === "PASS" &&
-    persistedBrief.gates.email?.result === "PASS";
-
-  let accountResearchBrief: AccountResearchBrief;
-  let briefSelection: { brief: AccountResearchBrief; shouldPersist: boolean; reasons: string[] };
-
-  if (persistedPromoteReady && persistedBrief) {
-    accountResearchBrief = persistedBrief;
-    briefSelection = {
-      brief: persistedBrief,
-      shouldPersist: false,
-      reasons: ["short_circuit_persisted_promote_ready"],
-    };
-  } else {
-    const briefMembers = mergeNamedBuyerIntoBriefMembers({
-      members: location.buyingCommittee?.members ?? [],
-      namedBuyer: location.namedBuyer
-        ? {
-            fullName: location.namedBuyer.fullName,
-            title: location.namedBuyer.title,
-            role: location.namedBuyer.role,
-            email: location.namedBuyer.email,
-            emailStatus: location.namedBuyer.emailStatus,
-            linkedinUrl: location.namedBuyer.linkedinUrl,
-            sourceUrls: location.namedBuyer.sourceUrls,
-            note: location.namedBuyer.note,
-          }
-        : null,
-      contactEmail: hasRealEmail ? contact.email : null,
-      contactTitle: contact.title,
-      accountDomain: deal?.accountDomain ?? null,
-    });
-    const reportCorpus = [
-      contact.company,
-      contact.industrySector,
-      location.websiteUrl,
-      contact.detectedTrigger,
-      contact.title,
-      location.namedBuyer?.fullName,
-      location.namedBuyer?.title,
-      location.namedBuyer?.role,
-      // Boutique founder/vCISO sites often lack a scraped committee; seed Fit from sector + buyer title.
-      /mssp|vciso|grc|compliance|cyber/i.test(
-        `${contact.industrySector ?? ""} ${location.namedBuyer?.title ?? ""} ${contact.title ?? ""}`,
-      )
-        ? "MSSP vCISO compliance advisory cybersecurity"
-        : null,
-      ...briefMembers.flatMap((m) =>
-        [m.fullName, m.title, m.note, ...m.emails.map((e) => e.email)].filter(Boolean),
-      ),
-      ...(location.candidateEmails.map((e) => `${e.person} ${e.email}`) ?? []),
-    ]
-      .filter(Boolean)
-      .join("\n");
-    const rebuiltBrief = buildAccountResearchBrief({
-      company: contact.company,
-      websiteUrl: location.websiteUrl,
-      detectedTrigger: contact.detectedTrigger,
-      industrySector: contact.industrySector,
-      dealStage: deal?.stage ?? null,
-      corpus: reportCorpus,
-      sourceUrls: [
-        ...(location.namedBuyer?.sourceUrls ?? []),
-        ...(location.namedBuyer?.linkedinUrl ? [location.namedBuyer.linkedinUrl] : []),
-        ...(location.buyingCommittee?.members.flatMap((m) => m.sourceUrls) ?? []),
-        ...(location.buyingCommittee?.socialProfiles.map((s) => s.url) ?? []),
-      ],
-      members: briefMembers,
-      socialProfiles: location.buyingCommittee?.socialProfiles ?? [],
-      hasRealEmail,
-      contactEmail: hasRealEmail ? contact.email : null,
-      accountDomain: deal?.accountDomain ?? null,
-      pathBHold,
-      hasPhone,
-      generatedAt: new Date().toISOString(),
-    });
-    briefSelection = selectAccountResearchBriefForReport(persistedBrief, rebuiltBrief);
-    accountResearchBrief = briefSelection.brief;
-  }
+  const rebuiltBrief = buildAccountResearchBrief({
+    company: contact.company,
+    websiteUrl: location.websiteUrl,
+    detectedTrigger: contact.detectedTrigger,
+    industrySector: contact.industrySector,
+    dealStage: deal?.stage ?? null,
+    corpus: reportCorpus,
+    sourceUrls: [
+      ...(location.namedBuyer?.sourceUrls ?? []),
+      ...(location.namedBuyer?.linkedinUrl ? [location.namedBuyer.linkedinUrl] : []),
+      ...(location.buyingCommittee?.members.flatMap((m) => m.sourceUrls) ?? []),
+      ...(location.buyingCommittee?.socialProfiles.map((s) => s.url) ?? []),
+    ],
+    members: briefMembers,
+    socialProfiles: location.buyingCommittee?.socialProfiles ?? [],
+    hasRealEmail,
+    contactEmail: hasRealEmail ? contact.email : null,
+    pathBHold,
+    hasPhone,
+    generatedAt: new Date().toISOString(),
+  });
+  const briefSelection = selectAccountResearchBriefForReport(persistedBrief, rebuiltBrief);
+  const accountResearchBrief = briefSelection.brief;
   const metaRecord =
     contact.metadata &&
     typeof contact.metadata === "object" &&
@@ -428,6 +409,11 @@ export async function buildIronleadsSuspectReport(
   const prospeoEnrichment =
     prospeoRaw && typeof prospeoRaw === "object" && !Array.isArray(prospeoRaw)
       ? (prospeoRaw as ProspeoEnrichSnapshot)
+      : null;
+  const hunterRaw = metaRecord?.hunterEnrichment ?? null;
+  const hunterEnrichment =
+    hunterRaw && typeof hunterRaw === "object" && !Array.isArray(hunterRaw)
+      ? (hunterRaw as HunterEnrichSnapshot)
       : null;
 
   const footprintDomain = resolveFootprintDomain({
@@ -487,6 +473,7 @@ export async function buildIronleadsSuspectReport(
     operatorHold,
     apolloEnrichment,
     prospeoEnrichment,
+    hunterEnrichment,
     mailFootprint,
     tenantSlug: contact.tenant.slug,
     industrySector: contact.industrySector,

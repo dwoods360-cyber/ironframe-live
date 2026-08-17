@@ -4,6 +4,7 @@
  */
 
 import { isSalesDispatchHoldCompany } from "@/app/lib/approvalDispatchValidation";
+import { classifyPathBFit } from "@/app/lib/ironleadsFitClassifier";
 import {
   isPlausiblePersonName,
   type PublicSocialLink,
@@ -520,7 +521,6 @@ export function buildAccountResearchBrief(
   const services = detectServices(corpus, input.company);
   const hold = isSalesDispatchHoldCompany(input.company) || Boolean(input.pathBHold);
   const competingPlatform = products.find((p) => p === "OSCAR" || p === "Radius360") ?? null;
-  const hasCompetingStack = Boolean(competingPlatform) || hold;
 
   const namedMembers = input.members.filter(
     (m) => m.fullName?.trim() && isPlausiblePersonName(m.fullName),
@@ -543,45 +543,22 @@ export function buildAccountResearchBrief(
   /** Email gate PASS — person/work seat on employer domain, not company intake alone. */
   const hasPromoteReadyEmail = memberPromoteReadyEmail || contactPromoteReady;
 
-  const fitHaystack = [
-    input.company,
-    input.industrySector,
-    input.websiteUrl,
+  const fitClass = classifyPathBFit({
+    company: input.company,
+    industrySector: input.industrySector,
+    websiteUrl: input.websiteUrl,
     corpus,
-  ]
-    .filter(Boolean)
-    .join("\n");
-  const fitPass =
-    services.some((s) =>
-      ["MSSP", "vCISO", "managed GRC", "compliance advisory"].includes(s),
-    ) || /mssp|vciso|managed\s+grc|cybersecurity|managed\s+security/i.test(fitHaystack);
-
-  const fit: AccountResearchBriefGate = fitPass
-    ? {
-        result: "PASS",
-        finding: services.length
-          ? `Public site signals: ${services.join(", ")}.`
-          : "Company name / sector / website signals suggest a security or compliance practice.",
-        why: "Path B design partners need a real MSSP, vCISO, or managed-GRC motion — not a one-off enterprise IT shop.",
-      }
-    : corpus.trim()
-      ? {
-          result: "UNKNOWN",
-          finding: "Public pages fetched but MSSP/vCISO/managed-GRC language was not clearly detected.",
-          why: "Operator should confirm practice type before Promote; Fit FAIL means Drop or research-only.",
-        }
-      : input.websiteUrl?.trim()
-        ? {
-            result: "UNKNOWN",
-            finding:
-              "Website is on file, but no fetched page text is loaded into this brief yet.",
-            why: "Re-run Research only on Ironleads so Fit can read the public site — having a URL alone is not the corpus.",
-          }
-        : {
-            result: "UNKNOWN",
-            finding: "Insufficient public corpus to confirm practice type.",
-            why: "Add website/domain and re-run research before Fit can Pass.",
-          };
+    pathBHold: hold,
+    products,
+  });
+  const hasCompetingStack =
+    Boolean(competingPlatform) || hold || fitClass.channelCompetitor;
+  const fit: AccountResearchBriefGate = {
+    result: fitClass.result,
+    finding: fitClass.finding,
+    why: fitClass.why,
+  };
+  const servicesMerged = uniqueStrings([...services, ...fitClass.services]);
 
   const trigger = input.detectedTrigger?.trim() || null;
   const pain: AccountResearchBriefGate = trigger
@@ -662,8 +639,12 @@ export function buildAccountResearchBrief(
     outreachStatus = input.dealStage === "PROSPECT" ? "promote" : "promote";
   } else if (fit.result === "FAIL") {
     status = "DROP";
-    classification = "drop";
+    classification = fitClass.channelCompetitor ? "competitor" : "drop";
     outreachStatus = "drop";
+  } else if (fit.result === "ADJACENT") {
+    status = "SUSPECT";
+    classification = "research_relationship";
+    outreachStatus = "keep_suspect";
   }
 
   const buyerMap: AccountResearchBriefBuyer[] = namedMembers.slice(0, 8).map((m) => {
@@ -834,9 +815,9 @@ export function buildAccountResearchBrief(
       company: input.company,
       websiteUrl: input.websiteUrl,
       employeeRange: null,
-      practiceType: practiceTypeFromServices(services, input.industrySector),
+      practiceType: practiceTypeFromServices(servicesMerged, input.industrySector),
       estimatedClientScale: null,
-      relevantServices: services,
+      relevantServices: servicesMerged,
       existingGrcProducts: products,
       status,
     },

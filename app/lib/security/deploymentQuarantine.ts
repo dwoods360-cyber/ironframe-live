@@ -14,9 +14,29 @@ import { isGovernanceFramePublicHost } from "@/config/governanceFramePublic";
 
 export const IRONFRAME_DEV_BYPASS_COOKIE = "ironframe_dev_bypass";
 
+/** RFC1918 + loopback — phone/LAN access to `next dev -H 0.0.0.0` (e.g. 192.168.x.x:3000). */
+export function isPrivateOrLoopbackIpv4(hostname: string): boolean {
+  const host = hostname
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/:\d+$/, ""); // tolerate Host: 192.168.x.x:3000 if passed raw
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!m) return false;
+  const octets = m.slice(1).map((part) => Number(part));
+  if (octets.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false;
+  const [a, b] = octets;
+  if (a === 127) return true;
+  if (a === 10) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  return false;
+}
+
 /**
  * Hosts that may reach Ironframe without ingress quarantine.
  * `*.lvh.me` resolves to 127.0.0.1 for local tenant-subdomain dev only — not public internet.
+ * Private LAN IPv4 lets a phone on the same Wi‑Fi hit local `next dev` without opening public ingress.
  */
 export function isLocalDevelopmentHost(hostname: string): boolean {
   const host = hostname.trim().toLowerCase();
@@ -27,7 +47,8 @@ export function isLocalDevelopmentHost(hostname: string): boolean {
     host.endsWith(".localtest.me") ||
     host === "127.0.0.1" ||
     host === "[::1]" ||
-    host === "::1"
+    host === "::1" ||
+    isPrivateOrLoopbackIpv4(host)
   );
 }
 
@@ -79,12 +100,45 @@ export function isTokenGatedApiIngressPath(pathname: string): boolean {
  * Narrow public funnel (auth, marketing, docs, auth callback) stays reachable on cloud hosts
  * until `IRONFRAME_ALLOW_PUBLIC_INGRESS` opens the full workspace.
  */
+export function resolveIngressHostname(request: NextRequest): string {
+  const candidates = [
+    request.nextUrl?.hostname,
+    request.headers?.get?.("x-forwarded-host")?.split(",")[0],
+    request.headers?.get?.("host"),
+  ];
+  for (const raw of candidates) {
+    const host = String(raw ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/:\d+$/, "")
+      .replace(/^\[|\]$/g, "");
+    if (host) return host;
+  }
+  return "";
+}
+
 export function shouldBlockProductionIngress(
   request: NextRequest,
   pathname: string,
 ): boolean {
-  const hostname = request.nextUrl.hostname;
-  if (isLocalDevelopmentHost(hostname)) return false;
+  const hostname = resolveIngressHostname(request);
+  // Also accept any Host / X-Forwarded-Host candidate (Next sometimes leaves nextUrl.hostname empty on raw IPs).
+  const hostCandidates = [
+    hostname,
+    request.nextUrl?.hostname,
+    request.headers?.get?.("x-forwarded-host")?.split(",")[0],
+    request.headers?.get?.("host"),
+  ]
+    .map((raw) =>
+      String(raw ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/:\d+$/, "")
+        .replace(/^\[|\]$/g, ""),
+    )
+    .filter(Boolean);
+
+  if (hostCandidates.some((host) => isLocalDevelopmentHost(host))) return false;
   if (isGovernanceFramePublicHost(request.headers?.get?.("host") ?? hostname)) return false;
   if (isStripeWebhookIngressPath(pathname)) return false;
   if (isTokenGatedApiIngressPath(pathname)) return false;

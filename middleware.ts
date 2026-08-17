@@ -335,7 +335,7 @@ export async function middleware(request: NextRequest) {
   // ==========================================
   // 1. PRODUCTION QUARANTINE PERIMETER
   // ==========================================
-  // Localhost is whitelisted inside shouldBlockProductionIngress ? never early-return here;
+  // Localhost / private LAN IPs are whitelisted inside shouldBlockProductionIngress — never early-return here;
   // that would skip Supabase session refresh, tenant isolation, and auth redirects below.
   if (shouldBlockProductionIngress(request, pathname)) {
     return buildDeploymentQuarantineResponse();

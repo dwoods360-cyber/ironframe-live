@@ -28,12 +28,33 @@ function mockRequest(
 }
 
 describe("deploymentQuarantine", () => {
-  it("whitelists localhost and lvh.me dev hosts", () => {
+  it("whitelists localhost, lvh.me, and private LAN IPv4 hosts", () => {
     expect(isLocalDevelopmentHost("localhost")).toBe(true);
     expect(isLocalDevelopmentHost("127.0.0.1")).toBe(true);
     expect(isLocalDevelopmentHost("vaultbank.lvh.me")).toBe(true);
     expect(isLocalDevelopmentHost("ironframegrc.com")).toBe(false);
     expect(isLocalDevelopmentHost("vaultbank.localhost")).toBe(true);
+    expect(isLocalDevelopmentHost("192.168.4.20")).toBe(true);
+    expect(isLocalDevelopmentHost("10.0.0.5")).toBe(true);
+    expect(isLocalDevelopmentHost("172.16.1.1")).toBe(true);
+    expect(isLocalDevelopmentHost("8.8.8.8")).toBe(false);
+    expect(isLocalDevelopmentHost("172.32.0.1")).toBe(false);
+  });
+
+  it("does not quarantine dashboard when Host is a LAN IP", () => {
+    delete process.env.IRONFRAME_ALLOW_PUBLIC_INGRESS;
+    expect(
+      shouldBlockProductionIngress(
+        mockRequest("/dashboard/operations", {}, "192.168.4.20"),
+        "/dashboard/operations",
+      ),
+    ).toBe(false);
+    expect(
+      shouldBlockProductionIngress(
+        mockRequest("/dashboard/operations", {}, "192.168.4.20:3000"),
+        "/dashboard/operations",
+      ),
+    ).toBe(false);
   });
 
   it("detects tenant subdomain hosts", () => {

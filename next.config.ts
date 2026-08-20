@@ -44,8 +44,17 @@ const nextConfig: NextConfig = {
      * Dynamic path.join(docsRoot, …) is not auto-traced on Vercel.
      */
     "/api/admin/operations-hub": [
-      "./docs/**/*",
+      "./docs/TAS.md",
+      "./docs/briefing-queue/**/*",
+      "./docs/published-briefings/**/*",
+      "./docs/newsletters/**/*",
+      "./docs/governance-frame/**/*",
       "./public/rss.xml",
+    ],
+    /** Draft reader — separate lambda; must also ship quarantine md. */
+    "/api/admin/operations-hub/briefings/draft": [
+      "./docs/TAS.md",
+      "./docs/briefing-queue/**/*",
     ],
     "/api/admin/operations-hub/briefings/desk-run": [
       "./docs/TAS.md",
@@ -64,6 +73,14 @@ const nextConfig: NextConfig = {
       "./docs/briefing-queue/**/*",
     ],
     "/api/admin/operations-hub/briefings/deny": [
+      "./docs/TAS.md",
+      "./docs/briefing-queue/**/*",
+    ],
+    "/api/admin/operations-hub/briefings/hold": [
+      "./docs/TAS.md",
+      "./docs/briefing-queue/**/*",
+    ],
+    "/api/admin/operations-hub/briefings/resume": [
       "./docs/TAS.md",
       "./docs/briefing-queue/**/*",
     ],

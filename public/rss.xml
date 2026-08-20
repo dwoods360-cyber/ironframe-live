@@ -5,14 +5,35 @@
     <link>https://research.ironframegrc.com</link>
     <description>Independent Governance Frame research and industry briefings from Ironframe GRC.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 15 Aug 2026 15:09:00 GMT</lastBuildDate>
+    <lastBuildDate>Thu, 20 Aug 2026 19:08:58 GMT</lastBuildDate>
     <generator>Ironframe Governance Frame RSS Compiler</generator>
+    <item>
+      <title>Compressed KEV Clocks: When CVSS Queues Miss Active Exploitation</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-20-compressed-kev-clocks</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-20-compressed-kev-clocks</guid>
+      <pubDate>Thu, 20 Aug 2026 12:00:00 GMT</pubDate>
+      <description>On 18 August 2026, CISA added four actively exploited vulnerabilities to the Known Exploited Vulnerabilities (KEV) Catalog, with a federal civilian remediation due date of 21 August 2026 under Binding Operational Directive (BOD) 22-01. [1][2] The useful governance question for operators is not “is CVSS high?”—it is whether calendar-based patch SLAs still govern when the catalog says the window is measured in days, not months.</description>
+    </item>
+    <item>
+      <title>Ironcast — The 30-Day Critical Patch Queue Meets a Three-Day KEV Clock</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-20-newsletter-cisa-quadruple-kev-clock</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-20-newsletter-cisa-quadruple-kev-clock</guid>
+      <pubDate>Thu, 20 Aug 2026 12:00:00 GMT</pubDate>
+      <description>Signal (20 August 2026): On Tuesday, CISA added four actively exploited flaws to the KEV catalog. Federal civilian agencies face a remediation due date of 21 August 2026 under BOD 22-01. [1][2] If your “critical = 30 days” policy is still the only clock in the room, the catalog is already ahead of you.</description>
+    </item>
     <item>
       <title>Governance Frame U.S. Cyber Disclosure Review — August 2026: What Item 1.05 Filings Reveal About Materiality</title>
       <link>https://research.ironframegrc.com/briefings/2026-08-16-newsletter-sec-item-105-filings</link>
       <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-16-newsletter-sec-item-105-filings</guid>
       <pubDate>Sun, 16 Aug 2026 12:00:00 GMT</pubDate>
       <description>Two-plus years into the SEC’s cybersecurity disclosure rules, the useful August 2026 question is not what Item 1.05 says in the abstract—it is what recent filings show about materiality without operational shutdown, third-party environments, sensitive data, unauthorized AI use, and disclosure-committee evidence. This newsletter reads filing patterns against Item 1.05 and Item 106 duties while keeping discovery, materiality determination, the four-business-day clock, and amendments distinct. Information reviewed through August 4, 2026.</description>
+    </item>
+    <item>
+      <title>The EU AI Act on August 2, 2026: What Applies, What Was Deferred, and What Organizations Must Prove</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-02-research-eu-ai-act-august</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-02-research-eu-ai-act-august</guid>
+      <pubDate>Sat, 15 Aug 2026 16:31:06 GMT</pubDate>
+      <description>August 2, 2026 is a major EU AI Act application threshold—especially for Article 50 transparency obligations—while high-risk system timelines have been reshaped through the AI Omnibus / Digital Omnibus process. This briefing separates obligations already applicable since 2025, provisions applying on 2 August 2026, provider versus deployer duties, GPAI expectations, and revised high-risk dates. Organizations must prove scope decisions with inventories, role maps, transparency controls, human oversight, and documentation—not slogans.</description>
     </item>
     <item>
       <title>Desk Note — Progress LoadMaster command injection added to CISA KEV (7 August 2026)</title>

@@ -1,14 +1,11 @@
 ---
 title: "Compressed KEV Clocks: When CVSS Queues Miss Active Exploitation"
-date: 2026-08-20
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-08-20T12:00:00.000Z"
+published: "2026-08-20"
+summary: "On **18 August 2026**, CISA added four actively exploited vulnerabilities to the Known Exploited Vulnerabilities (KEV) Catalog, with a federal civilian remediation due date of **21 August 2026** under Binding Operational Directive (BOD) 22-01. [1][2] The useful governance question for operators is not “is CVSS high?”—it is whether calendar-based patch SLAs still govern when the catalog says the window is measured in days, not months."
 classification: "Institutional Governance"
-category: market-analysis
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+author: "Ironframe Governance Frame"
+publishedBy: "dereck@ironframegrc.com"
 ---
 
 > **Executive Summary:** On **18 August 2026**, CISA added four actively exploited vulnerabilities to the Known Exploited Vulnerabilities (KEV) Catalog, with a federal civilian remediation due date of **21 August 2026** under Binding Operational Directive (BOD) 22-01. [1][2] The useful governance question for operators is not “is CVSS high?”—it is whether calendar-based patch SLAs still govern when the catalog says the window is measured in days, not months.

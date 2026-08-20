@@ -1,14 +1,11 @@
 ---
 title: "Ironcast — The 30-Day Critical Patch Queue Meets a Three-Day KEV Clock"
-date: 2026-08-20
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-08-20T12:00:00.000Z"
+published: "2026-08-20"
+summary: "**Signal (20 August 2026):** On Tuesday, CISA added four actively exploited flaws to the KEV catalog. Federal civilian agencies face a remediation due date of **21 August 2026** under BOD 22-01. [1][2] If your “critical = 30 days” policy is still the only clock in the room, the catalog is already ahead of you."
 classification: "Institutional Governance"
-category: newsletter
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+author: "Ironframe Governance Frame"
+publishedBy: "dereck@ironframegrc.com"
 ---
 
 > **Signal (20 August 2026):** On Tuesday, CISA added four actively exploited flaws to the KEV catalog. Federal civilian agencies face a remediation due date of **21 August 2026** under BOD 22-01. [1][2] If your “critical = 30 days” policy is still the only clock in the room, the catalog is already ahead of you.

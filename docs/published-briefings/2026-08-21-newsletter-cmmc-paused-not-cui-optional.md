@@ -1,14 +1,11 @@
 ---
 title: "Ironcast — CMMC Paused Is Not CUI Optional"
-date: 2026-08-21
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-08-21T15:37:10.973Z"
+published: "2026-08-21"
+summary: "**Signal (21 August 2026):** Phase II of CMMC was suspended on **13 July 2026**. Phase I self-assessment duties and **DFARS 252.204-7012** did not take the day off. If your mid-August plan was \"wait for November certification theater,\" rewrite the plan."
 classification: "Institutional Governance"
-category: newsletter
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+author: "Ironframe Governance Frame"
+publishedBy: "dereck@ironframegrc.com"
 ---
 
 > **Signal (21 August 2026):** Phase II of CMMC was suspended on **13 July 2026**. Phase I self-assessment duties and **DFARS 252.204-7012** did not take the day off. If your mid-August plan was "wait for November certification theater," rewrite the plan.

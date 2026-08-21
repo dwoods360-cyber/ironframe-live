@@ -1,14 +1,11 @@
 ---
 title: "CMMC Phase II Pause Is Not DFARS Relief: What Still Binds in Mid-August 2026"
-date: 2026-08-21
-status: QUARANTINED_DRAFT
-publishState: QUARANTINED_AWAITING_OPERATOR
+publishedAt: "2026-08-21T15:36:57.476Z"
+published: "2026-08-21"
+summary: "On **13 July 2026**, the Department of War suspended **CMMC Phase II** requirements that had been scheduled to begin **10 November 2026**. That pause is real. It is not a waiver of Phase I self-assessment duties, SPRS scoring where required, NIST SP 800-171 implementation, or **DFARS 252.204-7012** safeguarding and cyber-incident reporting. Mid-August operators who treat \"CMMC paused\" as \"CUI discipline optional\" are reading the wrong memo."
 classification: "Institutional Governance"
-category: market-analysis
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "ironframe-sandbox"
-activeExposureCents: "0"
-requiresImmediatePromotion: false
+author: "Ironframe Governance Frame"
+publishedBy: "dereck@ironframegrc.com"
 ---
 
 > **Executive Summary:** On **13 July 2026**, the Department of War suspended **CMMC Phase II** requirements that had been scheduled to begin **10 November 2026**. That pause is real. It is not a waiver of Phase I self-assessment duties, SPRS scoring where required, NIST SP 800-171 implementation, or **DFARS 252.204-7012** safeguarding and cyber-incident reporting. Mid-August operators who treat "CMMC paused" as "CUI discipline optional" are reading the wrong memo.

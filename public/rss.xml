@@ -5,8 +5,22 @@
     <link>https://research.ironframegrc.com</link>
     <description>Independent Governance Frame research and industry briefings from Ironframe GRC.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 20 Aug 2026 19:08:58 GMT</lastBuildDate>
+    <lastBuildDate>Fri, 21 Aug 2026 15:37:11 GMT</lastBuildDate>
     <generator>Ironframe Governance Frame RSS Compiler</generator>
+    <item>
+      <title>Ironcast — CMMC Paused Is Not CUI Optional</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-21-newsletter-cmmc-paused-not-cui-optional</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-21-newsletter-cmmc-paused-not-cui-optional</guid>
+      <pubDate>Fri, 21 Aug 2026 15:37:10 GMT</pubDate>
+      <description>Signal (21 August 2026): Phase II of CMMC was suspended on 13 July 2026. Phase I self-assessment duties and DFARS 252.204-7012 did not take the day off. If your mid-August plan was &quot;wait for November certification theater,&quot; rewrite the plan.</description>
+    </item>
+    <item>
+      <title>CMMC Phase II Pause Is Not DFARS Relief: What Still Binds in Mid-August 2026</title>
+      <link>https://research.ironframegrc.com/briefings/2026-08-21-cmmc-pause-still-binds</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-08-21-cmmc-pause-still-binds</guid>
+      <pubDate>Fri, 21 Aug 2026 15:36:57 GMT</pubDate>
+      <description>On 13 July 2026, the Department of War suspended CMMC Phase II requirements that had been scheduled to begin 10 November 2026. That pause is real. It is not a waiver of Phase I self-assessment duties, SPRS scoring where required, NIST SP 800-171 implementation, or DFARS 252.204-7012 safeguarding and cyber-incident reporting. Mid-August operators who treat &quot;CMMC paused&quot; as &quot;CUI discipline optional&quot; are reading the wrong memo.</description>
+    </item>
     <item>
       <title>Compressed KEV Clocks: When CVSS Queues Miss Active Exploitation</title>
       <link>https://research.ironframegrc.com/briefings/2026-08-20-compressed-kev-clocks</link>

@@ -240,15 +240,44 @@ async function listBriefingQueueDrafts(docsRoot: string): Promise<BriefingQueueD
   });
   const publishedSlugs = new Set(publishedRows.map((row) => row.slug.toLowerCase()));
 
+  /** Exact promote-path slug: 2026-08-20-draft-briefing-foo → 2026-08-20-briefing-foo */
   const slugFromQueueFilename = (filename: string) =>
     filename.replace(/-draft-/i, "-").replace(/\.md$/i, "").toLowerCase();
+
+  /**
+   * Theme key for alternate-slug promotes (date / briefing|newsletter prefix may differ).
+   * e.g. 2026-08-20-draft-briefing-cmmc-pause-still-binds → cmmc-pause-still-binds
+   */
+  const themeFromQueueFilename = (filename: string) =>
+    filename
+      .replace(/\.md$/i, "")
+      .replace(
+        /^\d{4}-\d{2}-\d{2}-draft-(?:auto-)?(?:briefing-|newsletter-|desk-note-|research-|signal-)?/i,
+        "",
+      )
+      .toLowerCase()
+      .replace(/^-+|-+$/g, "");
+
+  const isAlreadyPublished = (filename: string) => {
+    const exact = slugFromQueueFilename(filename);
+    if (publishedSlugs.has(exact)) return true;
+    const theme = themeFromQueueFilename(filename);
+    if (!theme || theme.length < 8) return false;
+    for (const slug of publishedSlugs) {
+      // published: 2026-08-21-cmmc-pause-still-binds or …-newsletter-cmmc-paused-…
+      if (slug.endsWith(theme) || slug.includes(`-${theme}`) || slug.includes(theme)) {
+        return true;
+      }
+    }
+    return false;
+  };
 
   return fs
     .readdirSync(queueDir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .filter((entry) => !QUARANTINE_ALLOWLIST.has(entry.name.toLowerCase()))
     .filter((entry) => !denied.has(entry.name))
-    .filter((entry) => !publishedSlugs.has(slugFromQueueFilename(entry.name)))
+    .filter((entry) => !isAlreadyPublished(entry.name))
     .map((entry) => {
       const filePath = path.join(queueDir, entry.name);
       const markdown = fs.readFileSync(filePath, "utf-8");

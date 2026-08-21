@@ -1435,6 +1435,22 @@ export default function PublishingDeskClient() {
                     ? "Desk note drafts"
                     : "Quarantined drafts"}
               </h2>
+              {focusedDraft &&
+              !snapshot.briefings.queueDrafts.some((d) => d.filename === focusedDraft) ? (
+                <div className="mt-3 rounded-lg border border-amber-700/50 bg-amber-950/40 px-3 py-2 text-sm text-amber-100">
+                  Deep link{" "}
+                  <span className="font-mono text-[11px] text-amber-200/90">{focusedDraft}</span> is
+                  not in the open quarantine queue — it was promoted, denied, or removed. Use{" "}
+                  <Link href="/gf-research/briefings" className="text-cyan-300 hover:underline">
+                    published briefings
+                  </Link>{" "}
+                  or clear the{" "}
+                  <Link href={publishingDeskHref(desk)} className="text-cyan-300 hover:underline">
+                    draft=
+                  </Link>{" "}
+                  query.
+                </div>
+              ) : null}
               <p className="mt-1 text-sm text-slate-400">
                 {desk === "research" ? (
                   <>
@@ -1817,6 +1833,18 @@ export default function PublishingDeskClient() {
             <section className="space-y-6">
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">Drafts awaiting Approve / Deny</h2>
+                {focusedDraft &&
+                !snapshot.briefings.queueDrafts.some((d) => d.filename === focusedDraft) ? (
+                  <div className="mt-3 rounded-lg border border-amber-700/50 bg-amber-950/40 px-3 py-2 text-sm text-amber-100">
+                    Deep link{" "}
+                    <span className="font-mono text-[11px] text-amber-200/90">{focusedDraft}</span> is
+                    not in the open quarantine queue — promoted, denied, or removed.{" "}
+                    <Link href={publishingDeskHref("newsletters")} className="text-cyan-300 hover:underline">
+                      Clear draft=
+                    </Link>
+                    .
+                  </div>
+                ) : null}
                 <p className="mt-1 text-sm text-slate-400">
                   Ironcast newsletter drafts and market series (e.g. Control-first GRC Parts 1–3) wait here.
                   Approve promotes to Governance Frame; Deny discards without publishing. Syndicate compiled

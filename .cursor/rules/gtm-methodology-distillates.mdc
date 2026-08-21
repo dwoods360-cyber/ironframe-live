@@ -1,0 +1,15 @@
+---
+description: Outbound and sales-enablement drafts follow distilled methodology moves — not book dumps.
+globs: docs/sales/**/*.md,docs/sales-enablement/**/*.md,SalesTeam/**/*.ts,app/lib/board/boardMarketTruthMandate.ts,Ironboard/src/config/boardMarketTruthMandate.ts
+alwaysApply: false
+---
+
+# GTM methodology distillates
+
+When editing outbound copy, SalesTeam prompts, workflow-review talk tracks, or board market-truth mandates:
+
+1. Follow `docs/sales-enablement/message-constitution.md` — especially **Operator methodology moves**.
+2. Encode **short enforceable moves** only (multi-thread, teach-then-ask, WF-review CTA, exposure hours / P50–P90 ranges, Path B convert-or-exit, HITL-only send).
+3. Do **not** paste audiobook/chapter dumps, Challenger scripts, or competing playbooks that override Path B / claim bans.
+4. `list_sales_playbooks` methodology labels ≠ live outreach accounts.
+5. Claim bans in the same constitution still win over any sales methodology phrasing.

@@ -2,7 +2,7 @@
 Document Type: Sales Enablement Documentation
 Status: ACTIVE
 Security Classification: INTERNAL ONLY (Tenant Boundaries Enforced)
-Last Updated: 2026-07-30
+Last Updated: 2026-08-21
 ---
 
 # Message Constitution — Beachhead Drafting Authority
@@ -71,6 +71,21 @@ Do **not** put in drafts or board advice:
 Canonical framing: [Control-to-Capital narrative](../sales/control-to-capital-market-narrative.md) · [Heatmap Amnesty](../sales/heatmap-amnesty-campaign.md) · `/marketing/heatmap-amnesty`
 
 Lead with **estimated whole-cent exposure + hard enclaves**; framework crosswalk is supporting proof only.
+
+## Operator methodology moves (distilled — not book dumps)
+
+Encode **moves**, not audiobook corpora. IronBoard / SalesTeam / Cursor must follow these as drafting constraints. Full Challenger/SPIN/Gap labels remain methodology playbooks only (`list_sales_playbooks`) — never account truth.
+
+| Move | Do | Don’t |
+|------|----|--------|
+| **Multi-thread the deal** | Name CISO + risk/finance + operator owner in discovery; WF review invites the people who own evidence *and* exposure | Single-thread a “demo” to one friendly contact |
+| **Teach, then ask** | Lead with one insight that reframes their queue (CVSS vs KEV clock; heatmap vs exposure hours; soft tenancy vs legal-entity walls) | Open with product tour, feature list, or “Request Demo” |
+| **Take control of next step** | Close every touch on **10–15 min workflow review** + success criterion for a Path B window | Leave “happy to chat anytime” / unbounded pilots |
+| **Uncertainty language** | Prefer **estimated loss exposure ranges (P50–P90)** and **active exposure hours** with stated assumptions | Point-dollar ALE theater; “boards are rejecting heatmaps” as universal fact |
+| **Negotiate convert-or-exit** | Path B = paid co-builder seat; 90-day convert-or-exit; price once relevance is clear | Free pilots, discount Path B, or invent GA discounts in cold copy |
+| **Agent / worker failure modes** | HITL Approvals only; quarantine drafts; no auto-send; never invent buyers or outreach plans | Autonomous “run Challenger on the list” or fabricated GTM Settings UIs |
+
+Canonical commercial anchors stay in `lib/ironframeProductKnowledge/` and [control-to-capital](../sales/control-to-capital-market-narrative.md).
 
 ## Beachhead sectors (code keys)
 

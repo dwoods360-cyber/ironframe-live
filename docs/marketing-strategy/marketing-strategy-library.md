@@ -98,6 +98,7 @@ See [storybrand-framework.md](./storybrand-framework.md) for SB7, BrandScript, o
 
 - **Core:** Teach, tailor, take control — lead with insight that reframes buyer thinking.
 - **Ironframe application:** "Beyond the heatmap" narrative; board dollar-risk vs compliance theater.
+- **Executable distillate (not book ingest):** [Message constitution — Operator methodology moves](../sales-enablement/message-constitution.md) — multi-thread, teach-then-ask, WF-review close, exposure-hours language, Path B convert-or-exit, HITL-only agents.
 
 ## Channel playbook summary
 
@@ -124,5 +125,7 @@ See [storybrand-framework.md](./storybrand-framework.md) for SB7, BrandScript, o
 - [Brand Style Guide](./brand-style-guide.md)
 - [Content Calendar](./content-calendar.md)
 - [Video series — When Risk Enters the Room](./video-series/when-risk-enters-the-room.md) (canonical Videos page: plan, scripts, publish windows)
+- [The GRC Minute](./video-series/grc-minute/README.md) — 60–90s LinkedIn beat; one professional avatar; founder off camera; slate 01–10
+- [Stakeholder benefit map — product response](./stakeholder-benefit-map-product-response.md) (public: `/marketing/stakeholder-benefit-map`; companion to GF pain-map research)
 - [Social Media Guidelines](./social-media-guidelines.md)
 - Monetization blueprint: `docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md`

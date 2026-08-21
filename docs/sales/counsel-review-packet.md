@@ -8,6 +8,8 @@
 
 **This packet is not legal advice.** IronBoard `board-legal` is a copy persona only — do not treat it as counsel.
 
+**Founder literacy (optional):** [SaaS contract literacy — 3-title shortlist](./saas-contract-literacy-shortlist.md) — ask better questions of counsel; does not unblock D0.
+
 ---
 
 ## 1. Why we are engaging counsel

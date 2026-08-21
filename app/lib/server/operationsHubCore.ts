@@ -33,7 +33,10 @@ import {
   validateBriefingQueueDraft,
   type BriefingDraftValidationIssue,
 } from "@/app/lib/governanceFrame/briefingDraftValidation";
-import { parseTitleFromMarkdown } from "@/app/lib/governanceFrame/briefingMarkdown";
+import {
+  parseManuscriptDateFromMarkdown,
+  parseTitleFromMarkdown,
+} from "@/app/lib/governanceFrame/briefingMarkdown";
 import { syndicatePublishedBriefing } from "@/app/lib/governanceFrame/publishBriefingSyndication";
 import { IRONBOARD_OPERATIONS_PORTAL_PATH } from "@/app/lib/ironboardConsolePaths";
 import { listDeniedBriefingFilenames } from "@/app/lib/server/denyBriefingQueueDraftCore";
@@ -79,6 +82,8 @@ export type BriefingQueueDraftSummary = {
   title: string;
   /** Short body preview for Ops Hub approve/deny desks. */
   summary: string;
+  /** YAML `date:` or filename YYYY-MM-DD — used to sort newest manuscript dates first. */
+  manuscriptDate: string | null;
   modifiedAt: string;
   promotable: boolean;
   requiresImmediatePromotion: boolean;
@@ -254,6 +259,7 @@ async function listBriefingQueueDrafts(docsRoot: string): Promise<BriefingQueueD
         filename: entry.name,
         title: parseTitleFromMarkdown(markdown, entry.name),
         summary: extractDraftSummary(markdown),
+        manuscriptDate: parseManuscriptDateFromMarkdown(markdown, entry.name),
         modifiedAt: stat.mtime.toISOString(),
         promotable: !isNonPromotableBriefingDraft(entry.name),
         requiresImmediatePromotion: alertFlags.requiresImmediatePromotion,
@@ -262,7 +268,16 @@ async function listBriefingQueueDrafts(docsRoot: string): Promise<BriefingQueueD
         deskReview: readDeskReview(docsRoot, entry.name),
       };
     })
-    .sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
+    .sort((a, b) => {
+      // Newest manuscript date first (operator “due / staged for” day), then mtime.
+      const da = a.manuscriptDate ?? "";
+      const db = b.manuscriptDate ?? "";
+      if (da !== db) return db.localeCompare(da);
+      if (a.requiresImmediatePromotion !== b.requiresImmediatePromotion) {
+        return a.requiresImmediatePromotion ? -1 : 1;
+      }
+      return b.modifiedAt.localeCompare(a.modifiedAt);
+    });
 }
 
 function resolveNewsletterArtifactDirs(docsRoot: string): string[] {

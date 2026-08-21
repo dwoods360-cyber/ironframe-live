@@ -10,6 +10,7 @@ import {
   isResearchDeskDraft,
   isStrictNewsletterQueueDraft,
   parsePublishingDeskTab,
+  publishedRowBelongsToDesk,
   publishingDeskHref,
   publishingDeskTabForQueueDraft,
   PUBLISHING_LINKEDIN_CADENCE_HREF,
@@ -1453,7 +1454,16 @@ export default function PublishingDeskClient() {
                   <>
                     Weekday autonomous GTM cron and manual requests stage here only. Use{" "}
                     <span className="text-slate-300">Read</span> for the full manuscript. Nothing publishes
-                    until you Approve (promote) or Deny. Research paper drafts live under{" "}
+                    until you Approve (promote) or Deny. Listed by manuscript{" "}
+                    <span className="font-mono text-slate-300">date:</span> newest first (not file mtime).
+                    Newsletters are on the{" "}
+                    <Link
+                      href={publishingDeskHref("newsletters")}
+                      className="text-cyan-300 hover:underline"
+                    >
+                      Newsletters
+                    </Link>{" "}
+                    tab. Research paper drafts live under{" "}
                     <Link
                       href={publishingDeskHref("research")}
                       className="text-cyan-300 hover:underline"
@@ -1522,7 +1532,14 @@ export default function PublishingDeskClient() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="font-medium text-slate-100">{draft.title}</div>
-                            <div className="font-mono text-[10px] text-slate-500">{draft.filename}</div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] text-slate-500">
+                              {draft.manuscriptDate ? (
+                                <span className="rounded bg-slate-800 px-1.5 py-0.5 text-cyan-200/90">
+                                  {draft.manuscriptDate}
+                                </span>
+                              ) : null}
+                              <span>{draft.filename}</span>
+                            </div>
                             {draft.summary ? (
                               <p className="mt-1 text-xs text-slate-400 line-clamp-2">{draft.summary}</p>
                             ) : null}
@@ -1773,24 +1790,11 @@ export default function PublishingDeskClient() {
                   </p>
                 ) : null}
                 <ul className="mt-4 space-y-2">
-                  {(desk === "research"
+                  {(desk === "research" || desk === "desk-notes" || desk === "briefings"
                     ? snapshot.briefings.published.filter((row) =>
-                        /^Industry Research Brief\b/i.test(row.title),
+                        publishedRowBelongsToDesk(desk, row),
                       )
-                    : desk === "desk-notes"
-                      ? snapshot.briefings.published.filter(
-                          (row) =>
-                            /desk-note|desk_note|\bsignal\b/i.test(row.slug) ||
-                            /^Desk Note\b/i.test(row.title) ||
-                            /^Signal\b/i.test(row.title),
-                        )
-                      : snapshot.briefings.published.filter(
-                          (row) =>
-                            !/^Industry Research Brief\b/i.test(row.title) &&
-                            !/desk-note|desk_note|\bsignal\b/i.test(row.slug) &&
-                            !/^Desk Note\b/i.test(row.title) &&
-                            !/^Signal\b/i.test(row.title),
-                        )
+                    : []
                   ).map((briefing) => (
                     <li key={briefing.slug} className="flex items-center justify-between gap-3 text-sm">
                       <span className="text-slate-200">{briefing.title}</span>

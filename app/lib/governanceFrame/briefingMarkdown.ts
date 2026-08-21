@@ -16,6 +16,23 @@ export function parseTitleFromMarkdown(markdown: string, fallback: string): stri
   return fallback;
 }
 
+/**
+ * Manuscript / ops date for Publishing Desk ordering (newest first).
+ * Prefer YAML `date:`, then leading YYYY-MM-DD in the queue filename.
+ */
+export function parseManuscriptDateFromMarkdown(
+  markdown: string,
+  filename?: string,
+): string | null {
+  const fromFront = parseFrontmatterField(markdown, "date");
+  if (fromFront) {
+    const iso = fromFront.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (iso?.[1]) return iso[1];
+  }
+  const fromName = filename?.match(/^(\d{4}-\d{2}-\d{2})/);
+  return fromName?.[1] ?? null;
+}
+
 /** Body copy for reader — no frontmatter or duplicate title heading. */
 export function briefingBodyMarkdown(markdown: string, title: string): string {
   let body = stripFrontmatter(markdown);

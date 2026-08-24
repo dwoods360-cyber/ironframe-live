@@ -145,6 +145,35 @@ dereck@ironframegrc.com`,
     expect(noSignature.errors.some((e) => /founder signature/i.test(e))).toBe(true);
   });
 
+  it("hard-gates Sales EMAIL DISPATCH on human-voice lint", () => {
+    const catalog = validateApprovalDispatch({
+      draftKind: "SALES",
+      channel: "EMAIL",
+      body: `Hi — Command Design Partner is a co-builder seat structured around your stack for $4,999.
+Open to a 10–15 minute workflow review?
+
+Best,
+Dereck
+Founder, Ironframe
+dereck@ironframegrc.com`,
+      recipientEmail: "buyer@acme.com",
+      recipientPhone: null,
+      company: "Acme",
+    });
+    expect(catalog.ok).toBe(false);
+    expect(catalog.errors.some((e) => /Human voice:/i.test(e))).toBe(true);
+
+    const ok = validateApprovalDispatch({
+      draftKind: "SALES",
+      channel: "EMAIL",
+      body: LOCKED_EMAIL_BODY,
+      recipientEmail: "buyer@acme.com",
+      recipientPhone: null,
+      company: "Acme",
+    });
+    expect(ok).toEqual({ ok: true, errors: [] });
+  });
+
   it("blocks Sales SMS over max length and with URLs", () => {
     const long = "x".repeat(SALES_SMS_MAX_CHARS + 1);
     const lengthFail = validateApprovalDispatch({

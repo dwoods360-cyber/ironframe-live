@@ -16,35 +16,35 @@ export const TOUCH2_RE_ANCHORS: readonly Touch2ReAnchorEntry[] = [
     email: "jbohrer@abacusgroupllc.com",
     motion: "MSP/MSSP for financial services & healthcare (AbacusFlex / Gotham Security)",
     reAnchor:
-      "Still thinking about how Abacus keeps each financial-services and healthcare client’s compliance evidence and board reporting isolated across AbacusFlex environments?",
+      "When AbacusFlex stacks financial-services and healthcare clients onto the same delivery stack, how do you keep each client’s compliance evidence and board reporting isolated today — without shared-stack register risk?",
   },
   {
     email: "ruppert.vernon@absolutelogic.com",
     companyNeedle: "absolute logic",
     motion: "Managed IT + cyber compliance (HIPAA / GLBA / NYDFS)",
     reAnchor:
-      "Still thinking about how Absolute Logic keeps each client’s HIPAA / GLBA / NYDFS evidence registers isolated today?",
+      "When Absolute Logic runs HIPAA, GLBA, and NYDFS compliance across managed client environments, how do you keep each client’s evidence registers isolated today — without shared-stack register risk?",
   },
   {
     email: "mark.clayman@netrio.com",
     companyNeedle: "netrio",
     motion: "Netrio + Agio consolidation; multi-client GRC / vCISO",
     reAnchor:
-      "Still thinking about how Netrio keeps each client’s GRC and board reporting isolated as Agio financial-services environments come onto the stack?",
+      "As Netrio brings Agio financial-services environments onto the stack, how do you keep each client’s GRC and board reporting isolated today — without shared-stack register risk?",
   },
   {
     email: "lalvarez@alvareztg.com",
     companyNeedle: "alvarez",
     motion: "CMMC RPO + MSP/MSSP for DIB / regulated SMBs",
     reAnchor:
-      "Still thinking about how Alvarez keeps each CMMC / DIB client’s evidence registers isolated across readiness engagements?",
+      "When Alvarez runs CMMC readiness across DIB and regulated SMB engagements, how do you keep each client’s evidence registers isolated today — without shared-stack register risk?",
   },
   {
     email: "kparekh@amsysis.com",
     companyNeedle: "amsys",
     motion: "Managed IT + cybersecurity across multi-vertical SMB/enterprise clients",
     reAnchor:
-      "Still thinking about how AMSYS keeps each client’s compliance evidence and board reporting isolated across managed environments?",
+      "When AMSYS delivers managed IT and cybersecurity across multi-vertical client environments, how do you keep each client’s compliance evidence and board reporting isolated today — without shared-stack register risk?",
   },
   {
     email: "mike.williams@appalachiatech.com",

@@ -9,6 +9,7 @@ import {
   PENDING_SALES_DRAFT_TAG,
   buildHoldParkedDraftSummary,
   inferDraftKind,
+  inferSalesTouchStage,
   isPendingDraftSummary,
   parsePendingDraftSummary,
 } from "@/app/lib/server/approvalQueueCore";
@@ -70,6 +71,21 @@ describe("approvalQueueCore", () => {
     expect(PENDING_SALES_DRAFT_TAG).toBe("[PENDING SALES DRAFT APPROVAL]");
     expect(DISPATCHED_DRAFT_TAG).toBe("[DISPATCHED SUPPORT COURIER]");
     expect(DISPATCHED_SALES_DRAFT_TAG).toBe("[DISPATCHED SALES COURIER]");
+  });
+
+  it("infers Touch 2 from Cadence line and HITL note", () => {
+    expect(
+      inferSalesTouchStage(
+        "[PENDING SALES DRAFT APPROVAL] Re: Abacus\nCadence: TOUCH2\nExecution Source: EMAIL",
+      ),
+    ).toBe("TOUCH2");
+    expect(
+      inferSalesTouchStage(
+        "HITL note: Touch 2 day 4–5 for Abacus. PREP ONLY.",
+      ),
+    ).toBe("TOUCH2");
+    expect(inferSalesTouchStage("Cadence: TOUCH3")).toBe("TOUCH3");
+    expect(inferSalesTouchStage("plain first outreach")).toBe(null);
   });
 
   it("treats purged drafts as non-pending even when discarded copy retains PENDING tags", () => {

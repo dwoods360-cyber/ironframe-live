@@ -62,6 +62,8 @@ interface PendingDraft {
   outreachGeoRank?: number;
   accountDomain?: string | null;
   occurredAt?: string;
+  /** Sales cadence stage from CRM summary (TOUCH2 cards). */
+  salesTouchStage?: "TOUCH1" | "TOUCH2" | "TOUCH3" | null;
 }
 
 function kindSortRank(kind: ApprovalDraftKind): number {
@@ -125,6 +127,12 @@ function AdminApprovalDashboardInner() {
         outreachGeoRank:
           typeof draft.outreachGeoRank === "number" ? draft.outreachGeoRank : 2,
         occurredAt: typeof draft.occurredAt === "string" ? draft.occurredAt : "",
+        salesTouchStage:
+          draft.salesTouchStage === "TOUCH1" ||
+          draft.salesTouchStage === "TOUCH2" ||
+          draft.salesTouchStage === "TOUCH3"
+            ? draft.salesTouchStage
+            : null,
       }));
       setDrafts(nextDrafts);
       setQueueTotal(typeof data.queueTotal === "number" ? data.queueTotal : nextDrafts.length);
@@ -744,6 +752,24 @@ function AdminApprovalDashboardInner() {
                           {draft.company}
                         </span>
                         <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                          {draft.draftKind === "SALES" && draft.salesTouchStage ? (
+                            <span
+                              className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${
+                                draft.salesTouchStage === "TOUCH2"
+                                  ? "border-amber-600/60 bg-amber-950/50 text-amber-200"
+                                  : draft.salesTouchStage === "TOUCH3"
+                                    ? "border-violet-700/50 bg-violet-950/40 text-violet-200"
+                                    : "border-slate-600 bg-slate-900 text-slate-300"
+                              }`}
+                              title="Outreach cadence stage"
+                            >
+                              {draft.salesTouchStage === "TOUCH2"
+                                ? "Touch 2"
+                                : draft.salesTouchStage === "TOUCH3"
+                                  ? "Touch 3"
+                                  : "Touch 1"}
+                            </span>
+                          ) : null}
                           {draft.draftKind === "SALES" && draft.outreachGeoLabel ? (
                             <span
                               className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${
@@ -779,7 +805,11 @@ function AdminApprovalDashboardInner() {
                         </div>
                       </div>
                       <div className="mb-1 font-mono text-[9px] uppercase tracking-wide text-slate-500">
-                        {meta.title}
+                        {draft.draftKind === "SALES" && draft.salesTouchStage === "TOUCH2"
+                          ? "Sales outreach · Touch 2"
+                          : draft.draftKind === "SALES" && draft.salesTouchStage === "TOUCH3"
+                            ? "Sales outreach · Touch 3"
+                            : meta.title}
                       </div>
                       <div className="mb-1 line-clamp-1 font-sans text-xs font-medium text-slate-300">
                         {draft.subject}
@@ -805,6 +835,24 @@ function AdminApprovalDashboardInner() {
                       >
                         {selectedMeta.shortLabel}
                       </span>
+                      {selectedDraft.draftKind === "SALES" &&
+                      selectedDraft.salesTouchStage ? (
+                        <span
+                          className={`rounded border px-2 py-0.5 font-mono text-[10px] uppercase ${
+                            selectedDraft.salesTouchStage === "TOUCH2"
+                              ? "border-amber-600/60 bg-amber-950/50 text-amber-200"
+                              : selectedDraft.salesTouchStage === "TOUCH3"
+                                ? "border-violet-700/50 bg-violet-950/40 text-violet-200"
+                                : "border-slate-600 bg-slate-900 text-slate-300"
+                          }`}
+                        >
+                          {selectedDraft.salesTouchStage === "TOUCH2"
+                            ? "Touch 2"
+                            : selectedDraft.salesTouchStage === "TOUCH3"
+                              ? "Touch 3"
+                              : "Touch 1"}
+                        </span>
+                      ) : null}
                       <strong>{selectedMeta.title}</strong>
                     </div>
                     <p className="mt-1 text-xs opacity-90">

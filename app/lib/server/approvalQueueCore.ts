@@ -33,6 +33,8 @@ export const APPROVAL_QUEUE_FETCH_CAP = 200;
 
 export type ApprovalTier = "Gridcore" | "Vaultbank" | "Medshield";
 export type DraftKind = "SUPPORT" | "SALES" | "CUSTOMER_SUCCESS";
+/** Outreach cadence stage for Sales Approvals cards (from CRM summary cadence / HITL note). */
+export type SalesTouchStage = "TOUCH1" | "TOUCH2" | "TOUCH3";
 
 export type ApprovalDispatchChannel = "EMAIL" | "SMS";
 
@@ -58,6 +60,8 @@ export type PendingApprovalDraft = {
   accountDomain: string | null;
   /** ISO timestamp for Newest sort (CRM interaction occurredAt). */
   occurredAt: string;
+  /** Sales cadence stage when present in draft summary (Touch 2/3 cards). */
+  salesTouchStage: SalesTouchStage | null;
 };
 
 export function isPendingDraftSummary(summary: string): boolean {
@@ -96,6 +100,22 @@ export function buildHoldParkedDraftSummary(originalSummary: string, company: st
 export function inferDraftKind(summary: string): DraftKind {
   if (summary.includes(PENDING_CS_ADVISORY_TAG)) return "CUSTOMER_SUCCESS";
   return summary.includes(PENDING_SALES_DRAFT_TAG) ? "SALES" : "SUPPORT";
+}
+
+/**
+ * Detect Touch 1/2/3 from pending Sales summary cadence / HITL notes.
+ * Prefer explicit `Cadence: TOUCHN`; fall back to Touch N day / HITL wording.
+ */
+export function inferSalesTouchStage(summary: string): SalesTouchStage | null {
+  const cadence = summary.match(/Cadence:\s*(TOUCH[123])\b/i)?.[1];
+  if (cadence) {
+    const u = cadence.toUpperCase();
+    if (u === "TOUCH1" || u === "TOUCH2" || u === "TOUCH3") return u;
+  }
+  if (/Touch\s*3\b/i.test(summary) || /\bTOUCH3\b/i.test(summary)) return "TOUCH3";
+  if (/Touch\s*2\b/i.test(summary) || /\bTOUCH2\b/i.test(summary)) return "TOUCH2";
+  if (/Touch\s*1\b/i.test(summary) || /\bTOUCH1\b/i.test(summary)) return "TOUCH1";
+  return null;
 }
 
 function inferTierFromContact(title: string, metadata: unknown): ApprovalTier {
@@ -217,6 +237,8 @@ function mapRowToDraft(row: {
   const draftKind = inferDraftKind(row.summary);
   const dispatchChannel: ApprovalDispatchChannel =
     draftKind === "SALES" && isSalesSmsDraft(row.summary, row.channel) ? "SMS" : "EMAIL";
+  const salesTouchStage =
+    draftKind === "SALES" ? inferSalesTouchStage(row.summary) : null;
 
   const accountDomain =
     (typeof row.deal?.accountDomain === "string" && row.deal.accountDomain) ||
@@ -250,6 +272,7 @@ function mapRowToDraft(row: {
     outreachGeoRank: geo.rank,
     accountDomain,
     occurredAt: row.occurredAt.toISOString(),
+    salesTouchStage,
   };
 }
 

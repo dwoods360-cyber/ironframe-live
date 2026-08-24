@@ -3,6 +3,8 @@
  * Keeps Desk notes / Briefings / Newsletters / Research papers lists mutually exclusive.
  */
 
+import { classifyPublishedLedgerRow } from "@/app/lib/governanceFrame/publishedLedgerKind";
+
 export type PublishingDeskTab =
   | "desk-notes"
   | "briefings"
@@ -70,6 +72,22 @@ export function publishingDeskHref(
   const draft = draftFilename?.trim();
   if (draft) params.set("draft", draft);
   return `/dashboard/operations/publishing?${params.toString()}`;
+}
+
+/**
+ * Isolate the Publishing Desk Published column per tab.
+ * Slug/title-only — published rows may lack markdown on the Ops desk.
+ */
+export function publishedRowBelongsToDesk(
+  desk: PublishingDeskTab,
+  row: { slug: string; title?: string | null },
+): boolean {
+  if (desk === "video" || desk === "linkedin") return false;
+  const kind = classifyPublishedLedgerRow(row.slug, row.title);
+  if (desk === "desk-notes") return kind === "desk_note";
+  if (desk === "newsletters") return kind === "newsletter";
+  if (desk === "research") return kind === "industry_research";
+  return kind === "briefing";
 }
 
 /** Canonical Videos page (When Risk Enters the Room campaign hub). */

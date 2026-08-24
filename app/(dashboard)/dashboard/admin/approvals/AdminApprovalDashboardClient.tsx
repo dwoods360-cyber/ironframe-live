@@ -33,6 +33,7 @@ import {
   preferredSalesDispatchChannel,
   validateApprovalDispatch,
 } from "@/app/lib/approvalDispatchValidation";
+import SalesTouch2QueuePanel from "./SalesTouch2QueuePanel";
 
 type DispatchChannel = "EMAIL" | "SMS";
 
@@ -290,7 +291,7 @@ function AdminApprovalDashboardInner() {
           company: lastDispatch.company,
           interactionId: lastDispatch.interactionId,
           to: lastDispatch.to || undefined,
-          nextTouchNote: "Wait reply / Touch 2 day 4–5",
+          nextTouchNote: "Wait reply / Touch 2 day 4–5 (target-specific re-anchor required)",
           occurredAt: new Date().toISOString(),
         }),
       });
@@ -1111,10 +1112,17 @@ function AdminApprovalDashboardInner() {
                         : `Approve & dispatch ${selectedMeta.shortLabel}`}
                     </button>
                   </div>
+
+                  {selectedDraft.draftKind === "SALES" ? (
+                    <SalesTouch2QueuePanel />
+                  ) : null}
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-slate-800 p-12 text-center font-sans text-sm text-slate-500">
-                  Select a draft from the {filterTitle.toLowerCase()} queue to edit and dispatch.
+                <div className="space-y-6">
+                  <div className="rounded-xl border border-dashed border-slate-800 p-12 text-center font-sans text-sm text-slate-500">
+                    Select a draft from the {filterTitle.toLowerCase()} queue to edit and dispatch.
+                  </div>
+                  {kindFilter === "SALES" ? <SalesTouch2QueuePanel /> : null}
                 </div>
               )}
             </div>

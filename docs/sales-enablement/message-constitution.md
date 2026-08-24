@@ -53,6 +53,8 @@ After code edits: rebuild/restart the SalesTeam worker so `:8084` poll cycles lo
 - CTA = **10–15 min workflow review** (not “Request Demo” / free pilot).
 - Workflow review doctrine: [peer-to-peer technical diligence](../sales/design-partner-workflow-review-protocol.md) — clinical architect tone in drafts; **human** hosts the live call.
 - Cold open: pain + trigger + collaboration; include **$4,999** Path B once relevance is established (Touch 1 body OK; subject can stay problem-led).
+- **Target-specific hooks (Touch 1 and Touch 2):** investigate each prospect’s verified operating motion before drafting; Gate 2 open must name *their* multi-client friction (`As`/`When`/`With…` preferred). Touch 2 = one-line re-anchor + soften/scarcity — never re-send Touch 1 cold opener; see [design-partner-outreach-sequence.md](../sales/design-partner-outreach-sequence.md).
+- **Human voice lock:** write spoken founder prose (short sentences, no stacked economics, no word stumbles). Borrow `board-writer` plain-English clarity; do **not** route cold EMAIL through `board-writer`. Helper: `app/lib/salesHumanVoice.ts`. See outreach sequence § Human voice lock.
 - Never cite `medshield` / `vaultbank` / `gridcore` as customers or hardened baselines.
 - PENDING partners: tenant-scoped Path B link — never generic `/pricing`.
 - Operator email: client-owned only (not `@ironframegrc.com`).

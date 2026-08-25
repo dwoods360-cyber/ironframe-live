@@ -8,12 +8,12 @@ category: newsletter
 series: "Control-First GRC"
 summary: "**Signal (28 August 2026):** Collection volume is not control assurance. After Control-First GRC Parts 1–3, the operator test is whether one artifact can show provenance, scope, integrity, and which decision may cite it—before audit week invents the answers."
 author: "Ironframe Governance Frame"
-reuse_note: "Folds denied 2026-08-21 swivel-chair / evidence-decay auto newsletter (Morgan Stanley stake + continuous-path contrast). Not a separate Ironcast lane. Claim-hygiene rewrite 2026-08-21."
+reuse_note: "Folds denied 2026-08-21 swivel-chair / evidence-decay auto newsletter (Morgan Stanley stake + continuous-path contrast). Operator continuity rewrite only — not a second newsletter product lane. Claim-hygiene rewrite 2026-08-21."
 ---
 
 > **Signal (28 August 2026):** Collection volume is not control assurance. After Control-First GRC Parts 1–3, the operator test is whether one artifact can show provenance, scope, integrity, and which decision may cite it—before audit week invents the answers.
 >
-> *Series continuity edition—not a new historical era paper. Public analysis only; no product pitch. Incorporates the swivel-chair / point-in-time pack lesson without a second Ironcast issue.*
+> *Series continuity edition—not a new historical era paper. Public analysis only; no product pitch. Incorporates the swivel-chair / point-in-time pack lesson without spinning a second newsletter issue for the same lesson.*
 
 ## I. Exposure Vector
 

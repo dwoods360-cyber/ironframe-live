@@ -2,12 +2,16 @@
 researchId: "GF-2026-001"
 title: "The Evolution of Governance, Risk, and Compliance (GRC)"
 subtitle: "A Historical Analysis of Persistent Pain Points (2002–2026)"
-version: "1.4-draft"
-status: "EDITORIAL_DRAFT"
+version: "1.6"
+status: "PUBLISHED"
+published: "2026-08-25"
 classification: "Institutional Governance"
 publisher: "Governance Frame Research"
 canonicalRepositoryPath: "docs/governance-frame/research-papers/GF-2026-001-evolution-of-grc/manuscript.md"
 googleDocId: "1tM-dgVObYSEsG2nDu-i299gWuz0xNRW4bhwGxGuOMoc"
+companionBriefs:
+  - "docs/published-briefings/2026-07-15-research-grc-evolution.md"
+  - "docs/published-briefings/2026-07-15-research-grc-current-pain.md"
 ---
 
 # The Evolution of Governance, Risk, and Compliance (GRC)
@@ -16,9 +20,10 @@ googleDocId: "1tM-dgVObYSEsG2nDu-i299gWuz0xNRW4bhwGxGuOMoc"
 
 **Governance Frame Research Paper GF-2026-001**
 
-**Version:** 1.0 Draft  
-**Status:** Editorial Draft  
-**Classification:** Institutional Governance
+**Version:** 1.6  
+**Status:** Published  
+**Classification:** Institutional Governance  
+**Published:** 2026-08-25
 
 ## Research Integrity Statement
 
@@ -160,7 +165,7 @@ Major data-security failures during the period produced public settlements of ma
 
 ## 3.4 Multi-entity and shared-schema risk
 
-Multi-customer service providers and holding-company structures inherited **shared-schema tenancy** risks when isolation relied on application-layer filters rather than enforceable data boundaries. **Analytical interpretation:** A single subsidiary examination could expand into portfolio-wide scope risk when workspace boundaries were cosmetic.
+Multi-customer service providers and holding-company structures inherited **shared-schema tenancy** risks when isolation relied on application-layer filters rather than centrally enforced, tested boundaries. **Analytical interpretation:** A single subsidiary examination can expand into portfolio-wide scope risk when workspace boundaries are convention-only (for example, tags or shared logins) rather than deny-by-default isolation at query, export, and job boundaries. Shared-schema designs are not inherently indefensible; the distinction is application-convention filtering versus enforceable isolation (including tested row-level security where appropriate, or stronger separation where contract or regulation demands it).
 
 ## 3.5 Chapter summary
 
@@ -198,17 +203,17 @@ The current era requires traceable evidence, quantified analysis without false p
 
 # 5. Persistent Structural Pain Points
 
-Across the three eras examined above, distinct tooling generations addressed symptoms while several structural pains recurred:
+Across the three eras examined above, distinct tooling generations addressed symptoms while several structural pains recurred. These five themes align with the published companion industry brief *Current GRC Pain Points* (2026-07-15; claim-hygiene revised through 2026-08-04). Supported claims and explicit non-claims below follow that brief’s fences.
 
-1. **Evidence fragmentation** — Control owners re-key artifacts from multiple systems into spreadsheets and shared folders; audit confidence collapses when chains cannot be sealed and exported as governed artifacts [GF001-REF-004][GF001-REF-005].
+1. **Evidence fragmentation** — Control owners re-key artifacts from multiple systems into spreadsheets and shared folders. Peer-reviewed spreadsheet-control literature documents risks in version control, access, change management, review, and reproducibility [GF001-REF-004][GF001-REF-005]. **Not claimed:** a measured 2026 mid-market/MSSP prevalence rate for “board time lost” to spreadsheet packs.
 
-2. **Qualitative heatmaps** — High/Medium/Low scales fail CFO and board interrogation when public enforcement prices failures in currency [GF001-REF-014]. NIST CSF 2.0’s GOVERN function integrates cybersecurity into enterprise risk management strategy and oversight [GF001-REF-015].
+2. **Qualitative heatmaps** — Purely qualitative High/Medium/Low scales are often weak for investment and risk-treatment decisions when leadership needs decision-useful exposure context [GF001-REF-014]. NIST CSF 2.0’s GOVERN function integrates cybersecurity into enterprise risk management strategy and oversight [GF001-REF-015]. **Not claimed:** that boards universally “reject heatmaps,” or that every risk must be an exact whole-dollar figure.
 
-3. **Connector theater** — API integration counts proxy maturity while unverified ingest into shared schemas creates cross-contamination risk. **Architectural recommendation:** quarantine-before-persist for external evidence.
+3. **Unverified connector / ingest** — API integration counts are sometimes treated as a maturity proxy; that market observation is not verified here as a measured industry-wide finding. Untrusted external data should be validated before trusted evidence and decision workflows [architectural recommendation: quarantine → validate → promote]. **Not claimed:** that connector count equals maturity as an empirical fact.
 
-4. **Cosmetic multi-entity isolation** — Metadata tags inside shared databases are not equivalent to query-time workspace isolation for holding companies, MSSPs, and healthcare networks.
+4. **Soft multi-entity isolation** — A tenant tag or shared login is not, by itself, an isolation control for holding companies, MSSPs, and multi-entity networks. Enforceable isolation must hold at applicable authorization, query, export, job, and recovery boundaries—via tested logical controls (for example RLS) or stronger separation where required. **Not claimed:** that every client must have a separate physical database universally.
 
-5. **Unbounded AI assistance** — Assistants that draft control narratives without human-in-the-loop publication gates introduce privilege drift and unattested content [GF001-REF-013].
+5. **Unbounded AI assistance** — Assistants that draft control narratives without consequence-proportionate oversight introduce privilege drift and unattested content [GF001-REF-013]. **Architectural position (not a universal NIST/DORA mandate):** human approval before high-impact or external publication, with provenance and monitoring proportionate to consequence. **Not claimed:** that NIST AI RMF or DORA mandate one HITL design, temperature locks, or approve-every-token.
 
 **Open research question (verification-closed, not quantified):** Comparative empirical measurement of multi-entity isolation failure rates across GRC platform architectures is beyond this paper’s current evidence base. No isolation-failure rate is asserted here.
 
@@ -218,7 +223,7 @@ Across the three eras examined above, distinct tooling generations addressed sym
 
 **Lesson 2 — Volume is not assurance.** Cloud-era automation increased retrieval speed; SOC 2 and connector programs still required validation, scope, and provenance [GF001-REF-006].
 
-**Lesson 3 — Currency beats color.** Public settlements and penalties demonstrate that boards and regulators reason in dollars; heatmaps alone are insufficient for materiality and capital discussions [GF001-REF-008][GF001-REF-014].
+**Lesson 3 — Currency beats color.** Public settlements and penalties show that control and disclosure failures can carry material financial consequences; purely qualitative heatmaps alone are often insufficient for investment and risk-treatment decisions [GF001-REF-008][GF001-REF-014]. Monetary ranges with assumptions remain preferable to false precision.
 
 **Lesson 4 — Continuous expectation demands reconstructability.** Modern disclosure and resilience regimes press organizations to reproduce evidence, calculations, AI contributions, and approvals after the fact [GF001-REF-010][GF001-REF-011].
 
@@ -249,8 +254,10 @@ This paper synthesizes publicly available statutes, regulations, standards, regu
 | Control-First GRC Part 1 | CF-GRC-2026-01 | Public briefing — SOX era |
 | Control-First GRC Part 2 | CF-GRC-2026-02 | Public briefing — cloud era |
 | Control-First GRC Part 3 | CF-GRC-2026-03 | Public briefing — continuous governance era |
+| Evolution of GRC (industry brief) | 2026-07-15-research-grc-evolution | Published companion brief — historical mitigations |
+| Current GRC Pain Points (industry brief) | 2026-07-15-research-grc-current-pain | Published companion brief — five pain themes + alleviation map |
 
-Canonical packages reside under `docs/governance-frame/briefings/series/control-first-grc/`.
+Canonical packages reside under `docs/governance-frame/briefings/series/control-first-grc/`. Companion briefs: `docs/published-briefings/2026-07-15-research-grc-evolution.md` and `docs/published-briefings/2026-07-15-research-grc-current-pain.md`.
 
 ## Appendix C — Terminology
 

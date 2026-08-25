@@ -14,11 +14,13 @@
 | 2 | The Emergence of Modern GRC, 2002–2008 | Complete (1.3-draft) |
 | 3 | Cloud Governance and Compliance Automation, 2009–2018 | Complete (1.3-draft) |
 | 4 | Continuous Governance and Executive Accountability, 2019–2026 | Complete (1.3-draft) |
-| 5 | Persistent Structural Pain Points | Complete (1.3-draft) |
-| 6 | Historical Lessons | Complete (1.3-draft) |
+| 5 | Persistent Structural Pain Points | Complete (1.6 — claim-hygiene aligned to Jul 15 current-pain brief) |
+| 6 | Historical Lessons | Complete (1.6) |
 | 7 | Conclusion | Complete (1.3-draft) |
 | 8 | References | Ledger (`references.md`) — 15 entries |
-| 9 | Appendices | Complete (1.3-draft) |
+| 9 | Appendices | Complete (1.6 — companion briefs linked) |
+
+**Publication status (2026-08-25):** Manuscript frontmatter `status: PUBLISHED` · public catalog slug `GF-2026-001-evolution-of-grc`.
 
 ## Required package files
 

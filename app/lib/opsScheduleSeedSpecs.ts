@@ -162,6 +162,14 @@ export function defaultNextActionsFor(args: {
       "Log warm replies before any cold DISPATCH batch",
     ];
   }
+  if (ref.startsWith("marketing/founder-li-network")) {
+    return [
+      "Prune spam / non-ICP suggested noise (2 min)",
+      "Engage ≤3 peers (comment/react/reply) — no Ironframe pitch",
+      "Send 3–5 Path B–fit connection requests with a 1-line personal note",
+      "Mark Done (outcome: connects sent / notable threads)",
+    ];
+  }
   if (ref.startsWith("marketing/cold-outreach-gate")) {
     return [
       "Confirm LinkedIn Mon/Wed/Fri week-1 posts published (or scheduled)",
@@ -188,7 +196,12 @@ export function defaultNextActionsFor(args: {
   if (
     ref.startsWith("marketing/linkedin-2026-08-17-ccm") ||
     ref.startsWith("marketing/linkedin-2026-08-19-board-delta") ||
-    ref.startsWith("marketing/linkedin-2026-08-21-tprm")
+    ref.startsWith("marketing/linkedin-2026-08-21-tprm") ||
+    ref.startsWith("marketing/linkedin-2026-08-24-shared-stack") ||
+    ref.startsWith("marketing/linkedin-2026-08-26-board-export") ||
+    ref.startsWith("marketing/linkedin-2026-09-08-heatmap-callback") ||
+    ref.startsWith("marketing/linkedin-2026-09-12-enclaves-callback") ||
+    ref.startsWith("marketing/linkedin-2026-09-15-ma-security-debt")
   ) {
     return [
       "Open Publishing Desk → LinkedIn (this calendar card)",
@@ -289,10 +302,17 @@ export function defaultNextActionsFor(args: {
     ];
   }
   if (ref.includes("control-first-newsletter") || title.includes("control-first")) {
+    if (ref.includes("#publish") || title.toLowerCase().includes("publish") || title.toLowerCase().includes("promote")) {
+      return [
+        "Open Publishing Desk → Newsletters (this draft)",
+        "Claim-hygiene pass; Promote or Deny (human only)",
+        "If Promote: syndicate / record publish URL in outcome",
+      ];
+    }
     return [
-      "Outline next Control-First GRC founder newsletter edition",
-      "Stage draft to queue if publishing via Ops Hub",
-      "Mark Done when outline/draft is ready for review",
+      "Open Publishing Desk → Newsletters (Control-First draft)",
+      "Voice-pass + verify Section V citations (Parts 1–3 + NIST + SEC 2022-168)",
+      "Mark Done when ready for promote window",
     ];
   }
   if (ref.includes("companion-story") || title.includes("story bank")) {
@@ -532,28 +552,28 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Video V1 — The Risk Register (build)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-16T18:00:00.000Z",
+      dueAt: "2026-09-16T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v1-build",
       synopsis:
-        "Produce Episode 1 (The Number / risk register) clips for scheduled publish — Phase 1 budget ~$200.",
+        "Produce Episode 1 (The Number / risk register) clips for scheduled publish — Phase 1 budget ~$200. [2026-08-20] Rescheduled to Wed Sep 16 — +1 month from prior due Sun Aug 16 (cash discipline until Path B closes).",
     },
     {
       title: "Video V1 — Publish The Number",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-21T16:00:00.000Z",
+      dueAt: "2026-09-21T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v1-publish",
       synopsis:
-        "Ship Episode 1 to LinkedIn + /marketing with CTA to a 10–15 min workflow review.",
+        "Ship Episode 1 to LinkedIn + /marketing with CTA to a 10–15 min workflow review. [2026-08-20] Rescheduled to Mon Sep 21 — keeps publish after V1 build (Sep 16).",
     },
     {
       title: "Video V2 — The Audit Request (build)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-23T18:00:00.000Z",
+      dueAt: "2026-08-30T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v2-build",
       synopsis:
-        "Produce Episode 2 (The Evidence / audit request) and freeze the style pack after edit.",
+        "Produce Episode 2 (The Evidence / audit request) and freeze the style pack after edit. [2026-08-24] Rescheduled +1 week from prior due Sun Aug 23 (Path B outreach + cash discipline).",
     },
     {
       title: "Video V2 — Publish The Evidence",
@@ -563,6 +583,17 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       sourceRef: "video-series/when-risk-enters-the-room#v2-publish",
       synopsis:
         "Ship Episode 2 pointing to /product-demo and audit-ready evidence solutions.",
+    },
+    {
+      title: "Video V3 — Build The Boundary",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-08-29T18:00:00.000Z",
+      sourceRef: "video-series/when-risk-enters-the-room#v3-build",
+      href: "/docs/marketing-strategy/video-series/v3-kickoff-phase2-shotlist",
+      priorityHint: 18,
+      synopsis:
+        "V3 pack published (c6ca922c). Shot 02 keyframe + Flow card ready in Videos/WhenRisk/V3/raw. Generate clip next. [2026-08-24] Rescheduled +1 week from prior due Sat Aug 22.",
     },
     {
       title: "Video Phase 2 — V3/V4/V5 production window",
@@ -695,11 +726,13 @@ export function ironframeRollout2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "Rollout — First SalesTeam DISPATCH batch",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-08-24T15:00:00.000Z",
       sourceRef: "rollout/first-salesteam-dispatch",
       synopsis:
         "Board-first HITL outbound batch to the Path B design-partner cohort. [2026-08-15] Kept Mon Aug 24 — same day as cold outreach gate.",
+      outcome:
+        "PASS 2026-08-24 — First Path B HITL DISPATCH batch sent. Touch 1 (5): CyberGuard, CyberSheath, Cycurion, Cyturity, Dark Rhino. Touch 2 (5): Abacus, Absolute Logic, Agio/Netrio, Alvarez, AMSYS. Cold outreach gate cleared same day.",
     },
     {
       title: "Rollout — 2A Stripe subscription lifecycle PASS",
@@ -732,10 +765,10 @@ export function ironframeRollout2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Rollout — First paying Path B design partner ACTIVE",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-20T17:00:00.000Z",
+      dueAt: "2026-09-21T17:00:00.000Z",
       sourceRef: "rollout/phase-b-first-live-partner",
       synopsis:
-        "Land first paying Path B design partner ACTIVE (market-entrance Phase B).",
+        "Land first paying Path B design partner ACTIVE (market-entrance Phase B). [2026-08-19] Rescheduled to Mon Sep 21 — +1 month from prior due Thu Aug 20 (after first HITL DISPATCH wave starts).",
     },
     {
       title: "Rollout — 2D second prod reference + in-tenant support",
@@ -804,11 +837,14 @@ export function researchPaper2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "GF-2026-001 — Operator Approve / publish",
       kind: "RESEARCH_PAPER",
-      status: "PLANNED",
-      dueAt: "2026-08-15T17:00:00.000Z",
+      status: "DONE",
+      dueAt: "2026-08-25T17:00:00.000Z",
       sourceRef: "research/GF-2026-001#publish",
       synopsis:
-        "Human-only Approve/publish after editorial and product-boundary reviews both pass.",
+        "Human-only Approve/publish after editorial and product-boundary reviews both pass. Manuscript status PUBLISHED for public research catalog.",
+      outcome:
+        "PASS 2026-08-25 — GF-2026-001 v1.6 PUBLISHED. Chapter 5 aligned to Jul 15 current-pain claim-hygiene; companion briefs linked. Public slug: /research-papers/GF-2026-001-evolution-of-grc (and research.ironframegrc.com mirror when deployed).",
+      href: "/docs/governance-frame/research-papers/GF-2026-001-evolution-of-grc/manuscript",
     },
   ];
 }
@@ -893,7 +929,136 @@ export function queueBacklog2026SeedSpecs(): OpsScheduleSeedSpec[] {
       outcome:
         "Market GRC Parts 1–3 queue mirrors DENIED/REMOVED as duplicates. Canonical CF-GRC Parts 1–3 remain locked in the published ledger (2026-07-16).",
     },
+    {
+      title: "Review briefing draft: 2026-08-18-draft-auto-briefing-heatmap-vs-dollars.md",
+      kind: "BRIEFING_REVIEW",
+      status: "CANCELLED",
+      dueAt: "2026-08-19T17:00:00.000Z",
+      sourceRef: "2026-08-18-draft-auto-briefing-heatmap-vs-dollars.md",
+      synopsis:
+        "Staged queue draft (2026-08-18-draft-auto-briefing-heatmap-vs-dollars) — Ops review before any public publish.",
+      outcome:
+        "CANCELLED 2026-08-19 — Theme already live via founder LinkedIn (heatmap vs dollars) + Heatmap Amnesty desk note lane; no separate auto-briefing promote.",
+    },
+    {
+      title: "Review newsletter draft: 2026-08-18-draft-auto-newsletter-heatmap-vs-dollars.md",
+      kind: "NEWSLETTER_REVIEW",
+      status: "CANCELLED",
+      dueAt: "2026-08-19T17:00:00.000Z",
+      sourceRef: "2026-08-18-draft-auto-newsletter-heatmap-vs-dollars.md",
+      synopsis:
+        "Autonomous GTM newsletter draft in quarantine — Ops promote or deny only.",
+      outcome:
+        "CANCELLED 2026-08-19 — Theme already live via founder LinkedIn (heatmap vs dollars) + Heatmap Amnesty desk note lane; no separate auto-newsletter promote.",
+    },
+    {
+      title: "Review briefing draft: 2026-08-19-draft-auto-briefing-tenant-sovereignty.md",
+      kind: "BRIEFING_REVIEW",
+      status: "CANCELLED",
+      dueAt: "2026-08-20T17:00:00.000Z",
+      sourceRef: "2026-08-19-draft-auto-briefing-tenant-sovereignty.md",
+      synopsis:
+        "Staged queue draft (2026-08-19-draft-auto-briefing-tenant-sovereignty) — Ops review before any public publish.",
+      outcome:
+        "DENIED 2026-08-20 — Claim-hygiene rewrite applied on disk; moved to docs/ops/denied-rewrites/. Not promoted.",
+    },
+    {
+      title: "Review newsletter draft: 2026-08-19-draft-auto-newsletter-tenant-sovereignty.md",
+      kind: "NEWSLETTER_REVIEW",
+      status: "CANCELLED",
+      dueAt: "2026-08-20T17:00:00.000Z",
+      sourceRef: "2026-08-19-draft-auto-newsletter-tenant-sovereignty.md",
+      synopsis:
+        "Autonomous GTM newsletter draft in quarantine — Ops promote or deny only.",
+      outcome:
+        "DENIED 2026-08-20 — Duplicate tenant-sovereignty theme; denied with briefing pair. Moved to docs/ops/denied-rewrites/.",
+    },
+    {
+      title: "Review briefing draft: 2026-08-24-draft-auto-briefing-tenant-sovereignty.md",
+      kind: "BRIEFING_REVIEW",
+      status: "CANCELLED",
+      dueAt: "2026-08-25T17:00:00.000Z",
+      sourceRef: "2026-08-24-draft-auto-briefing-tenant-sovereignty.md",
+      synopsis:
+        "Staged queue draft (2026-08-24-draft-auto-briefing-tenant-sovereignty) — Ops review before any public publish.",
+      outcome:
+        "CANCELLED 2026-08-24 — Duplicate tenant-sovereignty auto-run; Aug 19 pair already denied. No file in queue; card closed.",
+    },
+    {
+      title: "Review newsletter draft: 2026-08-24-draft-auto-newsletter-tenant-sovereignty.md",
+      kind: "NEWSLETTER_REVIEW",
+      status: "CANCELLED",
+      dueAt: "2026-08-25T17:00:00.000Z",
+      sourceRef: "2026-08-24-draft-auto-newsletter-tenant-sovereignty.md",
+      synopsis:
+        "Autonomous GTM newsletter draft in quarantine — Ops promote or deny only.",
+      outcome:
+        "CANCELLED 2026-08-24 — Duplicate tenant-sovereignty auto-run; Aug 19 pair already denied. No file in queue; card closed.",
+    },
+    {
+      title: "Review newsletter — Control-First GRC: When Evidence Collection Becomes Evidence Theater",
+      kind: "NEWSLETTER_REVIEW",
+      status: "CANCELLED",
+      dueAt: "2026-08-25T17:00:00.000Z",
+      sourceRef: "2026-08-06-draft-newsletter-control-first-evidence-theater.md",
+      synopsis:
+        "Superseded Aug 06 Control-First queue draft — use marketing/control-first-newsletter-aug#review + 2026-08-28 queue file.",
+      outcome:
+        "CANCELLED 2026-08-24 — Superseded by 2026-08-28 queue rewrite. Manuscript archived under docs/ops/denied-rewrites/; use marketing/control-first-newsletter-aug#review only.",
+    },
+    {
+      title: "Review newsletter — Control-First evidence theater (queue)",
+      kind: "NEWSLETTER_REVIEW",
+      status: "CANCELLED",
+      dueAt: "2026-08-25T17:00:00.000Z",
+      sourceRef: "2026-08-28-draft-newsletter-control-first-evidence-theater.md",
+      synopsis:
+        "Auto queue-review duplicate — canonical card is marketing/control-first-newsletter-aug#review (same manuscript).",
+      outcome:
+        "CANCELLED 2026-08-24 — Duplicate auto queue-review card; canonical review is marketing/control-first-newsletter-aug#review (same manuscript).",
+    },
   ];
+}
+
+/**
+ * Weekday founder LinkedIn network hygiene (10–15 min).
+ * Starts 2026-08-20 through 2026-09-18. sourceRef avoids `marketing/linkedin*`
+ * so these cards do not create Publishing Desk draft slots.
+ */
+export function founderLinkedInNetworkHygiene2026SeedSpecs(): OpsScheduleSeedSpec[] {
+  const start = new Date("2026-08-20T16:00:00.000Z");
+  const end = new Date("2026-09-18T16:00:00.000Z");
+  const specs: OpsScheduleSeedSpec[] = [];
+  const day = new Date(start);
+  while (day.getTime() <= end.getTime()) {
+    const dow = day.getUTCDay(); // 0 Sun … 6 Sat
+    if (dow >= 1 && dow <= 5) {
+      const y = day.getUTCFullYear();
+      const m = String(day.getUTCMonth() + 1).padStart(2, "0");
+      const d = String(day.getUTCDate()).padStart(2, "0");
+      const isoDate = `${y}-${m}-${d}`;
+      const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dow]!;
+      specs.push({
+        title: `LinkedIn network — ${weekday} ${isoDate}`,
+        kind: "OPS_GENERAL",
+        status: "PLANNED",
+        dueAt: `${isoDate}T16:00:00.000Z`,
+        sourceRef: `marketing/founder-li-network-${isoDate}`,
+        href: "https://www.linkedin.com/feed/",
+        priorityHint: 22,
+        synopsis:
+          "Daily 10–15 min: prune noise, ≤3 peer engages (no pitch), 3–5 Path B–fit connects with a 1-line note. Separate from Mon/Wed/Fri posts.",
+        nextActions: [
+          "Prune spam / non-ICP suggested noise (2 min)",
+          "Engage ≤3 peers (comment/react/reply) — no Ironframe pitch",
+          "Send 3–5 Path B–fit connection requests with a 1-line personal note",
+          "Mark Done (outcome: connects sent / notable threads)",
+        ],
+      });
+    }
+    day.setUTCDate(day.getUTCDate() + 1);
+  }
+  return specs;
 }
 
 /**
@@ -1008,12 +1173,12 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "LinkedIn Mon — “Last audited” is not “working now”",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-24T20:00:00.000Z",
+      dueAt: "2026-08-17T20:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-08-17-ccm",
       href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-17-ccm",
       priorityHint: 4,
       synopsis:
-        "Founder LinkedIn (Mon): point-in-time audit packs vs continuous control proof — ‘last audited’ ≠ ‘working now.’ [2026-08-15] Rescheduled from Mon Aug 17 to Mon Aug 24.",
+        "Founder LinkedIn (Mon): point-in-time audit packs vs continuous control proof — ‘last audited’ ≠ ‘working now.’ [2026-08-17] Restored to Mon Aug 17 (was briefly Aug 24).",
       nextActions: [
         "Open Publishing Desk → LinkedIn (this calendar card)",
         "Verify research citations, Copy body → LinkedIn",
@@ -1041,17 +1206,69 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "LinkedIn Fri — Questionnaire ≠ continuous third-party assurance",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-08-21T20:00:00.000Z",
       sourceRef: "marketing/linkedin-2026-08-21-tprm",
       href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-21-tprm",
       priorityHint: 6,
       synopsis:
         "Founder LinkedIn (Fri): TPRM control lesson — vendor questionnaires ≠ continuous third-party assurance; DORA ICT third-party context.",
+      outcome: "PASS 2026-08-21 — Published: https://lnkd.in/p/gs7VuRmg",
       nextActions: [
         "Open Publishing Desk → LinkedIn (this calendar card)",
         "Verify research citations, Copy body → LinkedIn",
         "Paste first-comment CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
+      title: "LinkedIn Mon — Shared-stack evidence registers",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-08-24T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-08-24-shared-stack",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-24-shared-stack",
+      priorityHint: 4,
+      synopsis:
+        "Founder LinkedIn (Mon): multi-client GRC — row-level tags ≠ evidence register wall. MSSP/vCISO problem post; voice-pass 2026-08-24; cites May 14 enclaves briefing. Draft: linkedin-drafts-2026-08-24-shared-stack-evidence.md.",
+      nextActions: [
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Verify research citations, Copy body → LinkedIn",
+        "Paste first-comment CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
+      title: "LinkedIn Wed — Board reporting from a shared register",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-08-26T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-08-26-board-export",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-26-board-export",
+      priorityHint: 5,
+      synopsis:
+        "Founder LinkedIn (Wed): entity-scoped export inspect path before board/customer assurance send. Points to /product-demo. Draft: linkedin-drafts-2026-08-26-board-export-isolation.md.",
+      nextActions: [
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Verify research citations, Copy body → LinkedIn",
+        "Paste first-comment CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
+      title: "LinkedIn Mon — Security debt shows up in deal valuation",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-09-15T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-09-15-ma-security-debt",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-09-15-ma-security-debt",
+      priorityHint: 7,
+      synopsis:
+        "Founder LinkedIn (Mon): M&A/diligence angle — security debt in deal valuation (not Magerr copy; no engage). Soft overlap with enclaves; different job than soft-tenancy GF.",
+      nextActions: [
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Voice-pass draft; verify independent citations (not Magerr)",
+        "Copy body → LinkedIn; paste first-comment CTA after publish",
         "Mark Done with LinkedIn URL",
       ],
     },
@@ -1070,12 +1287,14 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "Marketing — Cold outreach gate (after free marketing)",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-08-24T15:00:00.000Z",
       sourceRef: "marketing/cold-outreach-gate",
       priorityHint: 11,
       synopsis:
         "Do not start cold Path B DISPATCH until LinkedIn week-1 + pre-outreach checklist + live surfaces pass. [2026-08-15] Rescheduled to Mon Aug 24 — week-1 LinkedIn and Video Phase 0 are DONE; keep gate with first DISPATCH (Canada CRM still not promote-ready).",
+      outcome:
+        "PASS 2026-08-24 — Cold outreach gate cleared for US MSSP HITL continuation. LinkedIn week-1 Mon/Wed/Fri published; pre-outreach A1–A4 + Stripe Path B + live surfaces spot-check Done. First DISPATCH batch sent same day.",
     },
     {
       title: "Control-First GRC founder newsletter — next edition outline",
@@ -1087,8 +1306,74 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       synopsis:
         "Outline the next Control-First GRC founder newsletter companion to published Parts 1–3.",
       outcome:
-        "PASS 2026-08-06 — Outline + draft: docs/marketing-strategy/control-first-newsletter-aug-2026-outline.md; staged quarantine docs/briefing-queue/2026-08-06-draft-newsletter-control-first-evidence-theater.md. Subject: When evidence collection becomes evidence theater. Awaiting human Approve before Ironcast promote.",
+        "PASS 2026-08-06 — Outline done. [2026-08-21] Active queue supersession: docs/briefing-queue/2026-08-28-draft-newsletter-control-first-evidence-theater.md (folds denied swivel-chair draft). Promote cards: marketing/control-first-newsletter-aug#review / #publish.",
       href: "/docs/marketing-strategy/control-first-newsletter-aug-2026-outline",
+    },
+    {
+      title: "Control-First GRC newsletter — claim-hygiene review",
+      kind: "NEWSLETTER_REVIEW",
+      status: "PLANNED",
+      dueAt: "2026-08-25T17:00:00.000Z",
+      sourceRef: "marketing/control-first-newsletter-aug#review",
+      priorityHint: 18,
+      synopsis:
+        "Voice-pass + Section V on Control-First evidence theater (Parts 1–3 + NIST + SEC 2022-168). Single canonical review card — auto queue-review duplicates are cancelled. Queue: 2026-08-28-draft-newsletter-control-first-evidence-theater.md.",
+      href: "/dashboard/operations/publishing?desk=newsletters&draft=2026-08-28-draft-newsletter-control-first-evidence-theater.md",
+      nextActions: [
+        "Open Publishing Desk → Newsletters (this draft)",
+        "Verify citations; no product CTA / no invented statutes",
+        "Mark Done when ready for Aug 28 promote window",
+      ],
+    },
+    {
+      title: "Control-First GRC newsletter — promote / publish window",
+      kind: "NEWSLETTER_SYNDICATE",
+      status: "PLANNED",
+      dueAt: "2026-08-28T17:00:00.000Z",
+      sourceRef: "marketing/control-first-newsletter-aug#publish",
+      priorityHint: 19,
+      synopsis:
+        "Human Promote on Publishing Desk → Newsletters for Control-First evidence theater (or founder-send only). Queue file: 2026-08-28-draft-newsletter-control-first-evidence-theater.md.",
+      href: "/dashboard/operations/publishing?desk=newsletters&draft=2026-08-28-draft-newsletter-control-first-evidence-theater.md",
+      nextActions: [
+        "Open Publishing Desk → Newsletters (this draft)",
+        "Claim-hygiene pass; Promote or Deny (human only)",
+        "If Promote: syndicate / record publish URL in outcome",
+      ],
+    },
+    {
+      title: "LinkedIn Mon — Heatmap callback (color ≠ decision)",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-09-08T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-09-08-heatmap-callback",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-09-08-heatmap-callback",
+      priorityHint: 22,
+      synopsis:
+        "Founder LinkedIn (Mon): callback to heatmap-vs-dollars / Heatmap Amnesty — reuses closed Aug auto drafts without a new GF Ironcast. Draft: linkedin-drafts-2026-09-08-heatmap-callback.md.",
+      nextActions: [
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Voice-pass; Copy body → LinkedIn",
+        "Paste first-comment CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
+      title: "LinkedIn Fri — Soft tags ≠ legal-entity wall",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-09-12T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-09-12-enclaves-callback",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-09-12-enclaves-callback",
+      priorityHint: 23,
+      synopsis:
+        "Founder LinkedIn (Fri): cite published May 14 enclaves briefing — reuses denied tenancy autos as LinkedIn lesson only (no re-promote). Draft: linkedin-drafts-2026-09-12-enclaves-callback.md.",
+      nextActions: [
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Voice-pass; confirm enclaves URL live",
+        "Paste first-comment CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
     },
     {
       title: "Companion story bank — schedule Friday lessons (post style freeze)",
@@ -1107,7 +1392,7 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
 export function founderMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
   return preOutreachMarketing2026SeedSpecs().filter((spec) =>
     spec.sourceRef.startsWith("marketing/linkedin") ||
-    spec.sourceRef === "marketing/control-first-newsletter-aug" ||
+    spec.sourceRef.startsWith("marketing/control-first-newsletter-aug") ||
     spec.sourceRef === "marketing/companion-story-bank",
   );
 }
@@ -1296,18 +1581,27 @@ export function deskNotesCadence2026SeedSpecs(): OpsScheduleSeedSpec[] {
   const firstPublishUtc = Date.UTC(2026, 7, 18, 18, 0, 0); // Tue 2026-08-18 18:00 UTC
   const weekMs = 7 * 24 * 60 * 60 * 1000;
 
+  /** Desk notes already promoted — seed as DONE so calendar does not show stale PLANNED. */
+  const publishedDeskNoteFilenames = new Set([
+    "2026-08-24-draft-desk-note-circia-readiness-window.md",
+  ]);
+
   const publishBacklog: OpsScheduleSeedSpec[] = backlog.map((item, index) => {
     const due = new Date(firstPublishUtc + index * weekMs);
+    const published = publishedDeskNoteFilenames.has(item.filename);
     return {
       title: `Desk note — publish: ${item.label}`,
       kind: "BRIEFING_REVIEW" as const,
-      status: "PLANNED" as const,
+      status: (published ? "DONE" : "PLANNED") as "DONE" | "PLANNED",
       dueAt: due.toISOString(),
       sourceRef: item.filename,
       priorityHint: 40,
       synopsis:
         "Weekly GF desk note Approve window (Tue 18:00 UTC). Does not share Mon/Wed/Fri LinkedIn or Fri video publish slots. Signal date stays on the note — not Approve-day.",
       href: `/dashboard/operations/publishing?desk=desk-notes&draft=${encodeURIComponent(item.filename)}`,
+      ...(published
+        ? { outcome: `PASS 2026-08-24 — Promoted and posted (${item.label}).` }
+        : {}),
     };
   });
 
@@ -1369,9 +1663,55 @@ export function deskNotesCadence2026SeedSpecs(): OpsScheduleSeedSpec[] {
 }
 
 /** All project packs for Ops Calendar seed (idempotent by sourceRef+kind). */
+export function linkedinTriageFollowups2026SeedSpecs(): OpsScheduleSeedSpec[] {
+  return [
+    {
+      title: "Follow-up — CISA BOD 26-02 recording (EoS edge devices)",
+      kind: "OPS_GENERAL",
+      status: "DONE",
+      dueAt: "2026-08-19T17:00:00.000Z",
+      sourceRef: "gf/followup-2026-08-14-bod-26-02",
+      priorityHint: 4,
+      href: "/dashboard/operations/publishing?desk=desk-notes",
+      synopsis:
+        "LinkedIn: CISA hosted Understanding BOD 26-02 — Securing End-of-Support Edge Devices (recording). Adjacent to KEV / BOD desk-note lane. Watch or skim → decide whether a quarantined desk note is warranted (do not invent claims).",
+      outcome:
+        "CLOSED 2026-08-19 — Desk note warranted and promoted: 2026-08-19-desk-note-bod-26-02-eos-edge (CISA BOD 26-02 EoS edge devices).",
+    },
+    {
+      title: "Follow-up — AI change-control thread (Tia Hopkins / Greg Crowley)",
+      kind: "OPS_GENERAL",
+      status: "DONE",
+      dueAt: "2026-08-20T17:00:00.000Z",
+      sourceRef: "marketing/linkedin-followup-2026-08-14-ai-change-control",
+      priorityHint: 5,
+      href: "/dashboard/operations/publishing?desk=linkedin",
+      synopsis:
+        "Optional skim only. Same AI-governance neighborhood as AI-evidence post. Engage only if you can add a control-first distinction without duplicating your Aug post. Otherwise Done = skimmed / no engage.",
+      outcome:
+        "DONE 2026-08-19 — Skimmed Tia Hopkins → Greg Crowley AI change-control thread. No engage: same neighborhood as Aug AI-evidence post.",
+    },
+    {
+      title: "Follow-up — M&A security diligence angle (Gene Magerr)",
+      kind: "OPS_GENERAL",
+      status: "DONE",
+      dueAt: "2026-08-21T17:00:00.000Z",
+      sourceRef: "marketing/linkedin-followup-2026-08-14-ma-diligence",
+      priorityHint: 5,
+      href: "/docs/marketing-strategy/linkedin-founder-cadence",
+      synopsis:
+        "Soft overlap with multi-entity / soft-tenancy / enclaves. Optional: park a future founder post on security debt in deal valuation — not a copy of Magerr. No engage required.",
+      outcome:
+        "DONE 2026-08-21 — Skimmed Magerr M&A diligence post. Angle parked for Sep 15 founder post (marketing/linkedin-2026-09-15-ma-security-debt); no engage.",
+    },
+  ];
+}
+
 export function allProjects2026SeedSpecs(): OpsScheduleSeedSpec[] {
   return assignCalendarPriorities([
     ...preOutreachMarketing2026SeedSpecs(),
+    ...founderLinkedInNetworkHygiene2026SeedSpecs(),
+    ...linkedinTriageFollowups2026SeedSpecs(),
     ...summer2026SeedSpecs(),
     ...videoCampaign2026SeedSpecs(),
     ...ironframeRollout2026SeedSpecs(),

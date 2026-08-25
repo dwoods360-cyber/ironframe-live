@@ -261,6 +261,16 @@ const LINKEDIN_SOURCE_REF_REPO_FILE: Record<string, string> = {
     "docs/marketing-strategy/linkedin-drafts-2026-08-19-board-delta.md",
   "marketing/linkedin-2026-08-21-tprm":
     "docs/marketing-strategy/linkedin-drafts-2026-08-21-tprm.md",
+  "marketing/linkedin-2026-08-24-shared-stack":
+    "docs/marketing-strategy/linkedin-drafts-2026-08-24-shared-stack-evidence.md",
+  "marketing/linkedin-2026-08-26-board-export":
+    "docs/marketing-strategy/linkedin-drafts-2026-08-26-board-export-isolation.md",
+  "marketing/linkedin-2026-09-15-ma-security-debt":
+    "docs/marketing-strategy/linkedin-drafts-2026-09-15-ma-security-debt.md",
+  "marketing/linkedin-2026-09-08-heatmap-callback":
+    "docs/marketing-strategy/linkedin-drafts-2026-09-08-heatmap-callback.md",
+  "marketing/linkedin-2026-09-12-enclaves-callback":
+    "docs/marketing-strategy/linkedin-drafts-2026-09-12-enclaves-callback.md",
 };
 
 /** Ordered static LinkedIn desk slots (week-1 canon). Dynamic calendar slots merge in. */
@@ -520,16 +530,27 @@ export function composeLinkedInDeskMarkdown(
 export function stripLinkedInOperatorFrontMatter(text: string): string {
   const normalized = text.replace(/\r\n/g, "\n").trim();
   // Full front-matter block ending at the first thematic break.
-  const withBreak = normalized.replace(
+  let result = normalized.replace(
     /^(?:\*\*[^*\n]+?:\*\*[^\n]*\n+)+\n---\n+/m,
     "",
   );
-  if (withBreak !== normalized) return withBreak.trim();
-  // Orphan bold meta lines at the top (no ---).
-  return normalized
-    .replace(/^(?:\*\*[^*\n]+?:\*\*[^\n]*\n+)+/m, "")
-    .replace(/^---\n+/, "")
+  if (result === normalized) {
+    // Orphan bold meta lines at the top (no ---).
+    result = normalized
+      .replace(/^(?:\*\*[^*\n]+?:\*\*[^\n]*\n+)+/m, "")
+      .replace(/^---\n+/, "")
+      .trim();
+  } else {
+    result = result.trim();
+  }
+  // Operator-only board-voice guidance (not LinkedIn paste body).
+  result = result
+    .replace(
+      /^### Board voice \(founder cadence\)\n\n(?:- [^\n]+\n)+\n---\n+/m,
+      "",
+    )
     .trim();
+  return result;
 }
 
 export function parseLinkedInDeskMarkdown(markdown: string): {
@@ -567,6 +588,41 @@ function tryWriteRepoMarkdown(markdown: string, repoFile: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Stale APP_DOCS seed when calendar card existed before repo markdown was deployed. */
+export function isLinkedInDeskPlaceholderBody(body: string): boolean {
+  const trimmed = body.replace(/\r\n/g, "\n").trim();
+  if (!trimmed) return true;
+  if (/\(Draft body — paste ready copy before publishing\.\)/i.test(trimmed)) {
+    return true;
+  }
+  // Title-only fallback seeded from calendar card title + minimal CTA/hashtag stub.
+  const lines = trimmed.split("\n").map((line) => line.trim()).filter(Boolean);
+  if (lines.length <= 4 && /^LinkedIn\s/i.test(lines[0] ?? "")) {
+    const hasOnlyCtaAndHashtag = lines.every(
+      (line) =>
+        /^LinkedIn\s/i.test(line) ||
+        /^https?:\/\//i.test(line) ||
+        /^#\w/.test(line),
+    );
+    if (hasOnlyCtaAndHashtag && trimmed.length < 280) return true;
+  }
+  return false;
+}
+
+function loadRepoPackForEntry(
+  entry: LinkedInDraftCatalogEntry,
+): { title: string; body: string; research: string } | null {
+  const raw = tryReadRepoMarkdown(entry.repoFile);
+  if (!raw?.trim()) return null;
+  const parsed = parseLinkedInRepoPackMarkdown(raw);
+  if (isLinkedInDeskPlaceholderBody(parsed.body)) return null;
+  if (parsed.body.trim().length < 80) return null;
+  if (!/Research & verification/i.test(parsed.research) && !parsed.research.trim()) {
+    return null;
+  }
+  return parsed;
 }
 
 export type LinkedInDeskDraftResult = {
@@ -656,22 +712,37 @@ async function persistDraft(input: {
 async function ensureCatalogDraft(
   entry: LinkedInDraftCatalogEntry,
 ): Promise<LinkedInDeskDraftResult> {
+  const repoPack = loadRepoPackForEntry(entry);
   const existing = await findAppDocumentBySlug(entry.slug);
   if (existing && /Research & verification/i.test(existing.content) && existing.content.trim().length > 80) {
     const parsed = parseLinkedInDeskMarkdown(existing.content);
-    return {
-      ok: true,
-      id: entry.id,
-      slotLabel: entry.slotLabel,
-      slug: existing.slug,
-      title: existing.title?.trim() || parsed.title,
-      body: parsed.body,
-      research: parsed.research,
-      markdown: existing.content,
-      updatedAt: existing.updatedAt.toISOString(),
-      source: "app_document",
-      repoSynced: false,
-    };
+    const stalePlaceholder = isLinkedInDeskPlaceholderBody(parsed.body);
+    if (!stalePlaceholder) {
+      return {
+        ok: true,
+        id: entry.id,
+        slotLabel: entry.slotLabel,
+        slug: existing.slug,
+        title: existing.title?.trim() || parsed.title,
+        body: parsed.body,
+        research: parsed.research,
+        markdown: existing.content,
+        updatedAt: existing.updatedAt.toISOString(),
+        source: "app_document",
+        repoSynced: false,
+      };
+    }
+    // APP_DOCS holds a calendar stub — replace from repo when available.
+    if (repoPack) {
+      return persistDraft({
+        entry,
+        title: repoPack.title || entry.defaultTitle,
+        body: repoPack.body,
+        research: repoPack.research || entry.defaultResearch,
+        source: "seeded",
+        syncRepo: true,
+      });
+    }
   }
 
   // Migrate legacy week-1 doc into Fri slot when Fri is empty.
@@ -692,6 +763,17 @@ async function ensureCatalogDraft(
         syncRepo: true,
       });
     }
+  }
+
+  if (repoPack) {
+    return persistDraft({
+      entry,
+      title: repoPack.title || entry.defaultTitle,
+      body: repoPack.body,
+      research: repoPack.research || entry.defaultResearch,
+      source: "seeded",
+      syncRepo: true,
+    });
   }
 
   return persistDraft({
@@ -875,11 +957,12 @@ export async function loadLinkedInDeskDraftCore(options?: {
     (await findLinkedInDeskCatalogEntry(LINKEDIN_DEFAULT_DRAFT_ID))!;
 
   if (options?.resetTemplate) {
+    const repoPack = loadRepoPackForEntry(fromId);
     return persistDraft({
       entry: fromId,
-      title: fromId.defaultTitle,
-      body: fromId.defaultBody,
-      research: fromId.defaultResearch,
+      title: repoPack?.title ?? fromId.defaultTitle,
+      body: repoPack?.body ?? fromId.defaultBody,
+      research: repoPack?.research ?? fromId.defaultResearch,
       source: "seeded",
       syncRepo: true,
     });

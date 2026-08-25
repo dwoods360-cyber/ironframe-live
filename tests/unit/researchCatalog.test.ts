@@ -13,14 +13,14 @@ describe("researchCatalog", () => {
     const gf001 = papers.find((paper) => paper.researchId === "GF-2026-001");
     expect(gf001).toBeTruthy();
     expect(gf001?.slug).toBe("GF-2026-001-evolution-of-grc");
-    expect(gf001?.isPublic).toBe(false);
-    expect(gf001?.status.toUpperCase()).toContain("DRAFT");
+    expect(gf001?.isPublic).toBe(true);
+    expect(gf001?.status.toUpperCase()).toBe("PUBLISHED");
   });
 
-  it("hides unapproved papers from the public research listing", () => {
+  it("includes approved papers in the public research listing", () => {
     const publicPapers = listPublicResearchPapers();
     expect(publicPapers.every((paper) => paper.isPublic)).toBe(true);
-    expect(publicPapers.some((paper) => paper.researchId === "GF-2026-001")).toBe(false);
+    expect(publicPapers.some((paper) => paper.researchId === "GF-2026-001")).toBe(true);
   });
 
   it("lists the control-first-grc series with published installment slugs", () => {

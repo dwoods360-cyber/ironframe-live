@@ -67,7 +67,7 @@ Administrative control over platform infrastructure **must stay isolated** from 
 | **Workflow review CTA** | Primary ask: **10–15 minute** peer-to-peer diligence call — not “Request Demo.” |
 | **Touch 1 / 2 / 3** | Outreach sequence cadence (see outreach sequence doc). |
 | **Flywheel** | IronBoard `market_prospects` research hopper (discover → authenticity verify → RESEARCH). **Not** the Approvals send queue. |
-| **Flywheel weekly replenishment** | Run the flywheel **process** once per week to refill pipeline — Gatekeeper promote 0–3 into next HITL wave. Not a daily outreach task. See [flywheel weekly playbook](./design-partner-flywheel-weekly-replenishment.md). |
+| **Flywheel weekly replenishment** | Run the flywheel **process** every **Friday** (after HITL batch) to refill next week’s pipeline — Gatekeeper promote 0–3. Not a daily outreach task. See [flywheel weekly playbook](./design-partner-flywheel-weekly-replenishment.md). |
 
 ---
 

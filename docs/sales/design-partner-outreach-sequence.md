@@ -27,7 +27,7 @@ For every prospect **entering** Approvals and every **ongoing** Touch 2 (same da
 
 **Forbidden:** generic “When {{company}} runs compliance…” as the default when a verified motion exists; inventing BHC / NERC / HIPAA language for a prospect not in that motion; Challenger essays pasted from flywheel research.
 
-**Flywheel:** preserve the discover → verify → RESEARCH → Gatekeeper promote process; run **weekly** as pipeline replenishment — not daily outreach ([playbook](./design-partner-flywheel-weekly-replenishment.md)).
+**Flywheel:** preserve the discover → verify → RESEARCH → Gatekeeper promote process; run every **Friday** (after HITL) as pipeline replenishment — not daily outreach ([playbook](./design-partner-flywheel-weekly-replenishment.md)).
 
 **Hard lock — never rewrite DISPATCHED:** Prep / polish / human-voice scripts must refuse to mutate any CRM row tagged `[DISPATCHED SALES COURIER]`. Helper: `app/lib/salesDraftWriteGuard.ts` (`updatePendingSalesDraftOnly`). Overwriting a dispatched row can reset it to PENDING and enable duplicate Resend sends.
 

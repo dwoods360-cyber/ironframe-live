@@ -20,8 +20,10 @@ Daily Path B work stays: **Approvals HITL** (Touch 1 / Touch 2) + shortlist §D.
 
 ## Weekly loop (one session)
 
-**When:** once per business week (e.g. Friday after HITL batch, or Monday before the next 6/day wave).  
+**When:** **Friday** each business week (after that day’s HITL Touch 1/2 DISPATCH batch). If Friday is a holiday / no-send day, run the next business day the same week.  
 **Time box:** ~30–45 minutes. Stop when you have **0–3** promote-ready candidates — not a long discover binge.
+
+**Why Friday:** send cadence is done for the week; replenishment feeds **next week’s** HITL queue without competing with daily DISPATCH.
 
 1. **Pick one region / beachhead slice** (prefer MSSP/vCISO beachhead D unless operator explicitly expands).
 2. **Run flywheel discover + authenticity** (purge synthetic / scaffolding; keep authentic research rows only).

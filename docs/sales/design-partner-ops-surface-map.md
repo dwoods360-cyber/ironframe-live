@@ -61,9 +61,9 @@ Order form (AGREED)  →  Provision (admin)  →  Path B pay
 4. **Ironleads** — only if you need new Scout fuel.  
 5. **LIVE** — only if a workflow review is booked today.
 
-## Weekly (not daily)
+## Weekly (Friday — not daily)
 
-6. **Flywheel replenishment** — one region discover/verify session → Gatekeeper → promote 0–3 into next HITL wave ([playbook](./design-partner-flywheel-weekly-replenishment.md)).
+6. **Flywheel replenishment (Friday)** — one region discover/verify session → Gatekeeper → promote 0–3 into next week’s HITL wave ([playbook](./design-partner-flywheel-weekly-replenishment.md)).
 
 ---
 

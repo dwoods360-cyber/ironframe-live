@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>3M Senior PM — Interview Audio Prep</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --accent: #c8102e;
+      --accent-dim: #8b0a1f;
+      --text: #e8edf4;
+      --muted: #8b9cb3;
+      --border: #2d3a4f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+    }
+    .shell {
+      width: 100%;
+      max-width: 520px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 1.25rem;
+    }
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 0 0 0.25rem;
+      letter-spacing: 0.02em;
+    }
+    header p {
+      margin: 0;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+    }
+    .chapter-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+      line-height: 1.35;
+    }
+    .chapter-meta {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .progress-wrap {
+      margin-bottom: 0.75rem;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .time-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.65rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    button {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 0.65rem 0.35rem;
+      font-size: 0.65rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover:not(:disabled) {
+      background: #243044;
+      border-color: var(--accent);
+    }
+    button:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    button.primary {
+      grid-column: span 1;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-size: 0.75rem;
+    }
+    button.primary:hover:not(:disabled) {
+      background: var(--accent-dim);
+    }
+    select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 0.6rem;
+      font-size: 0.8rem;
+      margin-bottom: 1rem;
+    }
+    .secondary {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .secondary button {
+      flex: 1;
+      min-width: 120px;
+    }
+    .hint {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 8px;
+      background: rgba(200, 16, 46, 0.08);
+      border: 1px solid rgba(200, 16, 46, 0.25);
+      font-size: 0.68rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .hint strong { color: var(--text); }
+    .status-err { color: #f87171; font-size: 0.7rem; margin-top: 0.5rem; }
+    .transcript {
+      margin-top: 1rem;
+      max-height: 140px;
+      overflow-y: auto;
+      font-size: 0.72rem;
+      line-height: 1.5;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <h1>3M Senior PM — IT Infrastructure</h1>
+      <p>Zero Trust &amp; Network Security · Interview answer book</p>
+    </header>
+
+    <div class="card">
+      <select id="chapterSelect" aria-label="Select question"></select>
+
+      <p class="chapter-title" id="chapterTitle">Loading…</p>
+      <p class="chapter-meta" id="chapterMeta"></p>
+
+      <audio id="audio" preload="metadata"></audio>
+
+      <div class="progress-wrap">
+        <input type="range" id="seek" min="0" max="100" value="0" step="0.1" aria-label="Seek" />
+        <div class="time-row">
+          <span id="timeCurrent">0:00</span>
+          <span id="timeTotal">0:00</span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button type="button" id="btnPrev" title="Previous question">◀ Prev</button>
+        <button type="button" id="btnBack5" title="Back 5 seconds">−5s</button>
+        <button type="button" class="primary" id="btnPlay" title="Play / Pause">▶ Play</button>
+        <button type="button" id="btnFwd10" title="Forward 10 seconds">+10s</button>
+        <button type="button" id="btnNext" title="Next question">Next ▶</button>
+      </div>
+
+      <div class="secondary">
+        <button type="button" id="btnDownload">↓ Download MP3</button>
+        <button type="button" id="btnSpeech" title="Browser voice if MP3 missing">🔊 Browser voice</button>
+      </div>
+
+      <p class="status-err" id="statusErr" hidden></p>
+
+      <div class="transcript" id="transcript"></div>
+
+      <div class="hint">
+        <strong>First time?</strong> Generate audio:
+        <code>node scripts/dev/generate-3m-interview-audio.mjs</code>
+        from repo root, then serve this folder:
+        <code>npx serve docs/interview-prep/3m -p 8765</code>
+        and open <code>http://127.0.0.1:8765/player.html</code>.
+        Use <strong>Download MP3</strong> to save each chapter to your phone.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let manifest = null;
+    let index = 0;
+    let speechUtterance = null;
+
+    const audio = document.getElementById("audio");
+    const seek = document.getElementById("seek");
+    const chapterSelect = document.getElementById("chapterSelect");
+    const chapterTitle = document.getElementById("chapterTitle");
+    const chapterMeta = document.getElementById("chapterMeta");
+    const timeCurrent = document.getElementById("timeCurrent");
+    const timeTotal = document.getElementById("timeTotal");
+    const statusErr = document.getElementById("statusErr");
+    const transcript = document.getElementById("transcript");
+
+    function fmt(sec) {
+      if (!Number.isFinite(sec) || sec < 0) return "0:00";
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    function audioPath(id) {
+      return `audio/${id}.mp3`;
+    }
+
+    function loadChapter(i, autoplay = false) {
+      if (!manifest?.chapters?.length) return;
+      index = Math.max(0, Math.min(i, manifest.chapters.length - 1));
+      const ch = manifest.chapters[index];
+      chapterSelect.value = String(index);
+      chapterTitle.textContent = ch.title;
+      chapterMeta.textContent = `Chapter ${index + 1} of ${manifest.chapters.length}`;
+      transcript.textContent = ch.text;
+      statusErr.hidden = true;
+
+      window.speechSynthesis?.cancel();
+      audio.pause();
+      audio.src = audioPath(ch.id);
+      audio.load();
+
+      if (autoplay) {
+        audio.play().catch(() => {
+          statusErr.hidden = false;
+          statusErr.textContent = "MP3 not found — run generate script or use Browser voice.";
+        });
+      }
+    }
+
+    function togglePlay() {
+      if (audio.src && !audio.error) {
+        if (audio.paused) {
+          audio.play().catch(() => {
+            statusErr.hidden = false;
+            statusErr.textContent = "Cannot play MP3 — generate audio or use Browser voice.";
+          });
+        } else {
+          audio.pause();
+        }
+        return;
+      }
+      speakBrowser();
+    }
+
+    function speakBrowser() {
+      const ch = manifest.chapters[index];
+      if (!window.speechSynthesis) {
+        statusErr.hidden = false;
+        statusErr.textContent = "Speech synthesis not supported in this browser.";
+        return;
+      }
+      window.speechSynthesis.cancel();
+      speechUtterance = new SpeechSynthesisUtterance(ch.text);
+      speechUtterance.rate = 0.95;
+      document.getElementById("btnPlay").textContent = "⏸ Pause";
+      speechUtterance.onend = () => {
+        document.getElementById("btnPlay").textContent = "▶ Play";
+      };
+      window.speechSynthesis.speak(speechUtterance);
+    }
+
+    function updatePlayBtn() {
+      const btn = document.getElementById("btnPlay");
+      btn.textContent = audio.paused ? "▶ Play" : "⏸ Pause";
+    }
+
+    audio.addEventListener("timeupdate", () => {
+      if (!audio.duration) return;
+      seek.value = (audio.currentTime / audio.duration) * 100;
+      timeCurrent.textContent = fmt(audio.currentTime);
+    });
+
+    audio.addEventListener("loadedmetadata", () => {
+      timeTotal.textContent = fmt(audio.duration);
+    });
+
+    audio.addEventListener("play", updatePlayBtn);
+    audio.addEventListener("pause", updatePlayBtn);
+    audio.addEventListener("ended", () => {
+      updatePlayBtn();
+      if (index < manifest.chapters.length - 1) loadChapter(index + 1, true);
+    });
+
+    audio.addEventListener("error", () => {
+      statusErr.hidden = false;
+      statusErr.textContent = "MP3 missing for this chapter — generate audio or tap Browser voice.";
+    });
+
+    seek.addEventListener("input", () => {
+      if (audio.duration) {
+        audio.currentTime = (seek.value / 100) * audio.duration;
+      }
+    });
+
+    document.getElementById("btnBack5").addEventListener("click", () => {
+      audio.currentTime = Math.max(0, audio.currentTime - 5);
+    });
+
+    document.getElementById("btnFwd10").addEventListener("click", () => {
+      if (audio.duration) {
+        audio.currentTime = Math.min(audio.duration, audio.currentTime + 10);
+      }
+    });
+
+    document.getElementById("btnPrev").addEventListener("click", () => {
+      loadChapter(index - 1, true);
+    });
+
+    document.getElementById("btnNext").addEventListener("click", () => {
+      loadChapter(index + 1, true);
+    });
+
+    document.getElementById("btnPlay").addEventListener("click", togglePlay);
+
+    document.getElementById("btnSpeech").addEventListener("click", speakBrowser);
+
+    document.getElementById("btnDownload").addEventListener("click", () => {
+      const ch = manifest.chapters[index];
+      const a = document.createElement("a");
+      a.href = audioPath(ch.id);
+      a.download = `${ch.id}-3m-interview.mp3`;
+      a.click();
+    });
+
+    chapterSelect.addEventListener("change", () => {
+      loadChapter(Number(chapterSelect.value), true);
+    });
+
+    async function init() {
+      try {
+        const res = await fetch("manifest.json");
+        manifest = await res.json();
+      } catch {
+        statusErr.hidden = false;
+        statusErr.textContent = "Open via local server (see hint below) or embed manifest failed.";
+        return;
+      }
+
+      manifest.chapters.forEach((ch, i) => {
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = ch.title;
+        chapterSelect.appendChild(opt);
+      });
+
+      document.getElementById("btnPrev").disabled = false;
+      document.getElementById("btnNext").disabled = false;
+      loadChapter(0, false);
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -138,6 +138,8 @@ export function isPublicRoute(pathname: string): boolean {
   /** Governance Frame research publication (also served on research/brief hosts). */
   if (pathname === "/gf-research" || pathname.startsWith("/gf-research/")) return true;
   if (pathname === "/governance-frame" || pathname.startsWith("/governance-frame/")) return true;
+  /** Founder interview prep player — unlisted static surface + MP3 chapters. */
+  if (pathname === "/interview-prep" || pathname.startsWith("/interview-prep/")) return true;
   return false;
 }
 
@@ -281,6 +283,7 @@ export function isPrivateWorkspaceIngressPath(pathname: string): boolean {
   if (pathname === "/api/board/feed") return false;
   if (pathname.startsWith("/api/internal/ironquery/export")) return false;
   if (pathname === "/api/webhooks/stripe" || pathname === "/api/billing/webhook") return false;
+  if (pathname === "/api/webhooks/resend/inbound") return false;
   if (isIronleadsIngressPath(pathname)) return false;
   if (isSalesteamIngressPath(pathname)) return false;
   if (isSuccessTeamIngressPath(pathname)) return false;

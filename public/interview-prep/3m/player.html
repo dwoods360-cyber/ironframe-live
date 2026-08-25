@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="3M Interview" />
+  <title>3M Interview Prep Player</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #c8102e;
+      --bar: 92px;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .app { min-height: 100%; min-height: 100dvh; display: flex; flex-direction: column; }
+    header {
+      padding: calc(0.75rem + var(--safe-t)) 1rem 0.5rem;
+      background: var(--panel);
+      border-bottom: 1px solid #30363d;
+      position: sticky; top: 0; z-index: 10;
+    }
+    header h1 { margin: 0 0 0.15rem; font-size: 0.9rem; font-weight: 700; }
+    header p { margin: 0 0 0.5rem; font-size: 0.65rem; color: var(--muted); }
+    select {
+      width: 100%; font-size: 1rem; padding: 0.7rem;
+      border-radius: 10px; border: 1px solid #30363d;
+      background: var(--bg); color: var(--text);
+    }
+    main {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 1rem 1rem calc(var(--bar) + var(--safe-b) + 1.25rem);
+    }
+    .chapter-title { font-size: 1.1rem; font-weight: 700; line-height: 1.35; margin: 0 0 0.35rem; }
+    .chapter-meta { font-size: 0.7rem; color: var(--muted); margin-bottom: 1rem; }
+    .transcript { font-size: 1.05rem; line-height: 1.65; color: #c9d1d9; white-space: pre-wrap; }
+    .player {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+      background: var(--panel); border-top: 1px solid #30363d;
+      padding: 0.45rem 0.65rem calc(0.45rem + var(--safe-b));
+    }
+    input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0 0 0.35rem; }
+    .times { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--muted); margin-bottom: 0.35rem; font-variant-numeric: tabular-nums; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr 1.25fr 1fr 1fr; gap: 0.35rem; }
+    button {
+      min-height: 52px; border: none; border-radius: 10px;
+      background: #21262d; color: var(--text);
+      font-size: 0.72rem; font-weight: 700;
+      touch-action: manipulation;
+    }
+    button:active { transform: scale(0.96); }
+    button.primary { background: var(--accent); color: #fff; font-size: 0.82rem; }
+    .err { color: #f85149; font-size: 0.75rem; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>3M Senior PM — IT Infrastructure Interview</h1>
+      <p>Zero Trust &amp; Network Security | Maplewood, MN</p>
+      <select id="chapterSelect" aria-label="Chapter"></select>
+    </header>
+    <main>
+      <h2 class="chapter-title" id="chapterTitle">Loading…</h2>
+      <p class="chapter-meta" id="chapterMeta"></p>
+      <div class="transcript" id="transcript"></div>
+      <p class="err" id="statusErr" hidden></p>
+    </main>
+    <div class="player">
+      <input type="range" id="seek" min="0" max="100" value="0" step="0.1" aria-label="Seek" />
+      <div class="times"><span id="timeCur">0:00</span><span id="timeTot">0:00</span></div>
+      <div class="controls">
+        <button type="button" id="btnPrev">◀ Prev</button>
+        <button type="button" id="btnBack">−5s</button>
+        <button type="button" class="primary" id="btnPlay">▶ Play</button>
+        <button type="button" id="btnFwd">+10s</button>
+        <button type="button" id="btnNext">Next ▶</button>
+      </div>
+    </div>
+  </div>
+  <audio id="audio" playsinline preload="metadata"></audio>
+  <script type="application/json" id="manifest-inline">{"title":"3M Senior PM — IT Infrastructure Interview","subtitle":"Zero Trust & Network Security | Maplewood, MN","voice":"en-US-GuyNeural","chapters":[{"id":"intro","title":"How to use this book","text":"Do not memorize every answer word for word. Know the opening point, the project example, three things you personally did, the result, and how it relates to 3M. Primary answers are sixty to ninety seconds. If they ask how did you do that, go deeper. If they challenge your role, scale, or budget, use the tougher follow-up. Sound like an experienced infrastructure project manager describing work you have actually done."},{"id":"q01","title":"Q1: Tell me about yourself","text":"My background combines IT infrastructure, technical-team leadership, and project delivery. I have more than ten years of experience leading technical teams and coordinating infrastructure initiatives involving network and hardware migrations, multi-site deployments, enterprise endpoint management, vendors, and operational transitions. One of my larger enterprise deployment examples was an MDM implementation supporting more than three thousand endpoints. I have also led multi-site infrastructure and network initiatives, managed telecom and ISP relationships, worked through vendor and SLA issues, and delivered a telecommunications solution that reduced annual operating costs by approximately seventy thousand dollars. More recently, I have been leading delivery of Ironframe, a multi-tenant cloud platform, where my work includes infrastructure, cloud security, database architecture, integrations, technical risks, dependencies, testing, and production readiness. What makes this 3M opportunity particularly interesting to me is that it brings those areas together—infrastructure modernization, network security, vendors, governance, risk management, and operational readiness."},{"id":"q02","title":"Q2: Why this 3M position?","text":"What attracted me is that this is not a generic project-management position. It sits directly at the intersection of infrastructure, cybersecurity, network modernization, vendors, and enterprise operations. The job description repeatedly talks about coordinating infrastructure, security, networking, architecture, application teams, vendors, and business stakeholders. That is the kind of environment where a strong technical project manager adds value. My background gives me enough infrastructure knowledge to understand what the technical teams are discussing, while my role is still project leadership—scope, schedule, resources, risks, dependencies, vendors, communication, cutover, and operational readiness. I also like that the position covers the complete lifecycle. You are not simply producing a plan. You are responsible for helping the organization get from initiation through production and into steady-state operations."},{"id":"q03","title":"Q3: Large infrastructure project","text":"One of my strongest examples comes from New Perspective Senior Living, where I was IT Manager and Infrastructure Project Lead. I managed infrastructure initiatives across multiple regional locations involving hardware migrations, network upgrades, and operational-technology transitions. My role was delivery coordination. I evaluated technical requirements, resource requirements, project risks, and implementation priorities, and coordinated external contractors, hardware vendors, field technicians, and internal stakeholders. With multi-location work, the challenge is that each site has its own operational constraints while still needing to follow an overall delivery pattern. My responsibility was to keep those activities coordinated, identify implementation obstacles, and maintain progress without treating business disruption as acceptable. That experience translates well to this position because the underlying PM problem is very similar: multiple technical workstreams, multiple stakeholders, vendors, dependencies, production environments, and a requirement to implement change without unnecessarily disrupting operations."},{"id":"q04","title":"Q4: MDM 3,000+ endpoints","text":"At Emmediate, I coordinated enterprise technology deployments, system lifecycle upgrades, and multi-location infrastructure transitions. The clearest scale example was an MDM deployment supporting more than three thousand endpoints. At that size, the project-management problem is not simply whether the MDM technology works. You need consistent configuration standards, a controlled rollout schedule, and a support model capable of handling the user population. My responsibilities included establishing rollout schedules, configuration standards, and end-user support protocols while coordinating the implementation within the larger enterprise technology environment. That experience taught me that large-scale technology deployment requires both technical standardization and operational preparation. A rollout is not successful if the technology deploys but the organization is not prepared to support it."},{"id":"q05","title":"Q5: How do you begin a project?","text":"I start by understanding the business objective before building the schedule. I want to know what outcome the sponsor is expecting, what is in and out of scope, who owns the major decisions, what constraints already exist, and what dependencies could affect delivery. Then I identify the stakeholders and technical workstreams and establish the initial project structure—scope, major milestones, resource requirements, dependencies, risks, communications, and governance. For a program like this 3M Zero Trust initiative, I would also want to understand where the program currently sits. Is architecture established? Are we preparing a pilot? Are we already moving through deployment waves? What vendors and internal teams are on the critical path? Once those fundamentals are understood, I can build a schedule that reflects reality rather than just producing dates."},{"id":"q06","title":"Q6: Risks and dependencies","text":"I want risks and dependencies visible early, with ownership. I distinguish between a risk, which may happen; an issue, which has happened; an assumption, which we are currently treating as true; and a dependency, where another activity or team must deliver something before our work can proceed. For significant items, I want an owner, impact, response or mitigation, target date, and escalation point. Dependencies also have to appear in the schedule. If a network implementation requires an architecture decision, hardware arrival, vendor configuration, or application validation first, those are predecessors to the implementation. My objective is to surface those relationships before they become schedule surprises. On Ironframe, I had a change that appeared functionally ready, but verification or approval gates were not complete. I stopped the release and treated the missing verification as a delivery risk rather than allowing schedule pressure to redefine ready."},{"id":"q07","title":"Q7: Scope and change control","text":"I start by making scope clear enough that a proposed change can actually be recognized as a change. Once execution begins, I evaluate requested changes against the project objectives, schedule, resources, cost, technical dependencies, risk, and operational impact. Not every useful idea belongs in the current implementation. If the change is necessary, it needs to be incorporated deliberately. If it can wait, it should be sequenced into a later phase or release rather than quietly added to the current commitment. The important thing is preventing scope growth from happening invisibly. On Ironframe, I manage iterative releases by translating business objectives into prioritized technical requirements and balancing scope against dependencies, technical risk, testing, and deployment readiness."},{"id":"q08","title":"Q8: Vendor management","text":"Vendor management has been part of several of my positions. At Skywire, I managed relationships with telecommunications providers, ISPs, and hardware vendors around network delivery requirements, service dependencies, and SLA issues. At New Perspective, I coordinated contractors, hardware vendors, field personnel, and internal stakeholders on infrastructure implementations. At Blackwoods Coffee, I coordinated telecom, web-hosting, hardware suppliers, and internal resources. My approach is to connect vendor deliverables directly to the project schedule. I want to know exactly what the vendor owes us, when we need it, what downstream activity depends on it, and who owns resolution if the commitment begins to slip. If Zscaler were two weeks late, I would determine what is late and whether it affects the critical path, get a recovery plan with owners and dates, evaluate alternatives, and escalate as a decision with options if impact exceeds the team authority."},{"id":"q09","title":"Q9: Cost reduction","text":"At Emmediate, I evaluated the existing telecommunications architecture and identified an opportunity to use a wireless solution more effectively. I evaluated the technical requirements, worked through the vendor side, negotiated contracts, and coordinated implementation of the new approach. The solution reduced annual operating costs by approximately seventy thousand dollars. The savings did not come simply from demanding a lower vendor price. The result came from combining technical analysis with vendor negotiation and choosing an architecture that met the actual business requirement more efficiently."},{"id":"q10","title":"Q10: $1M+ budget experience","text":"I want to be precise about that. I have managed technology expenditures, vendor relationships, contract decisions, resource considerations, and cost optimization, including an infrastructure change that reduced annual operating costs by approximately seventy thousand dollars. I have also worked on large enterprise technology initiatives. I have not been the sole financial owner of a project budget exceeding one million dollars, so I would not represent that as experience I have if it is not accurate. What I do bring is strong delivery-cost discipline: understanding vendor commitments, tracking the financial impact of decisions, managing resources responsibly, and making scope, schedule, cost, and risk trade-offs visible to leadership."},{"id":"q11","title":"Q11: Zero Trust experience","text":"My experience is stronger in infrastructure delivery and security-governed technology delivery than in administering a dedicated Zero Trust product. I understand Zero Trust as an operating model that rejects implicit trust and continually evaluates whether access should be allowed based on identity, device, resource, policy, and context. From a project-management perspective, that means translating the architecture into coordinated workstreams—identity, endpoints, network controls, applications, data, monitoring, vendors, testing, migration waves, change control, and operational readiness. My current Ironframe work uses tenant isolation, controlled security boundaries, verification requirements, and approval gates rather than assuming trust by default. I would rely on 3M security and network architects for detailed platform engineering while remaining accountable for making the program deliver."},{"id":"q12","title":"Q12: Palo Alto / Zscaler / SD-WAN","text":"I have not been the engineer responsible for administering Palo Alto Networks or Zscaler, so I would not represent myself that way. My technical background includes network infrastructure, Cisco Meraki, VPN and network security, AWS, Azure, telecommunications environments, and infrastructure deployment. For this role, I need to understand what the implementation is intended to accomplish, what systems and users it affects, what dependencies exist, what the vendor must deliver, and what testing and operational criteria determine readiness. The platform engineers and architects own detailed configuration. I own delivery coordination."},{"id":"q13","title":"Q13: Cutover and ops readiness","text":"I do not treat deployment as the end of the project. Before production, I want to know what is changing, what is affected, what dependencies must be complete, how success will be validated, what would stop the implementation, who has go-no-go authority, and how operations will support the environment afterward. For larger changes, I prefer controlled stages or waves. My MDM experience reinforced end-user support protocols as part of rollout planning. Ironframe reinforces verification and release-approval controls before production. My definition of success is not simply that the technology went live. It is that it is stable, verified, supportable, and owned operationally."},{"id":"q14","title":"Q14: Executive communication","text":"I adjust the level of information to the audience. The engineering team needs detailed blockers, technical dependencies, owners, and dates. Executives generally need project health, major milestones, financial position, the most significant risks and dependencies, expected business impact, and decisions they need to make. If a project is off track, I explain what changed, why it matters, what options exist, what I recommend, and who needs to make the decision. The detail should exist underneath the executive summary so I can defend every status indicator if someone asks."},{"id":"q15","title":"Q15: Why select you?","text":"I think I bring the combination this position needs. I have more than ten years of technical-team leadership and infrastructure experience. I have managed multi-site infrastructure and network work, coordinated enterprise deployments, led an MDM rollout supporting more than three thousand endpoints, worked extensively with vendors and service providers, handled SLA and network-delivery dependencies, and delivered measurable operating-cost savings. My current work adds modern cloud and security-governed delivery experience. I know the limits of my role. I will not pretend I am the Palo Alto architect or the Zscaler engineer. I will make sure architects, engineers, vendors, operations teams, and business stakeholders are aligned around a plan that can actually be delivered."},{"id":"lifecycle","title":"Project lifecycle (Ironframe)","text":"I use the standard lifecycle of initiation, planning, execution, monitoring and controlling, and closing. On Ironframe, initiation established platform objectives and security constraints. Planning translated those into infrastructure, security, database, integration, testing, and deployment workstreams. Execution coordinated those workstreams. Monitoring and controlling focused on schedule, risk, dependencies, scope, and release readiness. Closing occurs at the release level—deployment, validation, operational readiness, lessons learned, then planning for the next increment."}]}</script>
+  <script>
+    let manifest = null;
+    let idx = 0;
+    const audio = document.getElementById("audio");
+    const seek = document.getElementById("seek");
+    const sel = document.getElementById("chapterSelect");
+    const fmt = (s) => {
+      if (!isFinite(s) || s < 0) return "0:00";
+      const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+      return m + ":" + String(sec).padStart(2, "0");
+    };
+    function audioPath(id) { return "audio/" + id + ".mp3"; }
+    function showErr(msg) {
+      const el = document.getElementById("statusErr");
+      el.hidden = !msg;
+      el.textContent = msg || "";
+    }
+    function loadChapter(i, autoplay) {
+      idx = Math.max(0, Math.min(i, manifest.chapters.length - 1));
+      const ch = manifest.chapters[idx];
+      sel.value = String(idx);
+      document.getElementById("chapterTitle").textContent = ch.title;
+      document.getElementById("chapterMeta").textContent = "Chapter " + (idx + 1) + " of " + manifest.chapters.length;
+      document.getElementById("transcript").textContent = ch.text;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      showErr("");
+      audio.pause();
+      audio.src = audioPath(ch.id);
+      audio.load();
+      if (autoplay) {
+        audio.play().catch(() => showErr("Tap Play to start audio (phone requires a tap)."));
+      }
+    }
+    function syncPlay() {
+      document.getElementById("btnPlay").textContent = audio.paused ? "▶ Play" : "⏸ Pause";
+    }
+    audio.addEventListener("timeupdate", () => {
+      if (!audio.duration) return;
+      seek.value = (100 * audio.currentTime / audio.duration);
+      document.getElementById("timeCur").textContent = fmt(audio.currentTime);
+    });
+    audio.addEventListener("loadedmetadata", () => {
+      document.getElementById("timeTot").textContent = fmt(audio.duration);
+    });
+    audio.addEventListener("play", syncPlay);
+    audio.addEventListener("pause", syncPlay);
+    audio.addEventListener("ended", () => {
+      if (idx < manifest.chapters.length - 1) loadChapter(idx + 1, true);
+    });
+    audio.addEventListener("error", () => showErr("Audio failed to load. Redeploy or check network."));
+    seek.addEventListener("input", () => {
+      if (audio.duration) audio.currentTime = (seek.value / 100) * audio.duration;
+    });
+    document.getElementById("btnPlay").onclick = () => {
+      if (audio.paused) audio.play().catch(() => showErr("Tap Play again."));
+      else audio.pause();
+    };
+    document.getElementById("btnBack").onclick = () => { audio.currentTime = Math.max(0, audio.currentTime - 5); };
+    document.getElementById("btnFwd").onclick = () => {
+      if (audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 10);
+    };
+    document.getElementById("btnPrev").onclick = () => loadChapter(idx - 1, true);
+    document.getElementById("btnNext").onclick = () => loadChapter(idx + 1, true);
+    sel.onchange = () => loadChapter(Number(sel.value), true);
+    async function init() {
+      try {
+        const res = await fetch("manifest.json");
+        manifest = await res.json();
+      } catch {
+        manifest = JSON.parse(document.getElementById("manifest-inline").textContent);
+      }
+      manifest.chapters.forEach((ch, i) => {
+        const o = document.createElement("option");
+        o.value = String(i);
+        o.textContent = ch.title;
+        sel.appendChild(o);
+      });
+      loadChapter(0, false);
+    }
+    init();
+  </script>
+</body>
+</html>

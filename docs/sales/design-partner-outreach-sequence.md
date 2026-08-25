@@ -27,6 +27,8 @@ For every prospect **entering** Approvals and every **ongoing** Touch 2 (same da
 
 **Forbidden:** generic “When {{company}} runs compliance…” as the default when a verified motion exists; inventing BHC / NERC / HIPAA language for a prospect not in that motion; Challenger essays pasted from flywheel research.
 
+**Flywheel:** preserve the discover → verify → RESEARCH → Gatekeeper promote process; run **weekly** as pipeline replenishment — not daily outreach ([playbook](./design-partner-flywheel-weekly-replenishment.md)).
+
 **Hard lock — never rewrite DISPATCHED:** Prep / polish / human-voice scripts must refuse to mutate any CRM row tagged `[DISPATCHED SALES COURIER]`. Helper: `app/lib/salesDraftWriteGuard.ts` (`updatePendingSalesDraftOnly`). Overwriting a dispatched row can reset it to PENDING and enable duplicate Resend sends.
 
 ---
@@ -88,6 +90,97 @@ dereck@ironframegrc.com
 ```
 {{firstName}} — Dereck @ Ironframe. MSSP seats: client walls + dollar risk, not shared heatmaps. 10–15 min workflow review? Reply YES or STOP.
 ```
+
+---
+
+## When they reply to outreach (same business day)
+
+**Not Touch 2.** This is the **immediate reply** when someone answers Touch 1 (or later).  
+**SLA:** same business day; ideally ≤1 Central business hour when you’re at the desk.  
+**Code helper:** `lib/gtm/outreachReplyCopy.ts` — `buildOutreachYesReplyEmail` / `buildOutreachSoftReplyEmail` / `buildOutreachPriceReplyEmail`.  
+**HITL only** — paste into mail / Approvals after review. Never auto-send.
+
+| They said | Use | Goal |
+|-----------|-----|------|
+| YES / “let’s talk” / “book something” | **YES** | Confirm peer review + schedule |
+| Soft / “send more” / “curious” | **SOFT** | Keep concrete; still ask for workflow review |
+| Price / “what’s included?” | **PRICE** | Short economics ($4,999 · 90-day · optional ~$35k GA) then schedule |
+
+**Bans (same as cold):** no `Path B` in body · no demo CTA · no free pilot · no demo slugs · C1 founder signature.
+
+### YES — paste-ready
+
+**Subject:** `Re: workflow review — {{company}}` *(or keep their thread `Re:`)*
+
+```
+Hi {{firstName}},
+
+Thanks for the reply — good to hear from you.
+
+Glad the {{verified-motion}} angle landed — that’s exactly what the 10–15 minute workflow review is for.
+
+It’s peer-to-peer, 10–15 minutes, on one real friction (client isolation, board dollars, or exportable evidence).
+
+If we align after that, the Command Design Partner seat is $4,999 flat for a 90-day window around 2–3 criteria you set.
+
+Reply with 2–3 times that work this week in Central Time (or YES and I’ll propose slots).
+
+Best,
+Dereck
+Founder, Ironframe
+dereck@ironframegrc.com
+```
+
+Optional booking line (when `IRONFRAME_WORKFLOW_REVIEW_BOOKING_URL` is set):  
+`Prefer to pick a time: {{bookingUrl}}`
+
+### SOFT — paste-ready
+
+**Subject:** `Re: co-builder seat — {{company}}`
+
+```
+Hi {{firstName}},
+
+Appreciate you getting back.
+
+Happy to keep this concrete for {{company}}: one 10–15 minute workflow review on how you keep client evidence isolated (or board exposure defended) today — not a demo deck.
+
+If that friction is real, the paid Command Design Partner seat is $4,999 for a 90-day convert-or-exit window.
+
+Reply with 2–3 times that work this week in Central Time (or YES and I’ll propose slots).
+
+Best,
+Dereck
+Founder, Ironframe
+dereck@ironframegrc.com
+```
+
+### PRICE — paste-ready
+
+**Subject:** `Re: Command Design Partner — {{company}}`
+
+```
+Hi {{firstName}},
+
+Quick economics, then we can schedule:
+
+Command Design Partner is $4,999 flat for a 90-day co-builder window.
+You name 2–3 success criteria. Convert or exit at day 90.
+Planned GA for Ironframe Command is about $35,000 a year.
+If you convert in-window, the $4,999 is credited to year-1 Command — not a negotiated discount.
+
+Best next step for {{company}} is still a 10–15 minute workflow review — peer diligence, not a tour.
+
+Reply with 2–3 times that work this week in Central Time (or YES and I’ll propose slots).
+
+Best,
+Dereck
+Founder, Ironframe
+dereck@ironframegrc.com
+```
+
+**After they book / confirm a slot:** host on `/dashboard/operations/workflow-review` per [workflow review protocol](./design-partner-workflow-review-protocol.md).  
+**After YES on the call:** order form → provision → tenant-scoped activation (ops) — not generic `/pricing`.
 
 ---
 
@@ -161,4 +254,4 @@ dereck@ironframegrc.com
 | CTA | Workflow review — not 20-min demo / free pilot |
 | PENDING tenants | After yes → provision + Path B (ops) link, **not** `/pricing` |
 
-**Related:** [Offer sheet](./design-partner-offer-sheet.md) · [Heatmap Amnesty](./heatmap-amnesty-campaign.md) · [Control-to-Capital](./control-to-capital-market-narrative.md) · [Workflow review protocol](./design-partner-workflow-review-protocol.md) · [Operator launch checklist](./design-partner-operator-launch-checklist.md)
+**Related:** [Offer sheet](./design-partner-offer-sheet.md) · [Heatmap Amnesty](./heatmap-amnesty-campaign.md) · [Control-to-Capital](./control-to-capital-market-narrative.md) · [Workflow review protocol](./design-partner-workflow-review-protocol.md) · [Operator launch checklist](./design-partner-operator-launch-checklist.md) · Reply builders: `lib/gtm/outreachReplyCopy.ts`

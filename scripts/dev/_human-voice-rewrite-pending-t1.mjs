@@ -8,6 +8,7 @@ import { PrismaClient } from "@prisma/client";
 import { lintSalesHumanVoice } from "../../app/lib/salesHumanVoice.ts";
 import { hasC1FounderEmailSignature } from "../../app/lib/salesC1FounderSignature.ts";
 import { validateApprovalDispatch } from "../../app/lib/approvalDispatchValidation.ts";
+import { updatePendingSalesDraftOnly } from "../../app/lib/salesDraftWriteGuard.ts";
 
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
 
@@ -162,10 +163,20 @@ try {
     }
 
     const summary = buildSummary({ subject, body, sector, lossLine });
-    await prisma.ironboardCrmInteraction.update({
-      where: { id: row.id },
-      data: { summary: summary.slice(0, 12_000), occurredAt: new Date() },
+    const write = await updatePendingSalesDraftOnly(prisma, {
+      id: row.id,
+      summary,
+      occurredAt: new Date(),
     });
+    if (!write.ok) {
+      updated.push({
+        id: row.id,
+        company: row.contact?.company,
+        ok: false,
+        reason: write.reason,
+      });
+      continue;
+    }
 
     updated.push({
       id: row.id,

@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { config } from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { lintSalesHumanVoice } from "../../app/lib/salesHumanVoice.ts";
+import { updatePendingSalesDraftOnly } from "../../app/lib/salesDraftWriteGuard.ts";
 
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
 
@@ -131,15 +132,18 @@ try {
   for (const d of DRAFTS) {
     const voice = lintSalesHumanVoice(d.body);
     const summary = pack(d.subject, d.companyLabel, d.body);
-    await prisma.ironboardCrmInteraction.update({
-      where: { id: d.id },
-      data: { summary: summary.slice(0, 12_000), occurredAt: new Date() },
+    const write = await updatePendingSalesDraftOnly(prisma, {
+      id: d.id,
+      summary,
+      occurredAt: new Date(),
     });
     updated.push({
       id: d.id,
       companyLabel: d.companyLabel,
       voiceOk: voice.ok,
       voiceIssues: voice.issues,
+      writeOk: write.ok,
+      writeReason: write.ok ? undefined : write.reason,
       approvalsHref: `https://ironframegrc.com/dashboard/admin/approvals?kind=SALES&draft=${d.id}`,
     });
   }

@@ -15,7 +15,7 @@ SalesTeam `outboundDraftsman` generates Touch 1–shaped first drafts. Use this 
 
 **Standing rule for the Sales outreach track — including ongoing Touch 2 follow-ups.**
 
-For every prospect **entering** Approvals and every **ongoing** Touch 2 (day 4–5) draft:
+For every prospect **entering** Approvals and every **ongoing** Touch 2 (same day the following week) draft:
 
 1. **Investigate** the target’s real operating motion (site / practice pages / verified public claims — e.g. audit volume, MDR/SOC, CMMC/DIB, attestation vs QSA).
 2. **Pick verbage** that names *their* multi-client / multi-entity friction (shared-stack isolation, evidence boundaries, board exposure) — use sector research as a **menu**, not a paste.
@@ -26,6 +26,8 @@ For every prospect **entering** Approvals and every **ongoing** Touch 2 (day 4�
 **Touch 2 difference:** do **not** re-send the Touch 1 cold opener. Re-anchor their motion in one short line, then soften + scarcity (+ optional GA). Same investigation bar as Touch 1.
 
 **Forbidden:** generic “When {{company}} runs compliance…” as the default when a verified motion exists; inventing BHC / NERC / HIPAA language for a prospect not in that motion; Challenger essays pasted from flywheel research.
+
+**Hard lock — never rewrite DISPATCHED:** Prep / polish / human-voice scripts must refuse to mutate any CRM row tagged `[DISPATCHED SALES COURIER]`. Helper: `app/lib/salesDraftWriteGuard.ts` (`updatePendingSalesDraftOnly`). Overwriting a dispatched row can reset it to PENDING and enable duplicate Resend sends.
 
 ---
 
@@ -89,7 +91,7 @@ dereck@ironframegrc.com
 
 ---
 
-## Touch 2 — Soften + scarcity (day 4–5)
+## Touch 2 — Soften + scarcity (same day the following week)
 
 **Required before draft:** re-run the **target-specific hook rule** (investigate motion → one-line re-anchor). Do not DISPATCH a generic scarcity bump when a verified motion exists.
 

@@ -98,7 +98,26 @@ dereck@ironframegrc.com
 **Not Touch 2.** This is the **immediate reply** when someone answers Touch 1 (or later).  
 **SLA:** same business day; ideally ≤1 Central business hour when you’re at the desk.  
 **Code helper:** `lib/gtm/outreachReplyCopy.ts` — `buildOutreachYesReplyEmail` / `buildOutreachSoftReplyEmail` / `buildOutreachPriceReplyEmail`.  
-**HITL only** — paste into mail / Approvals after review. Never auto-send.
+**HITL only** — paste into mail / Approvals after review. Never auto-send the YES/SOFT/PRICE body.
+
+### Auto receipt + founder alert (when away / Zoho)
+
+When a prospect replies, register the reply so the system can:
+
+1. **Light receipt** to the prospect — From **`dereck@ironframegrc.com` only** (Resend → Zoho domain; **never Gmail**).
+2. **Alert** to `OPS_SCHEDULE_NOTIFY_EMAIL` (set to `dereck@ironframegrc.com`) + Ops Hub **audible chime** when a tab is open.
+
+| Path | How |
+|------|-----|
+| **Manual** | Approvals (SALES) → **Mark replied · send receipt + alert** |
+| **Webhook** | `POST /api/webhooks/resend/inbound` with `Authorization: Bearer $RESEND_INBOUND_WEBHOOK_SECRET` (Resend `email.received` or Zoho→Make forward) |
+
+Idempotent: second path / retry skips duplicate receipt + alert.  
+Receipt ≠ scheduling reply — still paste YES/SOFT/PRICE same business day.
+
+**Inbound mailbox:** Path B outreach From is `dereck@ironframegrc.com`, so replies land in that Zoho (ImproVMX) inbox — not every company mailbox, and not Gmail as From to the prospect.
+
+**Code:** `lib/gtm/outreachReplyReceiptCopy.ts` · `app/lib/server/outreachReplyReceiptCore.ts`
 
 | They said | Use | Goal |
 |-----------|-----|------|

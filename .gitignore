@@ -36,6 +36,10 @@ tsconfig.tsbuildinfo
 * copy
 * copy.*
 *copy.*
+!lib/gtm/outreachReplyCopy.ts
+!lib/gtm/outreachReplyReceiptCopy.ts
+!tests/unit/outreachReplyCopy.test.ts
+!tests/unit/outreachReplyReceiptCopy.test.ts
 public copy/
 test_docs copy/
 

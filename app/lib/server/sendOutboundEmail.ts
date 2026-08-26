@@ -2,9 +2,7 @@ import "server-only";
 
 import { Resend } from "resend";
 
-/** Path B founder outreach — mailbox/alias must exist on ImproVMX for replies. */
-const DEFAULT_FROM_EMAIL = "dereck@ironframegrc.com";
-const DEFAULT_FROM_NAME = "Dereck Woods";
+import { resolveSalesFromDisplay } from "@/lib/gtm/salesFromAddress";
 
 export type OutboundEmailPayload = {
   to: string[];
@@ -21,18 +19,9 @@ export type SendOutboundEmailResult = {
   error?: string;
 };
 
-/** HITL DISPATCH / sales outreach From — not invite mail (see WORKSPACE_INVITE_FROM_EMAIL). */
+/** HITL DISPATCH / sales outreach From — ironframegrc.com only (Zoho), never Gmail. */
 function resolveFromAddress(): string {
-  const name =
-    process.env.SALES_FROM_NAME?.trim() ||
-    process.env.IRONCAST_FROM_NAME?.trim() ||
-    DEFAULT_FROM_NAME;
-  const email =
-    process.env.SALES_FROM_EMAIL?.trim() ||
-    process.env.PARTNERS_FROM_EMAIL?.trim() ||
-    process.env.IRONCAST_FROM_EMAIL?.trim() ||
-    DEFAULT_FROM_EMAIL;
-  return `${name} <${email}>`;
+  return resolveSalesFromDisplay();
 }
 
 export async function sendOutboundEmail(

@@ -200,6 +200,8 @@ export default function OperationsHubClient() {
   /** YYYY-MM-DD inclusive bounds on activity dueAt (falls back to completedAt). */
   const [calendarDueFrom, setCalendarDueFrom] = useState("");
   const [calendarDueTo, setCalendarDueTo] = useState("");
+  /** Closed DONE/CANCELLED stay off the main calendar unless explicitly shown. */
+  const [showClosedCalendar, setShowClosedCalendar] = useState(false);
   /** Per-card close-out notes — required before Done / Cancel (replaces window.prompt). */
   const [outcomeDrafts, setOutcomeDrafts] = useState<Record<string, string>>({});
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
@@ -238,6 +240,80 @@ export default function OperationsHubClient() {
   useEffect(() => {
     void loadSnapshot();
   }, [loadSnapshot]);
+
+  /** Audible cue when an outreach-reply alert lands (tab open — sleeping PC cannot chime). */
+  useEffect(() => {
+    const seenKey = "ironframe.outreachReplyAlertSeen";
+    let seen = new Set<string>();
+    try {
+      const raw = sessionStorage.getItem(seenKey);
+      if (raw) seen = new Set(JSON.parse(raw) as string[]);
+    } catch {
+      /* ignore */
+    }
+
+    const playChime = () => {
+      try {
+        const Ctx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const now = ctx.currentTime;
+        const tones = [880, 1174, 880];
+        tones.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.value = freq;
+          gain.gain.value = 0.07;
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          const t0 = now + i * 0.12;
+          osc.start(t0);
+          osc.stop(t0 + 0.1);
+        });
+        void ctx.resume?.();
+      } catch {
+        /* autoplay / unsupported */
+      }
+    };
+
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          "/api/admin/operations-hub/outreach-reply-alerts?minutes=30",
+          { cache: "no-store" },
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          alerts?: Array<{ id: string }>;
+        };
+        const alerts = data.alerts ?? [];
+        let novel = false;
+        for (const a of alerts) {
+          if (!seen.has(a.id)) {
+            seen.add(a.id);
+            novel = true;
+          }
+        }
+        if (novel) {
+          playChime();
+          try {
+            sessionStorage.setItem(seenKey, JSON.stringify([...seen].slice(-40)));
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+
+    void poll();
+    const id = window.setInterval(() => void poll(), 45_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const approvalBadges = useMemo(() => {
     if (!snapshot) return [];
@@ -389,14 +465,18 @@ export default function OperationsHubClient() {
     );
     const done = filtered.filter((a) => a.status === "DONE" || a.status === "CANCELLED");
     const filterOn = Boolean(q || from || to);
+    // Default: open work only. Closed archive appears when toggled or when searching/filtering.
+    const showDone = showClosedCalendar || filterOn;
     return {
       open,
-      done: filterOn ? done : done.slice(0, 12),
+      done: showDone ? (filterOn ? done : done.slice(0, 12)) : [],
       doneTotal: done.length,
-      matchCount: filtered.length,
+      showDone,
+      matchCount: filterOn ? filtered.length : open.length,
       totalCount: activities.length,
+      openCount: open.length,
     };
-  }, [snapshot, calendarSearch, calendarDueFrom, calendarDueTo]);
+  }, [snapshot, calendarSearch, calendarDueFrom, calendarDueTo, showClosedCalendar]);
 
   const priorityCalendarActivities = useMemo(
     () =>
@@ -665,7 +745,6 @@ export default function OperationsHubClient() {
                   title: "Publishing",
                   links: [
                     ["Publishing Desk", "/dashboard/operations/publishing?desk=briefings"],
-                    ["Desk notes desk", "/dashboard/operations/publishing?desk=desk-notes"],
                     ["Newsletters desk", "/dashboard/operations/publishing?desk=newsletters"],
                     ["Research papers desk", "/dashboard/operations/publishing?desk=research"],
                     ["Video desk", "/dashboard/operations/publishing?desk=video"],
@@ -944,6 +1023,20 @@ export default function OperationsHubClient() {
                       >
                         Next 7 days
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowClosedCalendar((v) => !v)}
+                        className={`rounded border px-2 py-1.5 text-[10px] uppercase tracking-wide ${
+                          showClosedCalendar
+                            ? "border-amber-700/60 text-amber-200 hover:border-amber-500"
+                            : "border-slate-700 text-slate-400 hover:border-slate-500"
+                        }`}
+                        title="Closed DONE/CANCELLED cards stay hidden by default"
+                      >
+                        {showClosedCalendar
+                          ? `Hide closed (${scheduleByPriority.doneTotal})`
+                          : `Show closed (${scheduleByPriority.doneTotal})`}
+                      </button>
                     </div>
                     {calendarFilterActive ? (
                       <button
@@ -980,11 +1073,15 @@ export default function OperationsHubClient() {
                     "Highest priority first (P1 → Pn). Status shown on each card.",
                     scheduleByPriority.open,
                   ],
-                  [
-                    "Done",
-                    "Finished or closed — kept for history (not open work)",
-                    scheduleByPriority.done,
-                  ],
+                  ...(scheduleByPriority.showDone
+                    ? ([
+                        [
+                          "Done",
+                          "Finished or cancelled — history only (not open work).",
+                          scheduleByPriority.done,
+                        ],
+                      ] as const)
+                    : []),
                 ] as const
               ).map(([label, columnHint, items]) => (
                 <section

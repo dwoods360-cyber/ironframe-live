@@ -98,6 +98,26 @@ export function isInboundSlaT3AutosendEnabled(): boolean {
   return raw === "1" || raw === "true" || raw === "yes";
 }
 
+/**
+ * Outreach-reply auto receipt (light ack) — on by default.
+ * Set IRONFRAME_OUTREACH_REPLY_RECEIPT=0 to disable prospect email (founder alert may still fire).
+ */
+export function isOutreachReplyReceiptEnabled(): boolean {
+  const raw = process.env.IRONFRAME_OUTREACH_REPLY_RECEIPT?.trim().toLowerCase();
+  if (raw === "0" || raw === "false" || raw === "no" || raw === "off") return false;
+  return true;
+}
+
+/**
+ * Founder/ops alert when an outreach reply is registered — on by default.
+ * Set IRONFRAME_OUTREACH_REPLY_ALERT=0 to disable.
+ */
+export function isOutreachReplyAlertEnabled(): boolean {
+  const raw = process.env.IRONFRAME_OUTREACH_REPLY_ALERT?.trim().toLowerCase();
+  if (raw === "0" || raw === "false" || raw === "no" || raw === "off") return false;
+  return true;
+}
+
 /** On-page success copy after /register/contact submit. */
 export function inboundLeadSuccessCopy(workflowReviewMinutes: string): string {
   return [

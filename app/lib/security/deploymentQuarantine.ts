@@ -79,6 +79,11 @@ export function isStripeWebhookIngressPath(pathname: string): boolean {
   return (STRIPE_WEBHOOK_PATHS as readonly string[]).includes(pathname);
 }
 
+/** Resend / Zoho outreach-reply inbound webhook — auth at route layer via shared secret. */
+export function isResendInboundWebhookPath(pathname: string): boolean {
+  return pathname === "/api/webhooks/resend/inbound";
+}
+
 /** Cron, board RSS, and ironquery export — auth at route layer via Bearer / secret query. */
 export function isTokenGatedApiIngressPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/cron/")) return true;
@@ -141,6 +146,7 @@ export function shouldBlockProductionIngress(
   if (hostCandidates.some((host) => isLocalDevelopmentHost(host))) return false;
   if (isGovernanceFramePublicHost(request.headers?.get?.("host") ?? hostname)) return false;
   if (isStripeWebhookIngressPath(pathname)) return false;
+  if (isResendInboundWebhookPath(pathname)) return false;
   if (isTokenGatedApiIngressPath(pathname)) return false;
   if (isPublicCloudIngressPath(pathname)) return false;
   if (isPublicIngressAllowed()) return false;

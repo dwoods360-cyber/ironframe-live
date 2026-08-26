@@ -7,6 +7,7 @@ import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { IRONTECH_STALE_LOCKDOWN_MESSAGE } from "@/app/config/sustainabilityStaleLockdown";
 import {
   buildDeploymentQuarantineResponse,
+  isResendInboundWebhookPath,
   isStripeWebhookIngressPath,
   shouldBlockProductionIngress,
 } from "@/app/lib/security/deploymentQuarantine";
@@ -65,6 +66,7 @@ function internalTokenGatedApiPath(pathname: string): boolean {
   if (pathname === "/api/board/feed") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;
   if (isStripeWebhookIngressPath(pathname)) return true;
+  if (isResendInboundWebhookPath(pathname)) return true;
   if (isIronleadsIngressPath(pathname)) return true;
   if (isSalesteamIngressPath(pathname)) return true;
   if (isSuccessTeamIngressPath(pathname)) return true;

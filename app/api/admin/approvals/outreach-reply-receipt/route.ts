@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       firstNameHint: body.firstNameHint != null ? String(body.firstNameHint) : null,
       source: "manual",
     });
-    return NextResponse.json({ ok: result.ok, ...result });
+    return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[outreach-reply-receipt]", message);

@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       firstNameHint: data.firstName != null ? String(data.firstName) : null,
       source,
     });
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[resend-inbound]", message);

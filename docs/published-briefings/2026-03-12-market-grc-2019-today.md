@@ -1,7 +1,7 @@
 ---
 title: "Control-First GRC: Part 3 — Quantitative Risk, Continuous Resilience, and Governed Automation (2019–Today)"
-publishedAt: "2026-07-16T16:20:21.511Z"
-published: "2026-07-16"
+publishedAt: "2026-03-12T12:00:00.000Z"
+published: "2026-03-12"
 summary: "Modern governance operates under shorter reporting timelines, wider technology dependencies, operational-resilience requirements, and growing use of generative AI. Point-in-time questionnaires and color-coded dashboards remain useful summaries, but they cannot independently establish evidence integrity, materiality, control effectiveness, or decision provenance. The current era requires GRC systems that preserve traceable evidence, support quantified analysis without false precision, and govern automated assistance through bounded authority and human accountability."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
@@ -60,7 +60,7 @@ In 2024, the SEC announced that Intercontinental Exchange agreed to pay a **$10 
 This action should be described precisely. It was not a penalty under the SEC’s public-company Form 8-K cybersecurity-disclosure rule. It involved notification obligations under Regulation SCI applicable to covered market entities. [5]
 
 | Economic signal   | Public amount | What it demonstrates                                                                         |
-| ----------------- | ------------: | -------------------------------------------------------------------------------------------- |
+| ----------------- | ------------ | -------------------------------------------------------------------------------------------- |
 | ICE civil penalty |   $10,000,000 | Potential consequences of failing to meet applicable cyber-incident notification obligations |
 
 A single enforcement amount is not a universal estimate of cybersecurity exposure. It does, however, demonstrate that notification governance can carry direct financial consequences.

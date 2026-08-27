@@ -1,7 +1,7 @@
 ---
 title: "Industry Research Brief — Current GRC Pain Points and Control-First Alleviation Paths"
-publishedAt: "2026-08-04T19:03:57.711Z"
-published: "2026-08-04"
+publishedAt: "2026-07-15T12:00:00.000Z"
+published: "2026-07-15"
 summary: "Organisations continue to face control risks when evidence is manually assembled, risk estimates conceal uncertainty, external data enters trusted workflows without validation, tenant boundaries depend only on application conventions, or AI-generated content is used without risk-appropriate review. This brief maps five current GRC pain themes to enforceable, testable alleviation requirements—correcting prior misattributions of SolarWinds and SOX 404 figures and refusing incomparable financial aggregation. Information reviewed through August 4, 2026."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
@@ -75,7 +75,7 @@ DORA requires covered financial entities to manage ICT risk, incidents, resilien
 The following examples illustrate that control, disclosure and breach-related failures can carry material financial consequences. **Amounts are not comparable and must not be aggregated.** They differ by period, entity size, legal authority, conduct, remedy and methodology. They do not estimate any organisation’s expected loss, annualised loss expectancy, regulatory ceiling or mid-market baseline.
 
 | Public example | Verified amount | Correct classification |
-| -------------- | --------------: | ---------------------- |
+| -------------- | -------------- | ---------------------- |
 | ICE Regulation SCI matter (2024) | $10 million | SEC civil penalty for Regulation SCI **notification** failures—not Form 8-K Item 1.05 [6] |
 | R.R. Donnelley cyber-controls matter (2024) | More than $2.1 million ($2.125 million civil penalty) | SEC settlement involving disclosure-control and internal-control charges [16] |
 | Blackbaud ransomware-disclosure matter (2023) | $3 million | SEC civil penalty for misleading ransomware disclosures and related disclosure-control failures [17] |

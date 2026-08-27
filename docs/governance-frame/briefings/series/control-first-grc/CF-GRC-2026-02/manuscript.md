@@ -60,7 +60,7 @@ In 2019, Equifax agreed to pay **at least $575 million**, and potentially up to 
 In 2017, Target agreed to an **$18.5 million multistate settlement** with 47 states and the District of Columbia arising from the company’s 2013 data breach. [4]
 
 | Economic signal                      | Public amount | What it demonstrates                                                                       |
-| ------------------------------------ | ------------: | ------------------------------------------------------------------------------------------ |
+| ------------------------------------ | ------------ | ------------------------------------------------------------------------------------------ |
 | Equifax global settlement minimum    |  $575,000,000 | Consumer, regulatory, and state-level consequences following a major data-security failure |
 | Equifax potential settlement ceiling |  $700,000,000 | Maximum public settlement structure described by the FTC                                   |
 | Target multistate settlement         |   $18,500,000 | State enforcement consequences following the 2013 breach                                   |

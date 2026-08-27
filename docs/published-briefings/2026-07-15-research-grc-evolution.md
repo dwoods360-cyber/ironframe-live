@@ -1,7 +1,7 @@
 ---
 title: "Industry Research Brief — Evolution of GRC: Persistent Pain Points and Historical Mitigations (2002–2026)"
-publishedAt: "2026-08-04T19:09:02.112Z"
-published: "2026-08-04"
+publishedAt: "2026-07-15T12:00:00.000Z"
+published: "2026-07-15"
 summary: "Governance, risk and compliance practices have evolved from formal internal-control assessment and document-centred assurance toward integrated cyber governance, operational resilience and automation-supported evidence. Across these periods, research and public enforcement records show persistent challenges involving spreadsheet lifecycle controls, evidence traceability, risk communication, third-party dependencies and access boundaries—without treating exact-dollar certainty, physical tenant separation or universal AI review as mandatory in every environment. Information reviewed through August 4, 2026."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
@@ -59,7 +59,7 @@ This era has the strongest source foundation among the three.
 The following figures are **non-comparable public examples**. They illustrate that governance, control and security failures may create significant financial consequences, but they **must not be aggregated** or used to estimate an organisation’s expected loss, annual loss expectancy, regulatory maximum or historical index. They differ by legal basis, remedy, period, entity size, conduct and methodology.
 
 | Historical measure | Verified figure | Proper description |
-| ------------------ | --------------: | ------------------ |
+| ------------------ | -------------- | ------------------ |
 | Xerox (2002) | $10 million | SEC civil penalty in an accounting-fraud enforcement matter; not a SOX Section 404 penalty (settlement year of SOX enactment; concerned pre-existing accounting conduct) [17] |
 | FEI first-year Section 404 survey (2005) | $4.36 million average | Private FEI survey of first-year Section 404 implementation costs; materials hosted/quoted in SEC contexts; **not** the SEC 2009 study and not labelled mid-market without sample proof [16a] |
 | SEC 2009 SOX 404 study | ≈ $2.87 million mean before reforms; ≈ $2.33 million mean after reforms | Surveyed Section 404(b) companies; choose one clearly explained baseline rather than blending “SEC study lineage” with FEI [16] |

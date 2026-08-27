@@ -29,7 +29,7 @@ function componentsForTone(tone: Tone): Components {
   const institute = tone === "institute";
 
   return {
-    h1: ({ children, ...props }) => (
+    h1: ({ children, node: _node, ...props }) => (
       <h1
         className={
           institute
@@ -41,7 +41,7 @@ function componentsForTone(tone: Tone): Components {
         {children}
       </h1>
     ),
-    h2: ({ children, ...props }) => {
+    h2: ({ children, node: _node, ...props }) => {
       const text = headingText(children);
       if (isSectionZone(text)) {
         return (
@@ -70,7 +70,7 @@ function componentsForTone(tone: Tone): Components {
         </h2>
       );
     },
-    h3: ({ children, ...props }) => {
+    h3: ({ children, node: _node, ...props }) => {
       const text = headingText(children);
       if (isSectionZone(text)) {
         return (
@@ -99,7 +99,7 @@ function componentsForTone(tone: Tone): Components {
         </h3>
       );
     },
-    p: ({ children, ...props }) => (
+    p: ({ children, node: _node, ...props }) => (
       <p
         className={
           institute
@@ -111,7 +111,7 @@ function componentsForTone(tone: Tone): Components {
         {children}
       </p>
     ),
-    strong: ({ children, ...props }) => (
+    strong: ({ children, node: _node, ...props }) => (
       <strong
         className={institute ? "font-semibold text-[var(--gf-ink)]" : "font-semibold text-slate-100"}
         {...props}
@@ -119,7 +119,7 @@ function componentsForTone(tone: Tone): Components {
         {children}
       </strong>
     ),
-    blockquote: ({ children, ...props }) => (
+    blockquote: ({ children, node: _node, ...props }) => (
       <blockquote
         className={
           institute
@@ -131,7 +131,7 @@ function componentsForTone(tone: Tone): Components {
         {children}
       </blockquote>
     ),
-    ul: ({ children, ...props }) => (
+    ul: ({ children, node: _node, ...props }) => (
       <ul
         className={
           institute
@@ -143,7 +143,7 @@ function componentsForTone(tone: Tone): Components {
         {children}
       </ul>
     ),
-    ol: ({ children, ...props }) => (
+    ol: ({ children, node: _node, ...props }) => (
       <ol
         className={
           institute
@@ -155,12 +155,12 @@ function componentsForTone(tone: Tone): Components {
         {children}
       </ol>
     ),
-    li: ({ children, ...props }) => (
+    li: ({ children, node: _node, ...props }) => (
       <li className="leading-relaxed" {...props}>
         {children}
       </li>
     ),
-    code: ({ children, className, ...props }) => {
+    code: ({ children, className, node: _node, ...props }) => {
       const isBlock = className?.includes("language-");
       if (isBlock) {
         return (
@@ -185,7 +185,7 @@ function componentsForTone(tone: Tone): Components {
         </code>
       );
     },
-    pre: ({ children, ...props }) => (
+    pre: ({ children, node: _node, ...props }) => (
       <pre
         className={
           institute
@@ -197,7 +197,7 @@ function componentsForTone(tone: Tone): Components {
         {children}
       </pre>
     ),
-    a: ({ children, href, ...props }) => (
+    a: ({ children, href, node: _node, ...props }) => (
       <a
         href={href}
         className={
@@ -210,6 +210,66 @@ function componentsForTone(tone: Tone): Components {
       >
         {children}
       </a>
+    ),
+    ...gfMarkdownTableComponents(institute ? "institute" : "dark"),
+  };
+}
+
+/**
+ * GFM column markers (`---:`) compile to `align` + inline `style.textAlign`.
+ * Spreading those onto `th`/`td` after Tailwind `text-left` re-breaks the grid:
+ * a “Public amount” column right-aligns $4,250,000 in row 1 and a wrapping
+ * prose cell in row 2, so headers no longer sit over their bodies.
+ * Do not spread GFM cell props. Use a full-width fixed grid so every row shares
+ * one column set and the table cannot overflow the reading column.
+ */
+export function gfMarkdownTableComponents(tone: Tone): Pick<
+  Components,
+  "table" | "thead" | "tbody" | "tr" | "th" | "td"
+> {
+  const institute = tone === "institute";
+  const cell =
+    "px-3 py-2.5 text-left align-top break-words [overflow-wrap:anywhere] [&_p]:m-0";
+
+  return {
+    table: ({ children }) => (
+      <div className="my-6 w-full min-w-0 max-w-full overflow-x-auto">
+        <table
+          className={
+            institute
+              ? "w-full max-w-full table-fixed border-collapse text-left font-[family-name:var(--font-gf-sans)] text-[14px] text-[var(--gf-ink-soft)]"
+              : "w-full max-w-full table-fixed border-collapse text-left text-sm text-slate-300"
+          }
+        >
+          {children}
+        </table>
+      </div>
+    ),
+    thead: ({ children }) => <thead>{children}</thead>,
+    tbody: ({ children }) => <tbody>{children}</tbody>,
+    tr: ({ children }) => <tr>{children}</tr>,
+    th: ({ children }) => (
+      <th
+        scope="col"
+        className={
+          institute
+            ? `${cell} border border-[var(--gf-line)] bg-[color-mix(in_srgb,var(--gf-paper-elevated)_88%,white)] font-[family-name:var(--font-gf-sans)] text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--gf-muted)]`
+            : `${cell} border border-slate-700 bg-slate-900/80 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400`
+        }
+      >
+        {children}
+      </th>
+    ),
+    td: ({ children }) => (
+      <td
+        className={
+          institute
+            ? `${cell} border border-[var(--gf-line)] bg-[var(--gf-paper-elevated)] leading-relaxed`
+            : `${cell} border border-slate-800 leading-relaxed`
+        }
+      >
+        {children}
+      </td>
     ),
   };
 }

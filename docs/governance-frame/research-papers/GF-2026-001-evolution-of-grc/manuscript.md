@@ -116,7 +116,7 @@ In April 2002, Xerox Corporation agreed to pay a **$10 million civil penalty** t
 The SEC’s 2009 study of Section 404 implementation reported that, among surveyed companies subject to both Section 404(a) and Section 404(b), the **mean** total compliance cost declined from approximately **$2.87 million before the 2007 reforms** to **$2.33 million afterward** [GF001-REF-002]. The study emphasized variation by company size, compliance history, and applicable requirements. Mean figures for Section 404(b) filers do not describe all issuers or medians for every size category.
 
 | Economic signal | Public amount (USD) | Category |
-|---|---:|---|
+|---|---|---|
 | Xerox SEC civil penalty (2002) | $10,000,000 | Enforcement |
 | Mean Section 404 cost before 2007 reforms (404(a)+(b) survey subset) | $2,870,000 | Operating compliance |
 | Mean Section 404 cost after 2007 reforms (same subset) | $2,330,000 | Operating compliance |
@@ -156,7 +156,7 @@ First-generation compliance automation often optimized connector breadth—pulli
 Major data-security failures during the period produced public settlements of material size. These figures illustrate order-of-magnitude consequences; they are not estimates of GRC software cost or tenant-isolation failure rates.
 
 | Incident / settlement | Public amount (USD) | Source |
-|---|---:|---|
+|---|---|---|
 | Equifax global settlement (minimum stated) | $575,000,000 | [GF001-REF-008] |
 | Equifax potential ceiling (FTC description) | $700,000,000 | [GF001-REF-008] |
 | Target multistate settlement (2013 breach) | $18,500,000 | [GF001-REF-009] |

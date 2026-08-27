@@ -60,7 +60,7 @@ In April 2002, Xerox agreed to pay a **$10 million civil penalty** to settle SEC
 The SEC’s 2009 study of Section 404 implementation reported that, among surveyed companies complying with both Sections 404(a) and 404(b), the mean total compliance cost declined from approximately **$2.87 million before the 2007 reforms** to **$2.33 million after them**. The study emphasized that costs varied by company size, compliance history, and applicable requirements. [2]
 
 | Economic signal                                          | Public amount | What it demonstrates                                                 |
-| -------------------------------------------------------- | ------------: | -------------------------------------------------------------------- |
+| -------------------------------------------------------- | ------------ | -------------------------------------------------------------------- |
 | Xerox SEC civil penalty                                  |   $10,000,000 | Potential enforcement consequences of financial-reporting misconduct |
 | Mean Section 404 compliance cost before the 2007 reforms |    $2,870,000 | Operating burden among surveyed Section 404(b) companies             |
 | Mean Section 404 compliance cost after the reforms       |    $2,330,000 | Reduced, but still substantial, recurring compliance effort          |

@@ -1,7 +1,7 @@
 ---
 title: "The Fallacy of the Connector Count: Why Multi-Entity Operators Require Sovereign Audit Enclaves"
-publishedAt: "2026-07-16T17:04:02.669Z"
-published: "2026-07-16"
+publishedAt: "2026-05-14T12:00:00.000Z"
+published: "2026-05-14"
 summary: "A PE roll-up opens one GRC login for twelve legal entities and celebrates the connector count. Tonight an auditor for Clinic East can see more than Clinic East. This briefing keeps the connector-count thesis while anchoring public enforcement facts carefully—including a May 2023 NYDFS action against OneMain Financial Group that is not a multi-entity tenancy case—and the enclave disciplines that keep sticky labels from becoming the control system."
 classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
@@ -38,7 +38,7 @@ DFS stated that OneMain failed to effectively:
 OneMain wholly owns New York-licensed lending and mortgage-servicing subsidiaries. That corporate structure does **not** convert the consent order into a ruling on multi-entity GRC tenancy, shared evidence cabinets, or subsidiary evidence segregation. The published findings concern cybersecurity program controls—access, vendor risk, and application security—not a determination that a parent shared one GRC evidence store across legal entities.
 
 | Economic signal | Public amount | What it demonstrates |
-| --- | ---: | --- |
+| --- | --- | --- |
 | OneMain / NYDFS civil monetary penalty (May 2023) [1][2] | $4,250,000 | Material cost of cybersecurity-program governance failures under 23 NYCRR 500 |
 | Scope of cited findings | Access privileges; third-party risk; application security | Not a multi-entity tenancy or evidence-segregation adjudication |
 

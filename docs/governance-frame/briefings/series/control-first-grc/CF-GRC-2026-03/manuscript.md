@@ -64,7 +64,7 @@ In 2024, the SEC announced that Intercontinental Exchange agreed to pay a **$10 
 This action should be described precisely. It was not a penalty under the SEC’s public-company Form 8-K cybersecurity-disclosure rule. It involved notification obligations under Regulation SCI applicable to covered market entities. [5]
 
 | Economic signal   | Public amount | What it demonstrates                                                                         |
-| ----------------- | ------------: | -------------------------------------------------------------------------------------------- |
+| ----------------- | ------------ | -------------------------------------------------------------------------------------------- |
 | ICE civil penalty |   $10,000,000 | Potential consequences of failing to meet applicable cyber-incident notification obligations |
 
 A single enforcement amount is not a universal estimate of cybersecurity exposure. It does, however, demonstrate that notification governance can carry direct financial consequences.

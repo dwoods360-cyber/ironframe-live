@@ -15,6 +15,7 @@ import {
   parseBriefingCitations,
   type BriefingCitation,
 } from "@/app/lib/governanceFrame/parseBriefingCitations";
+import { gfMarkdownTableComponents } from "@/app/components/governanceFrame/BriefingMarkdown";
 import {
   DISALLOWED_MARKDOWN_ELEMENTS,
   sanitizeMarkdownUrl,
@@ -112,6 +113,7 @@ const sansComponents: Components = {
       {children}
     </li>
   ),
+  ...gfMarkdownTableComponents("dark"),
 };
 
 const machineRuleComponents: Components = {

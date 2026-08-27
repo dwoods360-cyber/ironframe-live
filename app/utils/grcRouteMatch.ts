@@ -140,6 +140,9 @@ export function isPublicRoute(pathname: string): boolean {
   if (pathname === "/governance-frame" || pathname.startsWith("/governance-frame/")) return true;
   /** Founder interview prep player — unlisted static surface + MP3 chapters. */
   if (pathname === "/interview-prep" || pathname.startsWith("/interview-prep/")) return true;
+  /** Academic Fellowship portal (also fellows.ironframegrc.com). */
+  if (pathname === "/fellows" || pathname.startsWith("/fellows/")) return true;
+  if (pathname === "/api/fellows" || pathname.startsWith("/api/fellows/")) return true;
   return false;
 }
 

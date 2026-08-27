@@ -23,6 +23,7 @@ import {
   governanceFrameCharterRedirectPath,
   isGovernanceFramePublicHost,
 } from "@/config/governanceFramePublic";
+import { FELLOWS_INTERNAL_PREFIX, isFellowsPortalHost } from "@/config/fellowsPortal";
 
 /** Read-only methods allowed on /api during Irontech State Freeze (Ironlock). */
 const STALE_LOCKDOWN_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -315,6 +316,53 @@ function governanceFrameResearchHostResponse(request: NextRequest): NextResponse
 }
 
 /**
+ * fellows.ironframegrc.com / lab.ironframegrc.com → /fellows/*
+ */
+function fellowsPortalHostResponse(request: NextRequest): NextResponse | null {
+  if (!isFellowsPortalHost(request.headers.get("host"))) return null;
+
+  const pathname = request.nextUrl.pathname;
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/assets") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml"
+  ) {
+    return null;
+  }
+
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    const target = new URL(`${pathname}${request.nextUrl.search}`, resolvePublicAppUrl());
+    return NextResponse.redirect(target, 308);
+  }
+
+  if (
+    pathname === FELLOWS_INTERNAL_PREFIX ||
+    pathname.startsWith(`${FELLOWS_INTERNAL_PREFIX}/`)
+  ) {
+    return NextResponse.next({
+      request: {
+        headers: withPathnameRequestHeaders(request.headers, pathname),
+      },
+    });
+  }
+
+  const rewritePath =
+    pathname === "/"
+      ? FELLOWS_INTERNAL_PREFIX
+      : `${FELLOWS_INTERNAL_PREFIX}${pathname}`;
+  const rewriteUrl = request.nextUrl.clone();
+  rewriteUrl.pathname = rewritePath;
+  return NextResponse.rewrite(rewriteUrl, {
+    request: {
+      headers: withPathnameRequestHeaders(request.headers, rewritePath),
+    },
+  });
+}
+
+/**
  * Global: Supabase session refresh (`updateSession` on all matched routes).
  * API routes: same tenant cross-check as legacy `proxy.ts` (x-tenant-id / x-target-tenant-id / tenantUuid).
  */
@@ -325,6 +373,11 @@ export async function middleware(request: NextRequest) {
   const researchHostResponse = governanceFrameResearchHostResponse(request);
   if (researchHostResponse) {
     return researchHostResponse;
+  }
+
+  const fellowsHostResponse = fellowsPortalHostResponse(request);
+  if (fellowsHostResponse) {
+    return fellowsHostResponse;
   }
 
   /** Common URL typo — `/markiting` is not a registered App Router path. */

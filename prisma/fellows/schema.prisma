@@ -1,0 +1,172 @@
+/**
+ * Academic Fellowship DB — isolated from Path B / tenant Postgres surface.
+ *
+ * Defense-in-depth:
+ * 1. Separate Prisma schema + client (no Tenant/Evidence models in this client)
+ * 2. Postgres schema `academic_fellows` (not `public`)
+ * 3. Prefer a dedicated DB role (see prisma/fellows/ops/01_create_role_and_grants.sql)
+ * 4. Runtime refuses primary DATABASE_URL without academic schema / distinct identity
+ */
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/fellows-client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("FELLOWS_DATABASE_URL")
+  directUrl = env("FELLOWS_DIRECT_URL")
+  schemas   = ["academic_fellows"]
+}
+
+enum FellowAcademicTrack {
+  MSCSIA_CAPSTONE
+  MSCSIA_COURSEWORK
+  BS_CYBERSECURITY
+  ALUMNI_PRACTITIONER
+
+  @@schema("academic_fellows")
+}
+
+enum FellowEmployerType {
+  MSP_MSSP
+  REGIONAL_BANKING
+  HEALTHCARE
+  DEFENSE_CONTRACTOR
+  ENTERPRISE_IT
+  NON_COMMERCIAL_STUDENT
+  OTHER
+
+  @@schema("academic_fellows")
+}
+
+enum FellowStatus {
+  PENDING_VERIFY
+  ACTIVE
+  REVOKED
+
+  @@schema("academic_fellows")
+}
+
+enum FellowLabFocus {
+  EXPOSURE_MATH
+  MULTI_TENANT_EVIDENCE
+  TPRM_INGEST
+  CAPSTONE_DATASET
+
+  @@schema("academic_fellows")
+}
+
+enum FellowMissionCode {
+  EXPOSURE
+  INGEST
+  BOUNDARY
+  LINEAGE
+
+  @@schema("academic_fellows")
+}
+
+enum FellowMissionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PASSED
+  FAILED
+
+  @@schema("academic_fellows")
+}
+
+/// Academic fellow account (non-Path-B). Completion badge ≠ certification.
+model Fellow {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String              @unique
+  fullName            String              @map("full_name")
+  linkedInUrl         String              @map("linked_in_url")
+  academicTrack       FellowAcademicTrack @map("academic_track")
+  employerType         FellowEmployerType  @default(NON_COMMERCIAL_STUDENT) @map("employer_type")
+  /// Free-text when employerType = OTHER (current role / employer); max ~120 chars at API.
+  employmentContext    String?             @map("employment_context")
+  labFocus             FellowLabFocus      @default(MULTI_TENANT_EVIDENCE) @map("lab_focus")
+  status              FellowStatus        @default(PENDING_VERIFY)
+  tenantEnclaveId     String              @default("ironframe-academic-sandbox") @map("tenant_enclave_id")
+  /// Soft Path B bridge — ops may send architecture brief; never shown as Path B in fellow UI.
+  requestArchitectureBrief Boolean        @default(false) @map("request_architecture_brief")
+  /// Sandbox seat TTL (default 60 days from apply; extended on lab activity).
+  sandboxExpiresAt    DateTime?           @map("sandbox_expires_at")
+  completionBadgeHash String?             @unique @map("completion_badge_hash")
+  badgeIssuedAt       DateTime?           @map("badge_issued_at")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  missionProgress  FellowMission[]
+  missionReceipts  FellowMissionReceipt[]
+  rubricSubmission FellowRubricSubmission?
+
+  @@index([status])
+  @@index([tenantEnclaveId])
+  @@index([sandboxExpiresAt])
+  @@index([requestArchitectureBrief])
+  @@map("fellows")
+  @@schema("academic_fellows")
+}
+
+model FellowMission {
+  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fellowId      String              @map("fellow_id") @db.Uuid
+  missionNumber Int                 @map("mission_number")
+  missionCode   FellowMissionCode   @map("mission_code")
+  status        FellowMissionStatus @default(NOT_STARTED)
+  telemetryData Json?               @map("telemetry_data")
+  failureReason String?             @map("failure_reason") @db.Text
+  startedAt     DateTime?           @map("started_at")
+  completedAt   DateTime?           @map("completed_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  fellow Fellow @relation(fields: [fellowId], references: [id], onDelete: Cascade)
+
+  @@unique([fellowId, missionNumber])
+  @@index([fellowId, status])
+  @@map("fellow_missions")
+  @@schema("academic_fellows")
+}
+
+/// Server-issued proof that a sandbox action ran (not client-attested).
+model FellowMissionReceipt {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fellowId     String            @map("fellow_id") @db.Uuid
+  missionCode  FellowMissionCode @map("mission_code")
+  receiptToken String            @unique @map("receipt_token")
+  payloadJson  Json              @map("payload_json")
+  consumedAt   DateTime?         @map("consumed_at")
+  expiresAt    DateTime          @map("expires_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+
+  fellow Fellow @relation(fields: [fellowId], references: [id], onDelete: Cascade)
+
+  @@index([fellowId, missionCode])
+  @@map("fellow_mission_receipts")
+  @@schema("academic_fellows")
+}
+
+model FellowRubricSubmission {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fellowId               String   @unique @map("fellow_id") @db.Uuid
+  quantitativeScore      Int      @map("quantitative_score")
+  lineageScore           Int      @map("lineage_score")
+  isolationScore         Int      @map("isolation_score")
+  velocityScore          Int      @map("velocity_score")
+  mathFrictionNotes      String   @map("math_friction_notes") @db.Text
+  academicUseDescription String   @map("academic_use_description") @db.Text
+  /// Multi-select workplace friction codes (JSON string array).
+  workplaceFrictionJson  Json     @default("[]") @map("workplace_friction_json")
+  requestBriefing        Boolean  @default(false) @map("request_briefing")
+  /// Ops-only flag — never show as Path B in fellow UI.
+  opsCommercialLeadFlag  Boolean  @default(false) @map("ops_commercial_lead_flag")
+  submittedAt            DateTime @default(now()) @map("submitted_at")
+
+  fellow Fellow @relation(fields: [fellowId], references: [id], onDelete: Cascade)
+
+  @@index([opsCommercialLeadFlag, requestBriefing])
+  @@map("fellow_rubric_submissions")
+  @@schema("academic_fellows")
+}

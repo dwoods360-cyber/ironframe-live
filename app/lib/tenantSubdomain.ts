@@ -15,6 +15,9 @@ export const RESERVED_SUBDOMAINS = new Set([
   "login",
   "brief",
   "research",
+  /** Academic Fellowship portal hosts — not Path B tenant workspaces. */
+  "fellows",
+  "lab",
 ]);
 
 /** Top-level app routes — never interpreted as path-prefix tenants. */
@@ -59,6 +62,7 @@ export const APP_ROUTE_ROOTS = new Set([
   "get-started",
   "exports",
   "legal",
+  "fellows",
 ]);
 
 const SEED_TENANT_SLUGS = new Set<string>(Object.keys(TENANT_UUIDS));

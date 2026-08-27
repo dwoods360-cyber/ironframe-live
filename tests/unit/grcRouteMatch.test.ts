@@ -148,6 +148,16 @@ describe("grcRouteMatch", () => {
     expect(isPublicRoute("/gf-research/briefings")).toBe(true);
   });
 
+  it("keeps Academic Fellowship portal and APIs public", () => {
+    expect(isPublicRoute("/fellows")).toBe(true);
+    expect(isPublicRoute("/fellows/lab")).toBe(true);
+    expect(isPublicRoute("/api/fellows")).toBe(true);
+    expect(isPublicRoute("/api/fellows/apply")).toBe(true);
+    expect(isPublicRoute("/api/fellows/sandbox/cross-tenant-probe")).toBe(true);
+    expect(isPublicCloudIngressPath("/fellows")).toBe(true);
+    expect(isPublicCloudIngressPath("/api/fellows/me")).toBe(true);
+  });
+
   it("allows public solution pages through prospect and cloud ingress", () => {
     expect(isPublicProspectOnboardingPath("/solutions")).toBe(true);
     expect(isPublicProspectOnboardingPath("/solutions/healthcare")).toBe(true);

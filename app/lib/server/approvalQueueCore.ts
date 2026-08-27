@@ -103,8 +103,14 @@ export function inferDraftKind(summary: string): DraftKind {
 }
 
 /**
- * Detect Touch 1/2/3 from pending Sales summary cadence / HITL notes.
+ * Detect Touch 1/2/3 from a Sales summary's cadence / HITL notes.
  * Prefer explicit `Cadence: TOUCHN`; fall back to Touch N day / HITL wording.
+ *
+ * Labelling only. Do NOT use this to decide whether a contact has already
+ * received a touch — use `fetchSalesTouchHistory` in
+ * `app/lib/server/salesTouchHistoryCore.ts`, which counts DISPATCHED rows.
+ * Text-derived stages return null on untagged rows and read as "never
+ * contacted", which is how a prep run can stack a duplicate send.
  */
 export function inferSalesTouchStage(summary: string): SalesTouchStage | null {
   const cadence = summary.match(/Cadence:\s*(TOUCH[123])\b/i)?.[1];

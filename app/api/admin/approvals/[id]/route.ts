@@ -18,6 +18,10 @@ import {
   sendOutboundSms,
 } from "@/app/lib/server/sendOutboundSms";
 import { finalizeSalesDispatchOperatorTrail } from "@/app/lib/server/finalizeSalesDispatchOperatorTrail";
+import {
+  buildCadenceTraceLine,
+  resolveOutgoingTouchNumber,
+} from "@/app/lib/server/salesTouchHistoryCore";
 import { applyApprovalNeedsEnrichment } from "@/app/lib/server/approvalNeedsEnrichmentCore";
 import prisma from "@/lib/prisma";
 
@@ -129,6 +133,20 @@ export async function POST(
         );
       }
 
+      /**
+       * Resolve the touch number from prior wire sends before this row flips to
+       * DISPATCHED. The rebuilt dispatched summary drops the pending draft's
+       * `--- Prospect Context ---` block, so the cadence has to be re-stamped
+       * here or the touch number is lost the moment the email leaves.
+       */
+      const salesTouch =
+        draftKind === "SALES"
+          ? await resolveOutgoingTouchNumber({
+              contactId: contact.id,
+              excludeInteractionId: interactionId,
+            })
+          : null;
+
       let channel: ApprovalDispatchChannel = "EMAIL";
       if (draftKind === "SALES") {
         if (body.dispatchChannel === "EMAIL" || body.dispatchChannel === "SMS") {
@@ -201,6 +219,7 @@ export async function POST(
           trimmedText,
           "--- Trace Matrix ---",
           `Channel: SMS | To: ${toPhone} | Transitioned By: Manual Admin Override | Original Log Ref: ${interactionId}`,
+          salesTouch ? buildCadenceTraceLine(salesTouch) : "",
           sendResult.messageSid
             ? `${sendResult.provider === "textbelt" ? "Textbelt textId" : "Twilio Message SID"}: ${sendResult.messageSid}`
             : "",
@@ -227,10 +246,12 @@ export async function POST(
                 interactionId,
                 to: toPhone,
                 email: contact.email,
+                contactId: contact.id,
                 dealId: pendingInteraction.dealId,
                 loggedBy: auth.userId,
+                touch: salesTouch,
               })
-            : { touchLogged: false, inboundAdvanced: false };
+            : { touchLogged: false, inboundAdvanced: false, touch: null };
         return NextResponse.json({
           status: "SUCCESS_DISPATCHED",
           channel: "SMS",
@@ -242,6 +263,7 @@ export async function POST(
           contactId: contact.id,
           dealId: pendingInteraction.dealId ?? null,
           draftKind,
+          touch: trail.touch,
           touchLogged: trail.touchLogged,
           inboundAdvanced: trail.inboundAdvanced,
           nextStep: trail.touchLogged ? "LIVE" : "C3",
@@ -293,6 +315,7 @@ export async function POST(
         trimmedText,
         "--- Trace Matrix ---",
         `Channel: EMAIL | To: ${toEmail} | Transitioned By: Manual Admin Override | Original Log Ref: ${interactionId}`,
+        salesTouch ? buildCadenceTraceLine(salesTouch) : "",
         sendResult.emailId ? `Resend Message ID: ${sendResult.emailId}` : "",
       ]
         .filter(Boolean)
@@ -317,10 +340,12 @@ export async function POST(
               interactionId,
               to: toEmail,
               email: contact.email,
+              contactId: contact.id,
               dealId: pendingInteraction.dealId,
               loggedBy: auth.userId,
+              touch: salesTouch,
             })
-          : { touchLogged: false, inboundAdvanced: false };
+          : { touchLogged: false, inboundAdvanced: false, touch: null };
       return NextResponse.json({
         status: "SUCCESS_DISPATCHED",
         channel: "EMAIL",
@@ -331,6 +356,7 @@ export async function POST(
         contactId: contact.id,
         dealId: pendingInteraction.dealId ?? null,
         draftKind,
+        touch: trail.touch,
         touchLogged: trail.touchLogged,
         inboundAdvanced: trail.inboundAdvanced,
         nextStep: draftKind === "SALES" && trail.touchLogged ? "LIVE" : undefined,

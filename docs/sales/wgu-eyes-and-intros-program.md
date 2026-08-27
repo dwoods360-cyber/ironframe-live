@@ -12,7 +12,7 @@
 
 **Portal brand lock:** `fellows.ironframegrc.com` uses **Ironframe** visual identity (not a WGU site clone). Affinity is **text-only** (e.g. “Built for WGU cybersecurity / MSCSIA candidates”). No WGU logos or WGU marketing palette. Independent academic lab — not a WGU-operated site.
 
-**Phase 1 live path (apex until DNS):** `/fellows` landing + apply → `/fellows/lab` → Missions 01–04 (exposure / ingest quarantine / boundary 403 / lineage export) each with server receipt → telemetry PASS → rubric → completion hash. Subdomain rewrite ready for `fellows.` / `lab.` hosts. No mass student outreach until the path is verified end-to-end on the deployed fellows host. Set `FELLOWS_DATABASE_URL`, `FELLOWS_DIRECT_URL`, and `FELLOWS_SESSION_SECRET` (or CRON/GATEWAY secret fallback).
+**Phase 1 live path:** `https://fellows.ironframegrc.com/` (also apex `/fellows`) — apply → lab → Missions 01–04 (server receipts) → rubric → completion hash. **Production smoke verified 2026-08-27** (apply → M1–M4 → rubric). Faculty pre-approval asset: [Fellows faculty brief (1-pager)](./fellows-faculty-brief-one-pager.md). Soft-open: capped seats after **one instructor blessing** — no mass student outreach as the first move. Env: `FELLOWS_DATABASE_URL`, `FELLOWS_DIRECT_URL`, `FELLOWS_SESSION_SECRET`.
 
 ---
 

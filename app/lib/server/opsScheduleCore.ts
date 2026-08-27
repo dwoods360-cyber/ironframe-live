@@ -205,28 +205,49 @@ function toSummary(row: OpsActivity & ActivityExtras, now = new Date()): OpsActi
 
 export async function listOpsActivities(options?: {
   includeDone?: boolean;
+  /** Max recent closed rows when includeDone (open rows are never truncated). */
+  closedLimit?: number;
   limit?: number;
 }): Promise<OpsActivitySummary[]> {
   const includeDone = options?.includeDone === true;
-  const limit = Math.min(Math.max(options?.limit ?? 100, 1), 300);
-  const rows = await prisma.opsActivity.findMany({
-    where: includeDone ? undefined : { status: { in: OPEN_STATUSES } },
-    // Priority lives on the row (raw hydrate); client may lag schema — sort in memory.
+  const closedLimit = Math.min(Math.max(options?.closedLimit ?? 24, 0), 100);
+  const openCap = Math.min(Math.max(options?.limit ?? 300, 1), 500);
+
+  // Always load open work in full — never let historical DONE/CANCELLED crowd them out.
+  const openRows = await prisma.opsActivity.findMany({
+    where: { status: { in: OPEN_STATUSES } },
     orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
-    take: limit,
+    take: openCap,
   });
-  const hydrated = await hydrateActivityExtras(rows);
+
+  const closedRows = includeDone
+    ? await prisma.opsActivity.findMany({
+        where: { status: { in: ["DONE", "CANCELLED"] } },
+        orderBy: [{ completedAt: "desc" }, { dueAt: "desc" }],
+        take: closedLimit,
+      })
+    : [];
+
+  const hydrated = await hydrateActivityExtras([...openRows, ...closedRows]);
   const now = new Date();
   return hydrated
     .map((row) => toSummary(row, now))
     .sort((a, b) => {
+      const aOpen = OPEN_STATUSES.includes(a.status) ? 0 : 1;
+      const bOpen = OPEN_STATUSES.includes(b.status) ? 0 : 1;
+      if (aOpen !== bOpen) return aOpen - bOpen;
       if (a.priority !== b.priority) return a.priority - b.priority;
       return a.dueAt.localeCompare(b.dueAt);
     });
 }
 
 export async function buildOpsScheduleSnapshot(): Promise<OpsScheduleSnapshot> {
-  const activities = await listOpsActivities({ includeDone: true, limit: 200 });
+  // Open items first (uncapped within list limit); only a short closed archive for history.
+  const activities = await listOpsActivities({
+    includeDone: true,
+    closedLimit: 24,
+    limit: 400,
+  });
   const open = activities.filter((a) => OPEN_STATUSES.includes(a.status));
   return {
     activities,

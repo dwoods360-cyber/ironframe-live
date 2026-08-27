@@ -54,6 +54,13 @@ scripts/dev/stripe-client-links.json
 secrets-replacements.txt
 .env*
 
+# Prospect enrichment scratch artifacts — contain contact PII (email/phone/LinkedIn).
+# Repo is public; scratch data dumps must never be committable. Scratch *scripts*
+# (scripts/dev/_*.mjs|.ts|.tsx) stay trackable — only their data outputs are ignored.
+.prospeo-*.json
+scripts/dev/_*.json
+scripts/dev/_*.txt
+
 # Local scratch + counsel binary exports (keep on disk; never commit)
 /tmp/
 docs/sales/exports/

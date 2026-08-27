@@ -134,7 +134,7 @@ Surfaces: `/product-demo` · `/docs` / training manuals · GF research.
 
 Order: faculty first → chair/mentor → career services → club **after** faculty blessing.
 
-**Faculty pre-approval asset:** [Fellows faculty brief (1-pager)](./fellows-faculty-brief-one-pager.md) — send **you → instructor**, not student-as-courier.
+**Faculty pre-approval asset:** [Fellows faculty brief (1-pager)](./fellows-faculty-brief-one-pager.md) · public URL https://fellows.ironframegrc.com/faculty-brief · [5-approach send kit](./fellows-faculty-send-kit.md) — send **you → instructor**, not student-as-courier.
 
 ### Target roles (priority order)
 
@@ -182,14 +182,16 @@ Each mission includes a short in-lab lesson (teach → check → unlock run). Fr
 
 Would you glance at our 1-page lab brief and tell me if it’s a useful optional resource for students doing GRC or capstone work?
 
+Brief: https://fellows.ironframegrc.com/faculty-brief
+
 Dereck Woods
 Founder, Ironframe
 dereck@ironframegrc.com
 ```
 
-**When they reply:** send [fellows-faculty-brief-one-pager.md](./fellows-faculty-brief-one-pager.md). Soft-open capped seats only after blessing.
+**When they reply:** confirm they opened the public brief; soft-open capped seats only after blessing. Operator tracker: [fellows-faculty-send-kit.md](./fellows-faculty-send-kit.md).
 
-**Assets before first faculty touch:** this doc · faculty 1-pager · classroom ≠ commercial seat.
+**Assets before first faculty touch:** this doc · public `/faculty-brief` · send kit · classroom ≠ commercial seat.
 
 ---
 

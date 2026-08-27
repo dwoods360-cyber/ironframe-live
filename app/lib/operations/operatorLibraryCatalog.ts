@@ -131,6 +131,29 @@ export const OPERATOR_LIBRARY_SETS: OperatorLibrarySet[] = [
         summary: "How design partners are recruited into Path B.",
         file: "design-partner-recruitment.md",
       },
+      {
+        kind: "markdown",
+        slug: "wgu-eyes-and-intros",
+        title: "WGU Eyes & Intros program",
+        summary:
+          "IGF two-tier: academic sandbox eyes + ICP intros. Path B soft mention only at end. Not free Path B.",
+        file: "wgu-eyes-and-intros-program.md",
+      },
+      {
+        kind: "markdown",
+        slug: "fellows-faculty-brief",
+        title: "Fellows faculty lab brief",
+        summary:
+          "One-page instructor ask for optional IGF lab (outcomes, audit map, lessons). Public: fellows.ironframegrc.com/faculty-brief",
+        file: "fellows-faculty-brief-one-pager.md",
+      },
+      {
+        kind: "markdown",
+        slug: "fellows-faculty-send-kit",
+        title: "Fellows faculty send kit (5 approaches)",
+        summary: "LinkedIn searches, locked message, tracking table, reply handling for Eyes track.",
+        file: "fellows-faculty-send-kit.md",
+      },
     ],
   },
   {
@@ -222,6 +245,14 @@ export const OPERATOR_LIBRARY_SETS: OperatorLibrarySet[] = [
         title: "Control-to-Capital narrative",
         summary: "Buyer-safe market claims — what to say / never say.",
         file: "control-to-capital-market-narrative.md",
+      },
+      {
+        kind: "markdown",
+        slug: "four-checks-shared-grc-stack",
+        title: "Four checks (shared GRC stack)",
+        summary:
+          "1-page leave-behind / soft-reply value drop — Owner · Scope · Export gate · Decision layer. Not for cold T1/T2 lead.",
+        file: "four-checks-shared-grc-stack.md",
       },
       {
         kind: "markdown",
@@ -365,6 +396,10 @@ const MARKDOWN_SLUG_ALIASES: Record<string, string> = {
   "design-partner-order-form": "order-form",
   "design-partner-first-close-handoff-notes": "first-close-handoff",
   "design-partner-workflow-review-protocol": "workflow-review-protocol",
+  "four-checks-shared-grc-stack": "four-checks-shared-grc-stack",
+  "wgu-eyes-and-intros-program": "wgu-eyes-and-intros",
+  "fellows-faculty-brief-one-pager": "fellows-faculty-brief",
+  "fellows-faculty-send-kit": "fellows-faculty-send-kit",
 };
 
 export function resolveMarkdownLibraryEntry(slug: string): {

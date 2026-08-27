@@ -38,6 +38,12 @@ export default function FellowsNav() {
         >
           Capstone
         </Link>
+        <Link
+          href="/fellows/faculty-brief"
+          className="hidden text-slate-400 transition-colors hover:text-slate-200 lg:inline"
+        >
+          Faculty brief
+        </Link>
         <a
           href="https://research.ironframegrc.com"
           target="_blank"

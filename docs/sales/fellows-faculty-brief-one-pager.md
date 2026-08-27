@@ -3,8 +3,10 @@
 
 **Audience:** Instructors, mentors, evaluators (curriculum eyes — not a sales seat)  
 **Lab:** https://fellows.ironframegrc.com  
+**Public brief URL (send this):** https://fellows.ironframegrc.com/faculty-brief  
 **Operator contact:** Dereck Woods · dereck@ironframegrc.com  
-**Status:** Optional · synthetic data only · independent Ironframe lab (not a WGU-operated site)
+**Status:** Optional · synthetic data only · independent Ironframe lab (not a WGU-operated site)  
+**Send kit:** [fellows-faculty-send-kit.md](./fellows-faculty-send-kit.md)
 
 ---
 

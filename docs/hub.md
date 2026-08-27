@@ -155,6 +155,7 @@ Screenshots: `public/docs/training/assets/{analyst,practitioner-core,ops-gtm}-*.
 
 | Document | Purpose |
 |----------|---------|
+| **Doc Directory (in-app)** | `/dashboard/operations/doc-directory` — map of documentation planes (not every `.md`) |
 | **In-app Operator library** | `/dashboard/operations/library` — directory of GTM playbooks + tools (auth: Ops Hub) |
 | [Pre-outreach dry-run (run order)](./sales/design-partner-pre-outreach-run-order.md) | R1–R8 gate before first partner DISPATCH |
 | [GTM operator glossary](./sales/design-partner-gtm-operator-glossary.md) | SUSPECT → Path B, DISPATCH, LIVE sidecar, message locks |

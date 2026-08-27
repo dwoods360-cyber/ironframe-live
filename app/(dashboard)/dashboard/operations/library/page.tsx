@@ -26,6 +26,12 @@ export default async function OperatorLibraryPage() {
               ← Operations hub
             </Link>
             <Link
+              href="/dashboard/operations/doc-directory"
+              className="text-cyan-300 hover:underline"
+            >
+              Doc Directory
+            </Link>
+            <Link
               href="/dashboard/operations/workflow-review"
               className="text-cyan-300 hover:underline"
             >
@@ -36,6 +42,12 @@ export default async function OperatorLibraryPage() {
               className="text-emerald-300 hover:underline"
             >
               Casual pitch practice
+            </Link>
+            <Link
+              href="/dashboard/operations/workflow-review#founder-pitch"
+              className="text-violet-300 hover:underline"
+            >
+              Detailed pitch practice
             </Link>
             <Link
               href="/dashboard/admin/approvals?kind=SALES"

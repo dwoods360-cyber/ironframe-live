@@ -758,6 +758,7 @@ export default function OperationsHubClient() {
                     ["Workforce", "/dashboard/operations?tab=workforce"],
                     ["Ironboard", "/dashboard/operations/ironboard"],
                     ["Calendar", "/dashboard/operations?tab=calendar"],
+                    ["Doc Directory", "/dashboard/operations/doc-directory"],
                     ["Operator library", "/dashboard/operations/library"],
                   ],
                 },
@@ -1426,6 +1427,18 @@ export default function OperationsHubClient() {
                     CS
                   </Link>
                   <p className="text-slate-500">Support, Sales, and Customer Success draft dispatch.</p>
+                </li>
+                <li>
+                  <Link
+                    href="/dashboard/operations/doc-directory"
+                    className="text-cyan-300 hover:underline"
+                  >
+                    Doc Directory
+                  </Link>
+                  <p className="text-slate-500">
+                    Master map of documentation planes — Operator library, product docs, Publishing,
+                    research.
+                  </p>
                 </li>
                 <li>
                   <Link

@@ -2,7 +2,7 @@
 
 **Audience:** Operator running Path B GTM.  
 **In-app:** `/dashboard/operations/library/ops-surface-map`  
-**Companions:** [Live motion](../ops/design-partner-live-motion-next.md) · [Glossary](./design-partner-gtm-operator-glossary.md) · [Launch checklist](./design-partner-operator-launch-checklist.md)
+**Companions:** [Doc Directory](/dashboard/operations/doc-directory) · [Live motion](../ops/design-partner-live-motion-next.md) · [Glossary](./design-partner-gtm-operator-glossary.md) · [Launch checklist](./design-partner-operator-launch-checklist.md)
 
 One screen → one job. Ignore counts that don’t match the “Look for” column.
 
@@ -38,7 +38,8 @@ Order form (AGREED)  →  Provision (admin)  →  Path B pay
 
 | Surface | Job | Look for | Ignore / trap |
 |---------|-----|----------|----------------|
-| **[Ops Hub](/dashboard/operations)** | Home + pipeline counts | Overview: Warm intro kit, Operator library, LIVE, Approvals | Treating CRM/inbound totals as the ICP plan |
+| **[Ops Hub](/dashboard/operations)** | Home + pipeline counts | Overview: Warm intro kit, Doc Directory, Operator library, LIVE, Approvals | Treating CRM/inbound totals as the ICP plan |
+| **[Doc Directory](/dashboard/operations/doc-directory)** | Map of doc *planes* | Operator library · product `/docs` · Publishing · research host | Expecting every `docs/**/*.md` listed here |
 | **[Operator library](/dashboard/operations/library)** | Docs + shortlist + forms | This map, ICP shortlist, week-1 Scout, order form | Reading every doc every day |
 | **[ICP shortlist](/dashboard/operations/library/icp-shortlist#section-a)** | **Source of truth for who to chase** | §A = five warm cross-section orgs; §D = Scout/DISPATCH log | Expecting §A to appear as Ironleads SUSPECTs automatically |
 | **[Week-1 Scout](/dashboard/operations/library/week1-mssp-scout)** | How to feed beachhead D | Hiring / press / evidence → ≥12/20 PROSPECT | Harvesting hundreds of noisy SUSPECTs |

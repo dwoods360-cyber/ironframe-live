@@ -34,6 +34,8 @@ Would you bless a **capped, optional ~45–60 minute in-browser lab** as a curri
 | 03 | Boundary audit | Capture **server-proven isolation** (403 + receipt) on a cross-enclave probe — not soft-tag separation. |
 | 04 | Lineage export | Export a **SHA-256** register with collector, timestamp, scope hash, and operator sign-off. |
 
+Each mission includes an in-lab **lesson card** (what you will learn · what PASS proves · optional write-up prompt). Short lessons — not full LMS modules.
+
 **Done:** complete four missions → short rubric → downloadable export pack + lab completion hash (**not** an industry certification).
 
 **MSCSIA depth (optional, off-platform):** same lab artifacts + methodology write-up (assumptions, boundary narrative, continuous assurance vs point-in-time packs) using a **60-day** access window for drafting/revisions — not 60 days of lab work.

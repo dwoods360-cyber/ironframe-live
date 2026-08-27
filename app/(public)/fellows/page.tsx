@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import MarketingAnimatedLogo from "@/app/components/marketing/MarketingAnimatedLogo";
+import { FELLOWS_MISSION_LESSONS } from "@/app/lib/fellows/missionLessons";
 
 import FellowsApplyForm from "./FellowsApplyForm";
 import FellowsNav from "./FellowsNav";
@@ -154,36 +155,30 @@ export default function FellowsLandingPage() {
             What “done” means: complete all four missions → short rubric → export package.
           </p>
 
-          <div id="missions" className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                n: "01",
-                t: "Exposure stress-test",
-                d: "Adjust single-loss bounds and occurrence rates to verify deterministic whole-cent estimated exposure — no floating-point drift.",
-              },
-              {
-                n: "02",
-                t: "Untrusted ingest gate",
-                d: "Try to promote an unverified vendor questionnaire into an executive pack and confirm quarantine blocks before trust.",
-              },
-              {
-                n: "03",
-                t: "Boundary audit",
-                d: "Run an unauthorized cross-enclave query against another client register and capture the server-issued 403 receipt.",
-              },
-              {
-                n: "04",
-                t: "Lineage export",
-                d: "Trace an artifact’s audit trail (collector, timestamp, scope hash, sign-off) and export the signed lab dataset.",
-              },
-            ].map((m) => (
+          <div id="missions" className="mt-8 grid gap-4 sm:grid-cols-2">
+            {FELLOWS_MISSION_LESSONS.map((m) => (
               <div
-                key={m.n}
+                key={m.code}
                 className="relative rounded-lg border border-teal-500/40 bg-slate-900/70 p-4"
               >
-                <p className="font-mono text-[10px] text-teal-400">{m.n}</p>
-                <h3 className="mt-1 text-sm font-semibold text-white">{m.t}</h3>
-                <p className="mt-2 text-xs leading-relaxed text-slate-500">{m.d}</p>
+                <p className="font-mono text-[10px] text-teal-400">{m.code}</p>
+                <h3 className="mt-1 text-sm font-semibold text-white">{m.title}</h3>
+                <p className="mt-2 text-xs leading-relaxed text-slate-500">{m.labAction}</p>
+                <p className="mt-3 font-mono text-[10px] font-bold tracking-widest text-slate-500">
+                  YOU WILL LEARN
+                </p>
+                <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-slate-400">
+                  {m.youWillLearn.map((item) => (
+                    <li key={item} className="flex gap-2">
+                      <span className="shrink-0 text-teal-500">·</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-xs leading-relaxed text-slate-600">
+                  <span className="text-slate-400">PASS proves: </span>
+                  {m.youProve}
+                </p>
               </div>
             ))}
           </div>

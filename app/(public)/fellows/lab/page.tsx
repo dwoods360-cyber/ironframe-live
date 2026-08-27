@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import FellowsNav from "../FellowsNav";
+import { fellowsMissionLesson } from "@/app/lib/fellows/missionLessons";
 import {
   FELLOWS_LAB_CLIENT_A,
   FELLOWS_LAB_CLIENT_B,
@@ -349,6 +350,7 @@ export default function FellowsLabPage() {
   };
 
   const meta = missionMeta[activeMission];
+  const lesson = fellowsMissionLesson(activeMission);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -393,6 +395,31 @@ export default function FellowsLabPage() {
               </button>
             );
           })}
+        </div>
+
+        <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/80 p-5">
+          <p className="font-mono text-[10px] font-bold tracking-widest text-teal-500">
+            LESSON {lesson.code}
+          </p>
+          <h2 className="mt-1 text-sm font-semibold text-white">
+            What you will learn — {lesson.title}
+          </h2>
+          <ul className="mt-3 space-y-2 text-xs leading-relaxed text-slate-400">
+            {lesson.youWillLearn.map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="shrink-0 text-teal-500">·</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 text-xs leading-relaxed text-slate-500">
+            <span className="font-semibold text-slate-300">What PASS proves: </span>
+            {lesson.youProve}
+          </p>
+          <p className="mt-3 text-xs leading-relaxed text-slate-600">
+            <span className="font-semibold text-slate-400">Write-up prompt: </span>
+            {lesson.writeUpPrompt}
+          </p>
         </div>
 
         <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/50 p-5 font-mono text-sm">

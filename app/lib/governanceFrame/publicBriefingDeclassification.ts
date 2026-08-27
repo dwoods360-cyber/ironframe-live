@@ -153,15 +153,28 @@ Audience: prospects, design partners, and subscribers at brief.ironframegrc.com 
 4. Describe regulated industries generically — never engineering fixtures as company names.
 `.trim();
 
+/**
+ * Windows editors save markdown with a UTF-8 BOM ahead of the opening `---`.
+ * The BOM makes the delimiter check fail, so frontmatter is never stripped and
+ * gets scanned as public body copy — the draft then trips TENANT_UUID_LITERAL and
+ * ENGINEERING_METRIC_FIELD on the very `tenantId` / `activeExposureCents` keys
+ * every queued draft is required to carry, and promote blocks with an error that
+ * points at compliant metadata.
+ */
+function stripBom(markdown: string): string {
+  return markdown.replace(/^\uFEFF/, "");
+}
+
 function bodyWithoutFrontmatter(markdown: string): string {
-  if (!markdown.startsWith("---")) return markdown;
-  const end = markdown.indexOf("---", 3);
-  if (end === -1) return markdown;
-  return markdown.slice(end + 3);
+  const text = stripBom(markdown);
+  if (!text.startsWith("---")) return text;
+  const end = text.indexOf("---", 3);
+  if (end === -1) return text;
+  return text.slice(end + 3);
 }
 
 function parseFrontmatterField(markdown: string, key: string): string | null {
-  const match = markdown.match(new RegExp(`^${key}:\\s*(.+)$`, "im"));
+  const match = stripBom(markdown).match(new RegExp(`^${key}:\\s*(.+)$`, "im"));
   if (!match?.[1]) return null;
   return match[1].trim().replace(/^["']|["']$/g, "");
 }

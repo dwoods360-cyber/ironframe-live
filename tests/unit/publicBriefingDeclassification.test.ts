@@ -71,6 +71,36 @@ Controls
       "emerging-threats-notice",
     );
   });
+
+  // A Windows editor saving a BOM used to defeat the `---` check, leaving tenantId
+  // and the tenant UUID in the scanned body and blocking promote on compliant
+  // frontmatter. Frontmatter must strip identically with or without the BOM.
+  it("strips frontmatter when the draft carries a UTF-8 BOM", () => {
+    const markdown = `${EMERGING_FRONTMATTER}\n${EMERGING_THREATS_BODY}`;
+    const withBom = `\uFEFF${markdown}`;
+
+    expect(resolvePublicBriefingProfile(withBom)).toBe(
+      resolvePublicBriefingProfile(markdown),
+    );
+
+    const codes = (md: string) =>
+      scanPublicBriefingDeclassification(md, { profile: "emerging-threats-notice" })
+        .map((i) => i.code)
+        .sort();
+    expect(codes(withBom)).toEqual(codes(markdown));
+    expect(codes(withBom)).not.toContain("TENANT_UUID_LITERAL");
+    expect(codes(withBom)).not.toContain("ENGINEERING_METRIC_FIELD");
+  });
+
+  it("validates a BOM-prefixed draft the same as a clean one", () => {
+    const markdown = `${EMERGING_FRONTMATTER}\n${EMERGING_THREATS_BODY}`;
+    const clean = validateBriefingQueueDraft("d.md", markdown, { promotion: true });
+    const bom = validateBriefingQueueDraft("d.md", `\uFEFF${markdown}`, { promotion: true });
+    expect(bom.issues.map((i) => i.code).sort()).toEqual(
+      clean.issues.map((i) => i.code).sort(),
+    );
+    expect(bom.ok).toBe(clean.ok);
+  });
 });
 
 describe("desk-note promotion validation", () => {

@@ -9,6 +9,14 @@ import {
 import { isPlausiblePersonName } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
 
+/**
+ * The live case reads one operator-curated CRM row by id. CI has a database but
+ * not that row, so it fails there by construction while passing locally. Keep it
+ * on for operators, opt-in on GHA.
+ */
+const runLiveCrmFixture =
+  !process.env.GITHUB_ACTIONS || process.env.RUN_LIVE_CRM_TESTS === "1";
+
 describe("TechHeights gate regression", () => {
   it("treats Shuchipan Sharma as a plausible person name", () => {
     expect(isPlausiblePersonName("Shuchipan Sharma")).toBe(true);
@@ -73,7 +81,7 @@ describe("TechHeights gate regression", () => {
     );
   });
 
-  it("live CRM report keeps TechHeights Buyer/Email PASS", async () => {
+  it.skipIf(!runLiveCrmFixture)("live CRM report keeps TechHeights Buyer/Email PASS", async () => {
     const report = await buildIronleadsSuspectReport(
       "0ee9d9a8-88f2-4617-ba51-03f02b697797",
     );

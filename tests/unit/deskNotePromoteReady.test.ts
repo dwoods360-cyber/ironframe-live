@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -9,11 +9,35 @@ import { resolvePublicBriefingProfile } from "@/app/lib/governanceFrame/publicBr
 
 const QUEUE = resolve(process.cwd(), "docs/briefing-queue");
 
+/**
+ * Enumerate the queue instead of pinning filenames. Promoting a desk note deletes
+ * it from the queue, so a hardcoded list rots into an ENOENT the moment the desk
+ * ships anything — which is how this suite sat red and blocked the deploy gate.
+ */
+function queuedDeskNotes(): string[] {
+  return readdirSync(QUEUE)
+    .filter((f) => f.endsWith(".md") && f.toLowerCase() !== "readme.md")
+    .filter((f) => !f.toLowerCase().includes("template"))
+    .filter((f) => {
+      const markdown = readFileSync(resolve(QUEUE, f), "utf8");
+      return resolvePublicBriefingProfile(markdown, f) === "desk-note";
+    })
+    .sort();
+}
+
 describe("desk-note queue promote readiness", () => {
-  it.each([
-    "2026-07-01-draft-desk-note-sharepoint-kev.md",
-    "2026-07-02-draft-desk-note-ai-cyber-clearinghouse.md",
-  ])("passes promotion validation: %s", (filename) => {
+  const deskNotes = queuedDeskNotes();
+
+  // An empty queue satisfies "every queued desk note is promote-ready" — but assert
+  // the directory is readable so a bad path can't masquerade as a drained queue.
+  if (deskNotes.length === 0) {
+    it("queue holds no desk-note drafts to validate", () => {
+      expect(readdirSync(QUEUE).length).toBeGreaterThan(0);
+    });
+    return;
+  }
+
+  it.each(deskNotes)("passes promotion validation: %s", (filename) => {
     const markdown = readFileSync(resolve(QUEUE, filename), "utf8");
     expect(resolvePublicBriefingProfile(markdown, filename)).toBe("desk-note");
 

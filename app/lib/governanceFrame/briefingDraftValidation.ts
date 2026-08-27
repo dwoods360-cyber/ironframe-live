@@ -124,15 +124,21 @@ tenantSlug: "${args.tenantSlug}"
 }
 
 /** Remove YAML frontmatter block when present. */
+/** A BOM from a Windows editor defeats the `---` check and leaks frontmatter into body scans. */
+function stripBom(markdown: string): string {
+  return markdown.replace(/^\uFEFF/, "");
+}
+
 export function stripFrontmatter(markdown: string): string {
-  if (!markdown.startsWith("---")) return markdown;
-  const end = markdown.indexOf("---", 3);
-  if (end === -1) return markdown;
-  return markdown.slice(end + 3).trimStart();
+  const text = stripBom(markdown);
+  if (!text.startsWith("---")) return text;
+  const end = text.indexOf("---", 3);
+  if (end === -1) return text;
+  return text.slice(end + 3).trimStart();
 }
 
 function parseFrontmatterField(markdown: string, key: string): string | null {
-  const match = markdown.match(new RegExp(`^${key}:\\s*(.+)$`, "im"));
+  const match = stripBom(markdown).match(new RegExp(`^${key}:\\s*(.+)$`, "im"));
   if (!match?.[1]) return null;
   return match[1].trim().replace(/^["']|["']$/g, "");
 }

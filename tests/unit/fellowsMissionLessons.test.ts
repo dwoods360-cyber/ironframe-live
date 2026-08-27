@@ -15,6 +15,12 @@ describe("fellows mission lessons", () => {
     }
   });
 
+  it("includes an audit question for each mission", () => {
+    for (const lesson of FELLOWS_MISSION_LESSONS) {
+      expect(lesson.auditQuestion.length).toBeGreaterThan(20);
+    }
+  });
+
   it("accepts only the correct check option per mission", () => {
     for (const lesson of FELLOWS_MISSION_LESSONS) {
       expect(isFellowsLessonCheckCorrect(lesson.number, lesson.check.correctId)).toBe(true);

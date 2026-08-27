@@ -36,12 +36,13 @@ Would you bless a **capped, optional ~45–60 minute in-browser lab** as a curri
 
 Each mission includes an in-lab **lesson** before the hands-on run:
 
-1. **Teach** — short concept paragraphs (claim-safe)  
-2. **Check** — one comprehension question; must pass to unlock execute  
-3. **Lab** — server-receipt practice (PASS proves isolation / math / quarantine / hash)  
-4. **Write-up prompt** — optional off-platform methodology note for capstone / portfolio  
+1. **Audit question** — the exam-style prompt this mission prepares you to answer  
+2. **Teach** — short concept paragraphs (claim-safe)  
+3. **Check** — one comprehension question; must pass to unlock execute  
+4. **Lab** — server-receipt practice (PASS proves isolation / math / quarantine / hash)  
+5. **Write-up prompt** — optional off-platform methodology / audit narrative for capstone / portfolio  
 
-These are short mission lessons — not full LMS course modules and not graded by faculty.
+The landing **Audits** section summarizes the same four questions; the lessons teach them in-context before each run.
 
 ---
 

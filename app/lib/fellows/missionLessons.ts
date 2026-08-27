@@ -9,6 +9,8 @@ export type FellowsMissionLesson = {
   title: string;
   /** One-line what the hands-on step does */
   labAction: string;
+  /** Exam / audit-style question this mission prepares the student to answer */
+  auditQuestion: string;
   /** What the student will learn / should be able to explain */
   youWillLearn: string[];
   /** Short teaching paragraphs shown before the check */
@@ -34,15 +36,17 @@ export const FELLOWS_MISSION_LESSONS: FellowsMissionLesson[] = [
     title: "Exposure stress-test",
     labAction:
       "Adjust single-loss bounds and occurrence rates to verify deterministic whole-cent estimated exposure.",
+    auditQuestion:
+      "What’s the estimated dollar exposure for this scenario — and what assumptions produced that number?",
     youWillLearn: [
       "Why estimated loss exposure should be stored and computed in whole cents (not float dollars).",
       "How to state assumptions (SLE bounds, occurrence rate) so a figure is defendable in a write-up.",
       "Why “color-only” risk matrices are weak as a sole decision layer for capital questions.",
     ],
     teach: [
-      "Boards and evaluators often ask for dollar exposure. A 5×5 heatmap can rank “High,” but it does not by itself show estimated loss in money or the assumptions behind the number.",
+      "Audit / exam pressure often starts with a capital question: what is the estimated dollar exposure for this scenario — and what assumptions produced that number? A 5×5 heatmap can rank “High,” but it does not by itself answer that.",
       "Ironframe’s academic lab stores and computes estimated exposure in whole integer cents (BIGINT). That removes floating-point drift and forces you to name SLE bounds and occurrence rate as assumptions.",
-      "Label the output carefully: it is estimated exposure with visible assumptions — not “true ALE” and not accounting dollars. Heatmaps may remain context; they should not be the only decision layer.",
+      "Label the output carefully: it is estimated exposure with visible assumptions — not “true ALE” and not accounting dollars. Heatmaps may remain context; they should not be the only decision layer in an audit conversation.",
     ],
     check: {
       prompt: "What does this mission require you to defend academically?",
@@ -76,15 +80,17 @@ export const FELLOWS_MISSION_LESSONS: FellowsMissionLesson[] = [
     title: "Untrusted ingest gate",
     labAction:
       "Attempt to promote an unverified vendor questionnaire into an executive pack and observe the quarantine block.",
+    auditQuestion:
+      "Was this vendor pack verified before it entered the executive / board pack?",
     youWillLearn: [
       "The difference between collecting an external artifact and trusting it for executive output.",
       "Why quarantine-before-trust reduces promotion of unverified third-party content.",
       "How to describe an ingest control failure mode in methodology language.",
     ],
     teach: [
-      "Collection is not verification. A vendor questionnaire can land in the inbox and still be unfit for an executive pack until verification status allows promotion.",
-      "Quarantine-before-trust means the platform refuses to promote an UNVERIFIED artifact into trusted output. In this lab, the “failure” you want is the block — that is the control working.",
-      "For capstone writing, describe the control as: untrusted ingest → quarantine → human/verification path → then promote. Do not treat a PDF questionnaire alone as continuous assurance.",
+      "In an audit, “we collected the vendor questionnaire” is not the same as “we verified it before the executive pack.” Collection is not verification.",
+      "Quarantine-before-trust means the platform refuses to promote an UNVERIFIED artifact into trusted output. In this lab, the “failure” you want is the block — that is the control working under exam scrutiny.",
+      "For capstone / audit narrative writing, describe: untrusted ingest → quarantine → verification path → then promote. Do not treat a PDF questionnaire alone as continuous assurance.",
     ],
     check: {
       prompt: "In this lab, what is the correct outcome when you try to promote an unverified vendor questionnaire?",
@@ -118,14 +124,16 @@ export const FELLOWS_MISSION_LESSONS: FellowsMissionLesson[] = [
     title: "Boundary audit",
     labAction:
       "Run an unauthorized cross-enclave query against another client register and capture the server-issued 403 receipt.",
+    auditQuestion:
+      "Can Client B’s evidence register appear under Client A’s exam scope?",
     youWillLearn: [
       "Why soft tags on a shared stack are not the same as hard enclave isolation.",
       "How a denied cross-tenant read (403) can be evidence—not merely an error message.",
       "What to capture for an isolation narrative (source enclave, target enclave, receipt).",
     ],
     teach: [
-      "Multi-client GRC often fails quietly: one login, shared tables, and a “client = X” label. That soft tenancy can leak registers across enclaves under exam pressure.",
-      "This mission runs a cross-enclave probe from Client A toward Client B. A correct control returns 403 with zero rows from B — and a server-issued receipt you can cite.",
+      "Audit week is when soft tenancy fails: one login, shared tables, and a “client = X” label can leak registers across enclaves under exam scope. Examiners ask whether Client B evidence can appear under Client A.",
+      "This mission runs a cross-enclave probe from Client A toward Client B. A correct control returns 403 with zero rows from B — and a server-issued receipt you can cite in an isolation narrative.",
       "Do not brand this lab as “Postgres RLS” unless that is the actual mechanism under test. Here the academic claim is hard enclave boundary + 403 receipt, not a database feature slogan.",
     ],
     check: {
@@ -160,15 +168,17 @@ export const FELLOWS_MISSION_LESSONS: FellowsMissionLesson[] = [
     title: "Lineage export",
     labAction:
       "Export the lab audit register with collector, timestamp, scope hash, and operator sign-off; verify SHA-256.",
+    auditQuestion:
+      "Who collected this evidence, when, under what scope — and can I trust the export file?",
     youWillLearn: [
       "Which lineage fields make an evidence register citation-ready (who/when/scope/status).",
       "Why export hashes should be server-issued rather than trusted from the browser alone.",
       "How to package lab artifacts as technical appendices without overstating certification.",
     ],
     teach: [
-      "Evaluators and auditors ask: who collected this, when, under what scope, and who signed off? Lineage fields answer that — not a screenshot of a green check alone.",
-      "This mission exports a JSON or CSV register and computes SHA-256 on the server. You download the package and keep the hash for appendix integrity.",
-      "Completion here is a lab completion hash / export pack — useful for coursework — not an accredited industry certification.",
+      "Auditors and evaluators ask: who collected this, when, under what scope, and who signed off? Lineage fields answer that — not a screenshot of a green check alone.",
+      "This mission exports a JSON or CSV register and computes SHA-256 on the server. You download the package and keep the hash for appendix integrity when an examiner questions the file.",
+      "Completion here is a lab completion hash / export pack — useful for coursework — not an accredited industry certification and not a substitute for a real audit opinion.",
     ],
     check: {
       prompt: "Why does Mission 04 insist on a server-issued SHA-256 for the export pack?",

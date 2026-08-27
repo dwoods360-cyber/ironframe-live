@@ -459,6 +459,12 @@ export default function FellowsLabPage() {
           </p>
           <h2 className="mt-1 text-sm font-semibold text-white">{lesson.title}</h2>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">{lesson.labAction}</p>
+          <p className="mt-3 rounded border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
+            <span className="font-mono text-[10px] font-bold tracking-widest text-amber-400/90">
+              AUDIT QUESTION{" "}
+            </span>
+            {lesson.auditQuestion}
+          </p>
 
           <p className="mt-4 font-mono text-[10px] font-bold tracking-widest text-slate-500">
             YOU WILL LEARN

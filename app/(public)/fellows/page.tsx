@@ -214,6 +214,12 @@ export default function FellowsLandingPage() {
                 <p className="font-mono text-[10px] text-teal-400">{m.code}</p>
                 <h3 className="mt-1 text-sm font-semibold text-white">{m.title}</h3>
                 <p className="mt-2 text-xs leading-relaxed text-slate-500">{m.labAction}</p>
+                <p className="mt-3 text-xs leading-relaxed text-amber-200/80">
+                  <span className="font-mono text-[10px] font-bold tracking-widest text-amber-500/90">
+                    AUDIT Q ·{" "}
+                  </span>
+                  {m.auditQuestion}
+                </p>
                 <p className="mt-3 font-mono text-[10px] font-bold tracking-widest text-slate-500">
                   LESSON · YOU WILL LEARN
                 </p>

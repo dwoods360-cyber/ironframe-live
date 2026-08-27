@@ -14,6 +14,17 @@ Would you bless a **capped, optional ~45–60 minute in-browser lab** as a curri
 
 ---
 
+## Four operational assurances
+
+| Assurance | Detail |
+|-----------|--------|
+| **Zero admin overhead** | Self-paced, browser-based, ~45–60 minutes; no install; no grading required by faculty |
+| **Data safety** | Synthetic mock enclaves only; no student, school, or proprietary enterprise data ingested |
+| **Academic deliverable** | JSON/CSV evidence registers with server-issued SHA-256 for appendices / portfolio |
+| **Clear boundary** | Independent Ironframe lab — not WGU-sponsored, not mandatory |
+
+---
+
 ## What students do
 
 | # | Mission | Learning outcome |
@@ -36,6 +47,7 @@ Would you bless a **capped, optional ~45–60 minute in-browser lab** as a curri
 - **Time box** — ~45–60 minutes guided missions in browser; no coding, CLI, or AWS setup  
 - **Brand** — Ironframe lab with text-only WGU affinity; **no WGU logo / not WGU-operated**  
 - **No commercial pitch** in the classroom ask; paid co-builder / practitioner conversation is a separate track  
+- **Claim hygiene** — say **estimated exposure** (not “ALE engine” / “true ALE”); say **hard enclave boundary + 403 receipt** (not “Postgres RLS” unless that is literally what the lab demonstrates)
 
 ---
 

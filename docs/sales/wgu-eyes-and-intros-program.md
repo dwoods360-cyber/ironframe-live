@@ -134,23 +134,62 @@ Surfaces: `/product-demo` · `/docs` / training manuals · GF research.
 
 Order: faculty first → chair/mentor → career services → club **after** faculty blessing.
 
+**Faculty pre-approval asset:** [Fellows faculty brief (1-pager)](./fellows-faculty-brief-one-pager.md) — send **you → instructor**, not student-as-courier.
+
+### Target roles (priority order)
+
+| Priority | Role | Angle |
+|----------|------|--------|
+| 1 | MSCSIA capstone instructors / evaluators | Optional dataset + methodology evidence for appendices |
+| 2 | Cybersecurity program mentors | Point capstone-ready students at realistic tooling |
+| 3 | GRC / risk / cybersecurity management faculty | Estimated whole-cent exposure vs color-only matrices (heatmaps may stay as context) |
+| 4 | Cloud / architecture instructors | Mission 03 as **hard enclave boundary + 403 receipt** — do **not** brand as Postgres RLS unless verified |
+
+Verify live WGU course titles before naming them in outreach (capstone / GRC-style / cloud security — research current catalog).
+
 | Channel | Angle |
 |---------|--------|
-| **Cyber club / career services** | 45–60 min guest lab: multi-tenant evidence isolation & continuous evidence vs point-in-time theater. **Capped** sandbox/`product-demo` seats — not unlimited |
-| **MSCSIA / GRC instructors & capstone evaluators** | Non-commercial lab for evidence ingestion, isolation, estimated exposure — curriculum-aligned, zero Path B in the classroom ask |
-| **Courses (examples to research live)** | Cybersecurity management · GRC / risk · graduate capstone — verify current titles before naming them in outreach |
+| **Cyber club / career services** | 45–60 min guest lab: multi-tenant evidence isolation & continuous evidence vs point-in-time theater. **Capped** fellows seats — not unlimited. **After** faculty blessing. |
+| **MSCSIA / GRC instructors & capstone evaluators** | Non-commercial lab for isolation + estimated exposure — curriculum stress-test, zero commercial pitch in the classroom ask |
 
-**Faculty ask (email or LinkedIn)** — no Path B:
+### Faculty LinkedIn searches
 
-> Hi {Name} — Dereck Woods, founder of Ironframe (control-first GRC). I’m looking for a small **curriculum stress-test**, not a sales pilot.
->
-> Would a WGU security / GRC section benefit from a **60–90 minute lab** on multi-client evidence isolation (walls vs soft tags) using our public product demo + a short checklist? Happy to provide a one-page lab brief and join office hours once.
->
-> Separately: if you know **practitioners** already running MSSP / vCISO multi-client GRC who hate shared-stack evidence, I’d value an intro to a **10–15 minute workflow review** — different track from the student lab.
->
-> Classroom track is not a commercial seat and not a “design partner” label.
+```text
+("Western Governors University" OR "WGU") AND ("Course Instructor" OR "Instructor") AND ("Cybersecurity" OR "MSCSIA" OR "Information Assurance")
 
-**Assets before first faculty call:** this doc · 1-page lab brief + feedback form · four-checks (optional) · classroom ≠ Path B line.
+("Western Governors University" OR "WGU") AND ("Program Mentor") AND ("Cybersecurity" OR "Information Technology")
+
+("Western Governors University" OR "WGU") AND ("Capstone Evaluator" OR "Assessment Faculty") AND ("Cybersecurity")
+```
+
+Useful profile cues: NIST SP 800-30/53, CMMC, ISO 27001, quantitative risk / FAIR **as practitioner language** — still say **estimated exposure** in Ironframe copy.
+
+### Faculty outreach (low-risk peer ask) — no commercial pitch
+
+```text
+Subject: Optional GRC / estimated-exposure lab for WGU MSCSIA students
+
+Hi {Name},
+
+I saw your work instructing in the WGU Cybersecurity / MSCSIA path.
+
+We’ve built an independent ~45–60 minute browser sandbox (fellows.ironframegrc.com) so students can get hands-on practice with:
+1. Estimated loss exposure in whole cents (assumptions visible — vs color-only matrices)
+2. Cross-enclave boundary probes with a server-issued 403 receipt
+3. SHA-256 lineage exports (JSON/CSV registers) for appendices or portfolios
+
+Free, browser-only, synthetic estates (no company / client data), not a commercial pitch, not a WGU-operated site.
+
+Would you glance at our 1-page lab brief and tell me if it’s a useful optional resource for students doing GRC or capstone work?
+
+Dereck Woods
+Founder, Ironframe
+dereck@ironframegrc.com
+```
+
+**When they reply:** send [fellows-faculty-brief-one-pager.md](./fellows-faculty-brief-one-pager.md). Soft-open capped seats only after blessing.
+
+**Assets before first faculty touch:** this doc · faculty 1-pager · classroom ≠ commercial seat.
 
 ---
 
@@ -266,7 +305,8 @@ dereck@ironframegrc.com
 | Say | Don’t say |
 |-----|-----------|
 | Academic sandbox / curriculum lab | Free design partner / VIP cohort |
-| Estimated exposure + visible assumptions | “True ALE” |
+| Estimated exposure + visible assumptions | “True ALE” / “ALE engine” |
+| Hard enclave boundary + 403 receipt | “Postgres RLS” (unless literally demonstrated) |
 | Decision layer vs color-only packs | “Boards are rejecting heatmaps” / “replacing all heatmaps” |
 | Workflow review (peer) | Request demo / product tour |
 | Soft Path B **only at end** | Path B / $4,999 in the open |
@@ -298,10 +338,10 @@ Classroom / IGF feedback **never** auto-creates a Path B offer.
 
 ## 30-day operator checklist
 
-- [ ] Identify 5–10 WGU faculty / mentors  
-- [ ] Draft 1-page lab brief + feedback form; set IGF seat cap for the term  
-- [ ] Send 5 faculty approaches  
-- [ ] Send Track A messages to coursework MSCSIA/BS students (Tier 2 only)  
+- [ ] Identify 5–10 WGU faculty / mentors (capstone → mentors → GRC → cloud)  
+- [ ] Send faculty ask + [faculty 1-pager](./fellows-faculty-brief-one-pager.md); set IGF seat cap for the term  
+- [ ] Send 5 faculty approaches (lab brief CTA — not syllabus)  
+- [ ] Soft-open capped Track A seats **after** one instructor blessing  
 - [ ] Send Track B messages to **ICP** alumni/working operators (workflow review — no free sandbox lead)  
 - [ ] Optional Track C: one club advisor after faculty blessing  
 - [ ] Book ≤2 workflow reviews when gates pass; Path B soft mention only at end  

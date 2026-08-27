@@ -43,6 +43,21 @@ Each mission includes an in-lab **lesson** before the hands-on run:
 
 These are short mission lessons — not full LMS course modules and not graded by faculty.
 
+---
+
+## Why this matters in an audit (framing — not a fifth mission)
+
+Exam pressure is where soft GRC habits fail. Map each mission to a question students should be able to answer in methodology / appendix language:
+
+| Audit-style question | Lab answer |
+|----------------------|------------|
+| What’s the estimated dollar exposure — and the assumptions? | Mission 01 — whole-cent estimated exposure + visible SLE/ARO bounds |
+| Was this vendor pack verified before the executive pack? | Mission 02 — quarantine-before-trust (blocked promote + receipt) |
+| Can Client B’s register appear under Client A’s exam? | Mission 03 — hard enclave boundary (403 + receipt, zero bleed) |
+| Who collected this, when, under what scope — can I trust the file? | Mission 04 — lineage fields + server SHA-256 export |
+
+**Claim lock:** this lab prepares students to **talk about** audit friction with synthetic evidence. It does **not** certify compliance, replace an auditor, or grant an industry credential.
+
 **Done:** complete four missions → short rubric → downloadable export pack + lab completion hash (**not** an industry certification).
 
 **MSCSIA depth (optional, off-platform):** same lab artifacts + methodology write-up (assumptions, boundary narrative, continuous assurance vs point-in-time packs) using a **60-day** access window for drafting/revisions — not 60 days of lab work.

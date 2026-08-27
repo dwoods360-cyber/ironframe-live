@@ -21,6 +21,12 @@ export default function FellowsNav() {
           How it works
         </Link>
         <Link
+          href="/fellows#audits"
+          className="hidden text-slate-400 transition-colors hover:text-slate-200 sm:inline"
+        >
+          Audits
+        </Link>
+        <Link
           href="/fellows#learning"
           className="hidden text-slate-400 transition-colors hover:text-slate-200 sm:inline"
         >

@@ -38,6 +38,10 @@ const FAQ = [
     a: "No. IRONFRAMEGRC // FELLOWS is an independent academic lab for cybersecurity students, alumni, and practitioners — not a WGU-operated site or required course module.",
   },
   {
+    q: "Does this prepare me for audits?",
+    a: "It maps four common exam questions (estimated exposure, unverified ingest, cross-entity bleed, lineage) to hands-on synthetic labs. Useful for methodology and appendices — not a compliance certification or auditor substitute.",
+  },
+  {
     q: "Does completion grant a formal certification?",
     a: "No. You receive a verified lab completion receipt and exportable data package — not an accredited industry certification.",
   },
@@ -139,6 +143,51 @@ export default function FellowsLandingPage() {
               </li>
             ))}
           </ol>
+        </div>
+      </section>
+
+      <section id="audits" className="border-t border-slate-900 px-4 py-12 lg:px-6">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="font-mono text-xs font-bold tracking-widest text-slate-500">
+            WHY THIS MATTERS IN AN AUDIT
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-slate-400">
+            Exam pressure exposes weak GRC habits: soft tenancy, unverified questionnaires, and
+            color-only risk packs. This lab does not certify you — it gives you language and
+            artifacts for the questions examiners and evaluators actually ask.
+          </p>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            {[
+              {
+                q: "What’s the estimated dollar exposure — and the assumptions?",
+                a: "Mission 01 — whole-cent estimated exposure with visible SLE/ARO bounds (not float theater).",
+              },
+              {
+                q: "Was this vendor pack verified before the executive pack?",
+                a: "Mission 02 — quarantine-before-trust blocks unverified promote; the block is the evidence.",
+              },
+              {
+                q: "Can Client B’s register appear under Client A’s exam scope?",
+                a: "Mission 03 — cross-enclave probe returns server 403 + receipt with zero bleed.",
+              },
+              {
+                q: "Who collected this, when, under what scope — and can I trust the file?",
+                a: "Mission 04 — lineage fields + server SHA-256 export for appendices.",
+              },
+            ].map((row) => (
+              <div
+                key={row.q}
+                className="rounded-lg border border-slate-800 bg-slate-900/40 p-4"
+              >
+                <p className="text-sm font-medium text-white">{row.q}</p>
+                <p className="mt-2 text-xs leading-relaxed text-slate-500">{row.a}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-6 max-w-2xl text-xs text-slate-600">
+            Capstone path: turn these four answers into an off-platform audit narrative — still
+            synthetic data only; still not an industry certification.
+          </p>
         </div>
       </section>
 

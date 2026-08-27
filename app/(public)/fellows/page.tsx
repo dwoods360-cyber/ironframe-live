@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import MarketingAnimatedLogo from "@/app/components/marketing/MarketingAnimatedLogo";
+
 import FellowsApplyForm from "./FellowsApplyForm";
 import FellowsNav from "./FellowsNav";
 
@@ -51,7 +53,10 @@ export default function FellowsLandingPage() {
 
       <main className="mx-auto grid max-w-6xl gap-10 px-4 py-12 lg:grid-cols-[1.2fr_0.9fr] lg:px-6 lg:py-16">
         <section>
-          <p className="font-mono text-[10px] font-bold tracking-[0.12em] text-teal-400">
+          <div>
+            <MarketingAnimatedLogo className="h-16 w-16 sm:h-20 sm:w-20" />
+          </div>
+          <p className="mt-4 font-mono text-[10px] font-bold tracking-[0.12em] text-teal-400">
             IRONFRAMEGRC // FELLOWS
           </p>
           <p className="mt-2 font-mono text-[10px] font-bold tracking-[0.18em] text-slate-500">

@@ -18,7 +18,6 @@ const prismaFellowsSingleton = () => {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
   var prismaFellows: undefined | ReturnType<typeof prismaFellowsSingleton>;
 }
 

@@ -11,7 +11,7 @@ export default function FellowsNav() {
         className="font-mono text-sm font-black tracking-[0.12em] text-white transition-colors hover:text-teal-300"
       >
         IRONFRAMEGRC
-        <span className="ml-0.5 text-teal-400">// FELLOWS</span>
+        <span className="ml-0.5 text-teal-400">{"// FELLOWS"}</span>
       </Link>
       <div className="flex items-center gap-3 text-sm">
         <Link

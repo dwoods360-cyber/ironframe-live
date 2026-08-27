@@ -465,14 +465,15 @@ export default function OperationsHubClient() {
     );
     const done = filtered.filter((a) => a.status === "DONE" || a.status === "CANCELLED");
     const filterOn = Boolean(q || from || to);
-    // Default: open work only. Closed archive appears when toggled or when searching/filtering.
-    const showDone = showClosedCalendar || filterOn;
+    // Closed work is opt-in only: searching or date-filtering must never surface it on its own.
+    const showDone = showClosedCalendar;
+    const visibleDone = showDone ? (filterOn ? done : done.slice(0, 12)) : [];
     return {
       open,
-      done: showDone ? (filterOn ? done : done.slice(0, 12)) : [],
+      done: visibleDone,
       doneTotal: done.length,
       showDone,
-      matchCount: filterOn ? filtered.length : open.length,
+      matchCount: open.length + visibleDone.length,
       totalCount: activities.length,
       openCount: open.length,
     };

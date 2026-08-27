@@ -34,7 +34,14 @@ Would you bless a **capped, optional ~45–60 minute in-browser lab** as a curri
 | 03 | Boundary audit | Capture **server-proven isolation** (403 + receipt) on a cross-enclave probe — not soft-tag separation. |
 | 04 | Lineage export | Export a **SHA-256** register with collector, timestamp, scope hash, and operator sign-off. |
 
-Each mission includes an in-lab **lesson card** (what you will learn · what PASS proves · optional write-up prompt). Short lessons — not full LMS modules.
+Each mission includes an in-lab **lesson** before the hands-on run:
+
+1. **Teach** — short concept paragraphs (claim-safe)  
+2. **Check** — one comprehension question; must pass to unlock execute  
+3. **Lab** — server-receipt practice (PASS proves isolation / math / quarantine / hash)  
+4. **Write-up prompt** — optional off-platform methodology note for capstone / portfolio  
+
+These are short mission lessons — not full LMS course modules and not graded by faculty.
 
 **Done:** complete four missions → short rubric → downloadable export pack + lab completion hash (**not** an industry certification).
 

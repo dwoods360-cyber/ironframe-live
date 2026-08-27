@@ -12,7 +12,7 @@
 
 **Portal brand lock:** `fellows.ironframegrc.com` uses **Ironframe** visual identity (not a WGU site clone). Affinity is **text-only** (e.g. “Built for WGU cybersecurity / MSCSIA candidates”). No WGU logos or WGU marketing palette. Independent academic lab — not a WGU-operated site.
 
-**Phase 1 live path:** `https://fellows.ironframegrc.com/` (also apex `/fellows`) — apply → lab → Missions 01–04 (server receipts) → rubric → completion hash. **Production smoke verified 2026-08-27** (apply → M1–M4 → rubric). Faculty pre-approval asset: [Fellows faculty brief (1-pager)](./fellows-faculty-brief-one-pager.md). Soft-open: capped seats after **one instructor blessing** — no mass student outreach as the first move. Env: `FELLOWS_DATABASE_URL`, `FELLOWS_DIRECT_URL`, `FELLOWS_SESSION_SECRET`.
+**Phase 1 live path:** `https://fellows.ironframegrc.com/` (also apex `/fellows`) — apply → lab → each mission **lesson (teach → check) → server-receipt run** (01–04) → rubric → completion hash. **Production smoke verified 2026-08-27** (API path). Faculty pre-approval asset: [Fellows faculty brief (1-pager)](./fellows-faculty-brief-one-pager.md). Soft-open: capped seats after **one instructor blessing** — no mass student outreach as the first move. Env: `FELLOWS_DATABASE_URL`, `FELLOWS_DIRECT_URL`, `FELLOWS_SESSION_SECRET`.
 
 ---
 
@@ -178,7 +178,7 @@ We’ve built an independent ~45–60 minute browser sandbox (fellows.ironframeg
 2. Cross-enclave boundary probes with a server-issued 403 receipt
 3. SHA-256 lineage exports (JSON/CSV registers) for appendices or portfolios
 
-Free, browser-only, synthetic estates (no company / client data), not a commercial pitch, not a WGU-operated site.
+Each mission includes a short in-lab lesson (teach → check → unlock run). Free, browser-only, synthetic estates (no company / client data), not a commercial pitch, not a WGU-operated site.
 
 Would you glance at our 1-page lab brief and tell me if it’s a useful optional resource for students doing GRC or capstone work?
 

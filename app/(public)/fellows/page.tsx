@@ -19,7 +19,7 @@ const FAQ = [
   },
   {
     q: "How long does this take, and do I need to code?",
-    a: "Self-paced and 100% in-browser — no coding, CLI, AWS setup, or software install. Full learning path targets ~45–60 minutes including a short rubric and export.",
+    a: "Self-paced and 100% in-browser — no coding, CLI, AWS setup, or software install. Each mission starts with a short lesson (teach + check) before the hands-on run. Full path targets ~45–60 minutes including rubric and export.",
   },
   {
     q: "What’s the difference between Learning and Capstone paths?",
@@ -116,7 +116,7 @@ export default function FellowsLandingPage() {
               {
                 n: "02",
                 t: "Run the missions",
-                d: "Open the lab console and complete guided missions: risk math, ingest quarantine, tenant boundaries, and lineage export.",
+                d: "Open the lab console. Each mission: short lesson (teach + check) → guided run (exposure, ingest, boundary, lineage export).",
               },
               {
                 n: "03",
@@ -152,7 +152,8 @@ export default function FellowsLandingPage() {
             who needs portfolio evidence without writing a full thesis chapter.
           </p>
           <p className="mt-3 max-w-2xl text-xs text-slate-500">
-            What “done” means: complete all four missions → short rubric → export package.
+            What “done” means: for each mission, complete the short lesson check → run the lab →
+            then finish all four → short rubric → export package.
           </p>
 
           <div id="missions" className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -165,7 +166,7 @@ export default function FellowsLandingPage() {
                 <h3 className="mt-1 text-sm font-semibold text-white">{m.title}</h3>
                 <p className="mt-2 text-xs leading-relaxed text-slate-500">{m.labAction}</p>
                 <p className="mt-3 font-mono text-[10px] font-bold tracking-widest text-slate-500">
-                  YOU WILL LEARN
+                  LESSON · YOU WILL LEARN
                 </p>
                 <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-slate-400">
                   {m.youWillLearn.map((item) => (
@@ -175,7 +176,11 @@ export default function FellowsLandingPage() {
                     </li>
                   ))}
                 </ul>
-                <p className="mt-3 text-xs leading-relaxed text-slate-600">
+                <p className="mt-3 font-mono text-[10px] font-bold tracking-widest text-slate-500">
+                  IN LAB
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  Teach → comprehension check → unlock hands-on run.{" "}
                   <span className="text-slate-400">PASS proves: </span>
                   {m.youProve}
                 </p>

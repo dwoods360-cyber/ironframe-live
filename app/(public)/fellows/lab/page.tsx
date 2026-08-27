@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import FellowsNav from "../FellowsNav";
-import { fellowsMissionLesson } from "@/app/lib/fellows/missionLessons";
+import {
+  fellowsMissionLesson,
+  isFellowsLessonCheckCorrect,
+} from "@/app/lib/fellows/missionLessons";
 import {
   FELLOWS_LAB_CLIENT_A,
   FELLOWS_LAB_CLIENT_B,
@@ -92,8 +95,37 @@ export default function FellowsLabPage() {
   const [academicUse, setAcademicUse] = useState("");
   const [friction, setFriction] = useState<string[]>([]);
   const [requestBriefing, setRequestBriefing] = useState(false);
+  const [lessonCleared, setLessonCleared] = useState<Record<1 | 2 | 3 | 4, boolean>>({
+    1: false,
+    2: false,
+    3: false,
+    4: false,
+  });
+  const [selectedCheck, setSelectedCheck] = useState<string | null>(null);
+  const [checkFeedback, setCheckFeedback] = useState<string | null>(null);
 
   const pushLog = (line: string) => setLog((prev) => [...prev, line]);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("fellows_lesson_cleared");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<Record<1 | 2 | 3 | 4, boolean>>;
+      setLessonCleared((prev) => ({
+        1: Boolean(parsed[1]),
+        2: Boolean(parsed[2]),
+        3: Boolean(parsed[3]),
+        4: Boolean(parsed[4]),
+      }));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    setSelectedCheck(null);
+    setCheckFeedback(null);
+  }, [activeMission]);
 
   const refresh = useCallback(async () => {
     const res = await fetch("/api/fellows/me", { credentials: "include" });
@@ -351,6 +383,29 @@ export default function FellowsLabPage() {
 
   const meta = missionMeta[activeMission];
   const lesson = fellowsMissionLesson(activeMission);
+  const lessonUnlocked = lessonCleared[activeMission];
+
+  const submitLessonCheck = () => {
+    if (!selectedCheck) {
+      setCheckFeedback("Select an answer to continue.");
+      return;
+    }
+    if (!isFellowsLessonCheckCorrect(activeMission, selectedCheck)) {
+      setCheckFeedback("Not quite — re-read the lesson and try again.");
+      return;
+    }
+    setCheckFeedback(lesson.check.explainCorrect);
+    setLessonCleared((prev) => {
+      const next = { ...prev, [activeMission]: true };
+      try {
+        sessionStorage.setItem("fellows_lesson_cleared", JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+    pushLog(`[LESSON ${lesson.code}] Check passed — lab run unlocked`);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -377,6 +432,7 @@ export default function FellowsLabPage() {
           {([1, 2, 3, 4] as const).map((n) => {
             const passed = missionPassed(me, n);
             const active = activeMission === n;
+            const cleared = lessonCleared[n];
             return (
               <button
                 key={n}
@@ -391,20 +447,23 @@ export default function FellowsLabPage() {
                 }`}
               >
                 M{n}
-                {passed ? " · PASS" : ""}
+                {passed ? " · PASS" : cleared ? " · LESSON" : ""}
               </button>
             );
           })}
         </div>
 
-        <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/80 p-5">
+        <div className="mt-4 rounded-xl border border-teal-900/40 bg-slate-950/80 p-5">
           <p className="font-mono text-[10px] font-bold tracking-widest text-teal-500">
-            LESSON {lesson.code}
+            LESSON {lesson.code} · TEACH → CHECK → LAB
           </p>
-          <h2 className="mt-1 text-sm font-semibold text-white">
-            What you will learn — {lesson.title}
-          </h2>
-          <ul className="mt-3 space-y-2 text-xs leading-relaxed text-slate-400">
+          <h2 className="mt-1 text-sm font-semibold text-white">{lesson.title}</h2>
+          <p className="mt-2 text-xs leading-relaxed text-slate-500">{lesson.labAction}</p>
+
+          <p className="mt-4 font-mono text-[10px] font-bold tracking-widest text-slate-500">
+            YOU WILL LEARN
+          </p>
+          <ul className="mt-2 space-y-2 text-xs leading-relaxed text-slate-400">
             {lesson.youWillLearn.map((item) => (
               <li key={item} className="flex gap-2">
                 <span className="shrink-0 text-teal-500">·</span>
@@ -412,11 +471,65 @@ export default function FellowsLabPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-xs leading-relaxed text-slate-500">
-            <span className="font-semibold text-slate-300">What PASS proves: </span>
-            {lesson.youProve}
+
+          <p className="mt-4 font-mono text-[10px] font-bold tracking-widest text-slate-500">
+            TEACH
           </p>
-          <p className="mt-3 text-xs leading-relaxed text-slate-600">
+          <div className="mt-2 space-y-3 text-xs leading-relaxed text-slate-400">
+            {lesson.teach.map((para) => (
+              <p key={para.slice(0, 48)}>{para}</p>
+            ))}
+          </div>
+
+          <p className="mt-4 font-mono text-[10px] font-bold tracking-widest text-slate-500">
+            CHECK
+          </p>
+          <p className="mt-2 text-xs font-medium text-slate-300">{lesson.check.prompt}</p>
+          <div className="mt-3 space-y-2">
+            {lesson.check.options.map((opt) => {
+              const selected = selectedCheck === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={lessonUnlocked}
+                  onClick={() => setSelectedCheck(opt.id)}
+                  className={`block w-full rounded-md border px-3 py-2 text-left text-xs leading-relaxed transition-colors ${
+                    selected
+                      ? "border-teal-500/60 bg-teal-950/30 text-teal-100"
+                      : "border-slate-800 bg-slate-900/40 text-slate-400 hover:border-slate-700"
+                  } disabled:opacity-70`}
+                >
+                  <span className="font-mono text-teal-500">{opt.id.toUpperCase()}.</span>{" "}
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {!lessonUnlocked ? (
+            <button
+              type="button"
+              onClick={submitLessonCheck}
+              className="mt-4 rounded-md bg-teal-600 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-500"
+            >
+              Submit check · unlock lab
+            </button>
+          ) : (
+            <p className="mt-4 text-xs text-teal-400">Lesson check passed — lab run unlocked.</p>
+          )}
+
+          {checkFeedback && (
+            <p
+              className={`mt-3 text-xs leading-relaxed ${
+                lessonUnlocked ? "text-teal-300/90" : "text-amber-300/90"
+              }`}
+            >
+              {checkFeedback}
+            </p>
+          )}
+
+          <p className="mt-4 text-xs leading-relaxed text-slate-600">
             <span className="font-semibold text-slate-400">Write-up prompt: </span>
             {lesson.writeUpPrompt}
           </p>
@@ -425,9 +538,15 @@ export default function FellowsLabPage() {
         <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/50 p-5 font-mono text-sm">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-bold text-cyan-400">{meta.title}</h2>
-            <span className="text-[10px] text-slate-500">SERVER RECEIPT</span>
+            <span className="text-[10px] text-slate-500">
+              {lessonUnlocked ? "SERVER RECEIPT" : "LOCKED · COMPLETE LESSON"}
+            </span>
           </div>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">{meta.blurb}</p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-600">
+            <span className="text-slate-400">PASS proves: </span>
+            {lesson.youProve}
+          </p>
 
           {activeMission === 1 && (
             <div className="mt-4 grid gap-3 text-xs text-slate-400 sm:grid-cols-2">
@@ -507,11 +626,13 @@ export default function FellowsLabPage() {
 
           <button
             type="button"
-            disabled={busy || !me}
+            disabled={busy || !me || !lessonUnlocked}
             onClick={meta.run}
             className="mt-4 rounded-md bg-cyan-600 px-4 py-2 text-xs font-semibold text-black transition-colors hover:bg-cyan-500 disabled:bg-slate-700 disabled:text-slate-400"
           >
-            {meta.cta}
+            {!lessonUnlocked
+              ? "Complete lesson check to unlock"
+              : meta.cta}
           </button>
 
           {lastExport && (

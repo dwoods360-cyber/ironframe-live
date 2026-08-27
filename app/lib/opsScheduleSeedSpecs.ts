@@ -1274,6 +1274,24 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       ],
     },
     {
+      title: "LinkedIn Fri — Evidence provenance at ingest",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-09-04T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-09-04-evidence-provenance",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-09-04-evidence-provenance",
+      priorityHint: 5,
+      synopsis:
+        "Founder LinkedIn (Fri): control lesson — evidence should carry its origin as long as it carries its claim. Untrusted-ingest theme; points to /trust-center. Draft: linkedin-drafts-2026-09-04-evidence-provenance.md. Moved off Fri 2026-08-28 (unpublished; independent citation still missing). BLOCKED: independent citation slot empty.",
+      nextActions: [
+        "Supply verified primary URL for the upstream-compromise claim (no lnkd.in shortener)",
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Verify research citations, Copy body → LinkedIn",
+        "Paste first-comment CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
       title: "LinkedIn Mon — Security debt shows up in deal valuation",
       kind: "OPS_GENERAL",
       status: "PLANNED",

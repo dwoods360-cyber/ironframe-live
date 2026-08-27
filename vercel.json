@@ -10,6 +10,7 @@
     { "path": "/api/internal/cron/ironsight-regulatory-poll", "schedule": "0 8 * * *" },
     { "path": "/api/internal/cron/carbon-budget-reallocation", "schedule": "0 9 1 * *" },
     { "path": "/api/internal/cron/industry-scout", "schedule": "0 10 * * *" },
+    { "path": "/api/internal/cron/ironleads-auto-enrich", "schedule": "0 */2 * * 1-5" },
     { "path": "/api/internal/cron/inbound-lead-sla", "schedule": "*/15 * * * *" },
     { "path": "/api/internal/cron/ironwatch-security-monitor", "schedule": "0 12 * * *" },
     { "path": "/api/internal/cron/ironscribe-daily-audit", "schedule": "0 18 * * *" },

@@ -35,7 +35,7 @@ Would you bless a **capped, optional ~45–60 minute in-browser lab** as a curri
 - **Synthetic estates only** — no real employer / client credentials or proprietary data  
 - **Time box** — ~45–60 minutes guided missions in browser; no coding, CLI, or AWS setup  
 - **Brand** — Ironframe lab with text-only WGU affinity; **no WGU logo / not WGU-operated**  
-- **No Path B pitch** in the classroom ask; commercial conversation is a separate practitioner track  
+- **No commercial pitch** in the classroom ask; paid co-builder / practitioner conversation is a separate track  
 
 ---
 

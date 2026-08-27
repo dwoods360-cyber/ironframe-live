@@ -8,18 +8,32 @@ export function cronBearerUnauthorizedResponse(): NextResponse {
 }
 
 /**
- * Vercel Cron perimeter — `Authorization: Bearer <IRONFRAME_CRON_SECRET>` only.
- * Rejects missing, malformed (`Bearer` prefix required), or mutated tokens.
+ * Vercel Cron perimeter — accepts:
+ * - Authorization: Bearer <IRONFRAME_CRON_SECRET> (manual / legacy ops)
+ * - Authorization: Bearer <CRON_SECRET> (Vercel Cron auto-header when CRON_SECRET is set)
+ * - x-vercel-cron-auth-token (platform cron; validated by Vercel edge before app)
+ *
+ * Rejects missing/malformed Bearer when neither platform cron token nor secrets match.
  */
 export function checkCronBearerAuth(request: Request): boolean {
-  const secret = process.env.IRONFRAME_CRON_SECRET?.trim();
+  // Vercel Cron platform token — present only on infrastructure-invoked cron GETs.
+  if (request.headers.get("x-vercel-cron-auth-token")?.trim()) {
+    return true;
+  }
+
+  const secret =
+    process.env.IRONFRAME_CRON_SECRET?.trim() || process.env.CRON_SECRET?.trim();
   if (!secret) return false;
 
   const authHeader = request.headers.get("Authorization");
   if (!authHeader?.startsWith(BEARER_PREFIX)) return false;
 
   const token = authHeader.slice(BEARER_PREFIX.length).trim();
-  return token.length > 0 && token === secret;
+  if (!token) return false;
+
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  const ironSecret = process.env.IRONFRAME_CRON_SECRET?.trim();
+  return token === ironSecret || token === cronSecret || token === secret;
 }
 
 /**

@@ -20,13 +20,19 @@ type MeResponse = {
   academicTrack?: string;
   sandboxExpiresAt?: string | null;
   completionBadgeHash?: string | null;
+  notesProductImprovementConsent?: boolean;
   progress: {
     passedCount: number;
     totalMissions: number;
     rubricUnlocked: boolean;
     rubricSubmitted: boolean;
   };
-  missions: Array<{ missionNumber: number; status: string }>;
+  missions: Array<{
+    missionNumber: number;
+    status: string;
+    methodologyNotes?: string | null;
+    notesSavedAt?: string | null;
+  }>;
 };
 
 function trackLabHint(track: string | undefined): string {
@@ -103,6 +109,10 @@ export default function FellowsLabPage() {
   });
   const [selectedCheck, setSelectedCheck] = useState<string | null>(null);
   const [checkFeedback, setCheckFeedback] = useState<string | null>(null);
+  const [missionNotes, setMissionNotes] = useState("");
+  const [notesConsent, setNotesConsent] = useState(false);
+  const [notesBusy, setNotesBusy] = useState(false);
+  const [notesStatus, setNotesStatus] = useState<string | null>(null);
 
   const pushLog = (line: string) => setLog((prev) => [...prev, line]);
 
@@ -125,7 +135,15 @@ export default function FellowsLabPage() {
   useEffect(() => {
     setSelectedCheck(null);
     setCheckFeedback(null);
+    setNotesStatus(null);
   }, [activeMission]);
+
+  useEffect(() => {
+    if (!me) return;
+    setNotesConsent(Boolean(me.notesProductImprovementConsent));
+    const row = me.missions.find((m) => m.missionNumber === activeMission);
+    setMissionNotes(row?.methodologyNotes ?? "");
+  }, [me, activeMission]);
 
   const refresh = useCallback(async () => {
     const res = await fetch("/api/fellows/me", { credentials: "include" });
@@ -385,6 +403,39 @@ export default function FellowsLabPage() {
   const lesson = fellowsMissionLesson(activeMission);
   const lessonUnlocked = lessonCleared[activeMission];
 
+  const saveMissionNotes = async () => {
+    setNotesBusy(true);
+    setNotesStatus(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/fellows/missions/notes", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          missionNumber: activeMission,
+          methodologyNotes: missionNotes,
+          productImprovementConsent: notesConsent,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || "Unable to save notes");
+        return;
+      }
+      setNotesStatus(
+        missionNotes.trim()
+          ? "Notes saved — included in Mission 04 export when present."
+          : "Notes cleared.",
+      );
+      await refresh();
+    } catch {
+      setError("Network error saving notes");
+    } finally {
+      setNotesBusy(false);
+    }
+  };
+
   const submitLessonCheck = () => {
     if (!selectedCheck) {
       setCheckFeedback("Select an answer to continue.");
@@ -410,7 +461,7 @@ export default function FellowsLabPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <FellowsNav />
-      <main className="mx-auto max-w-3xl px-4 py-10 lg:px-6">
+      <main className="mx-auto max-w-6xl px-4 py-10 lg:px-6">
         <p className="font-mono text-[10px] tracking-[0.12em] text-teal-500">
           IRONFRAMEGRC // FELLOWS
         </p>
@@ -453,7 +504,60 @@ export default function FellowsLabPage() {
           })}
         </div>
 
-        <div className="mt-4 rounded-xl border border-teal-900/40 bg-slate-950/80 p-5">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(260px,0.85fr)_1.35fr]">
+          <aside className="rounded-xl border border-slate-800 bg-slate-950/90 p-4 lg:sticky lg:top-16 lg:self-start">
+            <p className="font-mono text-[10px] font-bold tracking-widest text-teal-500">
+              MISSION NOTES
+            </p>
+            <h2 className="mt-1 text-sm font-semibold text-white">
+              Write as you go — M{activeMission}
+            </h2>
+            <p className="mt-2 text-xs leading-relaxed text-slate-500">
+              Short methodology / audit narrative for this mission. Saved notes return here and can
+              ship in the Mission 04 export pack.
+            </p>
+            <p className="mt-3 text-xs leading-relaxed text-slate-600">
+              <span className="font-semibold text-slate-400">Prompt: </span>
+              {lesson.writeUpPrompt}
+            </p>
+            <textarea
+              className="mt-3 min-h-[220px] w-full rounded border border-slate-800 bg-black/40 px-3 py-2 text-xs leading-relaxed text-slate-200 outline-none ring-teal-500/30 focus:ring-2"
+              maxLength={2000}
+              value={missionNotes}
+              onChange={(e) => setMissionNotes(e.target.value)}
+              placeholder="Assumptions, what the 403/quarantine proved, how you’d cite this in an appendix…"
+            />
+            <p className="mt-1 text-right font-mono text-[10px] text-slate-600">
+              {missionNotes.length}/2000
+            </p>
+            <label className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-slate-500">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={notesConsent}
+                onChange={(e) => setNotesConsent(e.target.checked)}
+              />
+              <span>
+                Save my notes for <span className="text-slate-300">my export</span> and{" "}
+                <span className="text-slate-300">anonymous product improvement</span> (Eyes
+                friction only — not sales outreach).
+              </span>
+            </label>
+            <button
+              type="button"
+              disabled={notesBusy || !me || (!notesConsent && missionNotes.trim().length > 0)}
+              onClick={() => void saveMissionNotes()}
+              className="mt-3 w-full rounded-md bg-teal-600 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-400"
+            >
+              {notesBusy ? "Saving…" : "Save notes"}
+            </button>
+            {notesStatus && (
+              <p className="mt-2 text-xs text-teal-400/90">{notesStatus}</p>
+            )}
+          </aside>
+
+          <div className="min-w-0 space-y-4">
+        <div className="rounded-xl border border-teal-900/40 bg-slate-950/80 p-5">
           <p className="font-mono text-[10px] font-bold tracking-widest text-teal-500">
             LESSON {lesson.code} · TEACH → CHECK → LAB
           </p>
@@ -652,6 +756,8 @@ export default function FellowsLabPage() {
               Re-download export
             </button>
           )}
+        </div>
+          </div>
         </div>
 
         {me?.progress.rubricUnlocked && (

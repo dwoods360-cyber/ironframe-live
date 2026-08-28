@@ -42,7 +42,9 @@ Each mission includes an in-lab **lesson** before the hands-on run:
 2. **Teach** — short concept paragraphs (claim-safe)  
 3. **Check** — one comprehension question; must pass to unlock execute  
 4. **Lab** — server-receipt practice (PASS proves isolation / math / quarantine / hash)  
-5. **Write-up prompt** — optional off-platform methodology / audit narrative for capstone / portfolio  
+5. **Write-up prompt + left-rail notes** — optional short methodology / audit notes (max 2,000 chars) saved with consent for the student’s export and anonymized product Eyes review — **not** sales outreach  
+
+Long thesis writing stays off-platform; in-lab notes are short appendix seeds.
 
 The landing **Audits** section summarizes the same four questions; the lessons teach them in-context before each run.
 

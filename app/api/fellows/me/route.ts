@@ -61,7 +61,15 @@ export async function GET(req: NextRequest) {
     academicTrack: fellow.academicTrack,
     sandboxExpiresAt: fellow.sandboxExpiresAt?.toISOString() ?? null,
     completionBadgeHash: fellow.completionBadgeHash,
-    missions: fellow.missionProgress,
+    notesProductImprovementConsent: fellow.notesProductImprovementConsent,
+    missions: fellow.missionProgress.map((m) => ({
+      missionNumber: m.missionNumber,
+      missionCode: m.missionCode,
+      status: m.status,
+      methodologyNotes: m.methodologyNotes,
+      notesSavedAt: m.notesSavedAt?.toISOString() ?? null,
+      completedAt: m.completedAt?.toISOString() ?? null,
+    })),
     progress: {
       passedCount,
       totalMissions: 4,

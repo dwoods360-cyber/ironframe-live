@@ -5,12 +5,38 @@ import { buildLabAuditRegister } from "@/app/lib/fellows/labFixtures";
 import { issueFellowMissionReceipt } from "@/app/lib/fellows/receipts";
 import { requireActiveFellow } from "@/app/lib/fellows/requireFellow";
 import { generateCapstonePackage } from "@/lib/capstone/exportPackage";
+import prismaFellows from "@/lib/prismaFellows";
 
 export const runtime = "nodejs";
 
 const ExportSchema = z.object({
   format: z.enum(["JSON", "CSV"]).default("JSON"),
 });
+
+function appendMethodologyNotes(
+  content: string,
+  format: "JSON" | "CSV",
+  notes: Array<{ missionNumber: number; methodologyNotes: string }>,
+): string {
+  if (!notes.length) return content;
+  if (format === "JSON") {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    parsed.methodologyNotes = notes.map((n) => ({
+      missionNumber: n.missionNumber,
+      notes: n.methodologyNotes,
+    }));
+    return JSON.stringify(parsed, null, 2);
+  }
+  const block = [
+    `# Methodology notes (student-authored; opt-in saved)`,
+    ...notes.flatMap((n) => [
+      `# --- Mission ${n.missionNumber} ---`,
+      ...n.methodologyNotes.split(/\r?\n/).map((line) => `# ${line}`),
+    ]),
+    ``,
+  ].join("\n");
+  return `${block}${content}`;
+}
 
 /**
  * Mission 04 — lineage trail + SHA-256 export pack (server-hashed).
@@ -28,17 +54,50 @@ export async function POST(req: NextRequest) {
     const records = buildLabAuditRegister(fellowShort);
     const exportedAtUtc = new Date().toISOString();
 
-    const pkg = generateCapstonePackage(
+    const savedNotes = await prismaFellows.fellowMission.findMany({
+      where: {
+        fellowId: auth.fellow.id,
+        methodologyNotes: { not: null },
+      },
+      orderBy: { missionNumber: "asc" },
+      select: { missionNumber: true, methodologyNotes: true },
+    });
+    const notes = savedNotes
+      .filter((n): n is { missionNumber: number; methodologyNotes: string } =>
+        Boolean(n.methodologyNotes?.trim()),
+      )
+      .map((n) => ({
+        missionNumber: n.missionNumber,
+        methodologyNotes: n.methodologyNotes!.trim(),
+      }));
+
+    let pkg = generateCapstonePackage(
       records,
       {
         fellowId: auth.fellow.id,
         tenantEnclaveId: auth.fellow.tenantEnclaveId,
         academicTrack: auth.fellow.academicTrack,
         exportedAtUtc,
-        version: "fellows-lab-1.0",
+        version: "fellows-lab-1.1",
       },
       body.format,
     );
+
+    if (notes.length) {
+      const content = appendMethodologyNotes(pkg.content, body.format, notes);
+      const { createHash } = await import("node:crypto");
+      const exportPackageHash = createHash("sha256").update(content, "utf8").digest("hex");
+      pkg = {
+        ...pkg,
+        content,
+        exportPackageHash,
+        manifest: {
+          ...pkg.manifest,
+          sha256: exportPackageHash,
+          byteLength: Buffer.byteLength(content, "utf8"),
+        },
+      };
+    }
 
     const receipt = await issueFellowMissionReceipt({
       fellowId: auth.fellow.id,
@@ -49,6 +108,7 @@ export async function POST(req: NextRequest) {
         exportPackageHash: pkg.exportPackageHash,
         recordCount: pkg.recordCount,
         byteLength: pkg.manifest.byteLength,
+        methodologyNotesIncluded: notes.length,
         lineageFields: [
           "controlId",
           "collectorId",
@@ -71,6 +131,7 @@ export async function POST(req: NextRequest) {
         exportPackageHash: pkg.exportPackageHash,
         recordCount: pkg.recordCount,
         byteLength: pkg.manifest.byteLength,
+        methodologyNotesIncluded: notes.length,
       },
       receiptId: receipt.receiptId,
       receiptToken: receipt.receiptToken,

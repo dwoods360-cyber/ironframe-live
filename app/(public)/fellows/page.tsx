@@ -125,7 +125,7 @@ export default function FellowsLandingPage() {
               {
                 n: "03",
                 t: "Capture notes",
-                d: "Record short feedback on the workflows. Capstone path: expand assumptions, lineage, and boundary proof in your own write-up.",
+                d: "Record short mission notes in the lab (optional, saved with consent) and expand assumptions, lineage, and boundary proof in your own write-up.",
               },
               {
                 n: "04",

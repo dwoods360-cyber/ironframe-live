@@ -90,6 +90,8 @@ model Fellow {
   tenantEnclaveId     String              @default("ironframe-academic-sandbox") @map("tenant_enclave_id")
   /// Soft Path B bridge — ops may send architecture brief; never shown as Path B in fellow UI.
   requestArchitectureBrief Boolean        @default(false) @map("request_architecture_brief")
+  /// Opt-in: allow anonymized review of short mission notes for product Eyes (never Path B auto-lead).
+  notesProductImprovementConsent Boolean  @default(false) @map("notes_product_improvement_consent")
   /// Sandbox seat TTL (default 60 days from apply; extended on lab activity).
   sandboxExpiresAt    DateTime?           @map("sandbox_expires_at")
   completionBadgeHash String?             @unique @map("completion_badge_hash")
@@ -105,6 +107,7 @@ model Fellow {
   @@index([tenantEnclaveId])
   @@index([sandboxExpiresAt])
   @@index([requestArchitectureBrief])
+  @@index([notesProductImprovementConsent])
   @@map("fellows")
   @@schema("academic_fellows")
 }
@@ -116,6 +119,9 @@ model FellowMission {
   missionCode   FellowMissionCode   @map("mission_code")
   status        FellowMissionStatus @default(NOT_STARTED)
   telemetryData Json?               @map("telemetry_data")
+  /// Short methodology / audit narrative notes (student-authored; opt-in save).
+  methodologyNotes String?          @map("methodology_notes") @db.Text
+  notesSavedAt  DateTime?           @map("notes_saved_at")
   failureReason String?             @map("failure_reason") @db.Text
   startedAt     DateTime?           @map("started_at")
   completedAt   DateTime?           @map("completed_at")

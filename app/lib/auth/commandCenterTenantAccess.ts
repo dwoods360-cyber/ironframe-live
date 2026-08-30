@@ -67,7 +67,7 @@ async function loadEnclaveFieldsByTenantId(
     SELECT id::text AS id,
            parent_tenant_id::text AS parent_tenant_id,
            enclave_role
-    FROM tenants
+    FROM public.tenants
     WHERE id IN (${Prisma.join(ids.map((id) => Prisma.sql`${id}::uuid`))})
   `;
   for (const row of rows) {

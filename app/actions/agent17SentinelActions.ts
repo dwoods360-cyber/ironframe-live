@@ -16,7 +16,7 @@ export async function claimSentinelAutomationJobs(limit = 5): Promise<ClaimedSen
   return prisma.$transaction(async (tx) => {
     const pending = await tx.$queryRaw<{ id: string }[]>`
       SELECT id
-      FROM sentinel_automation_outbox
+      FROM public.sentinel_automation_outbox
       WHERE status = 'PENDING'
         AND run_after <= now()
       ORDER BY run_after ASC

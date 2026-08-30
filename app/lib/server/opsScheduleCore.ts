@@ -110,27 +110,27 @@ function storedNextActionsRaw(row: OpsActivity & ActivityExtras): string | null 
 
 async function persistActivityHref(id: string, href: string): Promise<void> {
   await prisma.$executeRaw`
-    UPDATE ops_activities SET href = ${href}, updated_at = NOW() WHERE id = ${id}
+    UPDATE public.ops_activities SET href = ${href}, updated_at = NOW() WHERE id = ${id}
   `;
 }
 
 async function persistActivityOutcome(id: string, outcome: string | null): Promise<void> {
   await prisma.$executeRaw`
-    UPDATE ops_activities SET outcome = ${outcome}, updated_at = NOW() WHERE id = ${id}
+    UPDATE public.ops_activities SET outcome = ${outcome}, updated_at = NOW() WHERE id = ${id}
   `;
 }
 
 async function persistActivityNextActions(id: string, nextActions: OpsChecklistItem[]): Promise<void> {
   const serialized = serializeNextActionItems(nextActions);
   await prisma.$executeRaw`
-    UPDATE ops_activities SET next_actions = ${serialized || null}, updated_at = NOW() WHERE id = ${id}
+    UPDATE public.ops_activities SET next_actions = ${serialized || null}, updated_at = NOW() WHERE id = ${id}
   `;
 }
 
 async function persistActivityPriority(id: string, priority: number): Promise<void> {
   const rank = Math.max(1, Math.floor(priority));
   await prisma.$executeRaw`
-    UPDATE ops_activities SET priority = ${rank}, updated_at = NOW() WHERE id = ${id}
+    UPDATE public.ops_activities SET priority = ${rank}, updated_at = NOW() WHERE id = ${id}
   `;
 }
 
@@ -147,7 +147,7 @@ async function hydrateActivityExtras(
       priority: number | null;
     }>
   >`
-    SELECT id, href, outcome, next_actions, priority FROM ops_activities
+    SELECT id, href, outcome, next_actions, priority FROM public.ops_activities
     WHERE id IN (${Prisma.join(rows.map((r) => r.id))})
   `;
   const byId = new Map(extras.map((e) => [e.id, e]));

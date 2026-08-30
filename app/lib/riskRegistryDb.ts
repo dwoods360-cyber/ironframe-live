@@ -182,7 +182,7 @@ async function listRiskRegistryRawSql(
         ingestion_details,
         created_at,
         updated_at
-      FROM risk_registry
+      FROM public.risk_registry
       WHERE tenant_id = CAST(${tenantId} AS uuid)
         AND lifecycle_status::text IN ('INGESTED', 'REGISTERED', 'ACTIVE', 'RESOLVED')
       ORDER BY created_at DESC

@@ -53,7 +53,7 @@ export async function searchAgent13HybridCorpus(
         source_kind,
         source_id,
         (1 - (embedding <=> $1::vector))::float8 AS similarity
-      FROM agent13_hybrid_chunk
+      FROM public.agent13_hybrid_chunk
       WHERE tenant_company_id = $2
       ORDER BY embedding <=> $1::vector
       LIMIT $3
@@ -86,7 +86,7 @@ export async function searchAgent13LexicalCorpus(
     return tx.$queryRawUnsafe<Array<{ id: string; source_id: string; rank: number }>>(
       `
       SELECT id, source_id, ts_rank_cd(content_tsv, plainto_tsquery('english', $1))::float8 AS rank
-      FROM agent13_hybrid_chunk
+      FROM public.agent13_hybrid_chunk
       WHERE tenant_company_id = $2
         AND content_tsv @@ plainto_tsquery('english', $1)
       ORDER BY rank DESC

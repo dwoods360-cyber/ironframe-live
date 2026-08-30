@@ -300,7 +300,7 @@ function mappedControlsForFramework(framework: ComplianceFramework): string[] {
 async function readWorkforcePanic(): Promise<boolean> {
   try {
     const rows = await prisma.$queryRaw<Array<{ workforce_panic_passive_monitor: boolean }>>`
-      SELECT workforce_panic_passive_monitor FROM simulation_config WHERE id = 'global' LIMIT 1
+      SELECT workforce_panic_passive_monitor FROM public.simulation_config WHERE id = 'global' LIMIT 1
     `;
     return rows[0]?.workforce_panic_passive_monitor === true;
   } catch {
@@ -311,7 +311,7 @@ async function readWorkforcePanic(): Promise<boolean> {
 async function engageWorkforcePanicRecord(authorityLabel: string): Promise<void> {
   const label = authorityLabel.slice(0, 128);
   await prisma.$executeRaw`
-    UPDATE simulation_config SET
+    UPDATE public.simulation_config SET
       workforce_panic_passive_monitor = true,
       workforce_panic_engaged_at = NOW(),
       workforce_panic_authority_label = ${label},

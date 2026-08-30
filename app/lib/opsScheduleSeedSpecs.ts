@@ -1030,8 +1030,8 @@ export function queueBacklog2026SeedSpecs(): OpsScheduleSeedSpec[] {
  * Re-seeding refreshes synopses, so moving a connect means moving its entry here.
  */
 const FOUNDER_LI_NETWORK_CARRIED_CONNECTS: Record<string, string> = {
-  "2026-08-28":
-    "Carried connects (peer note only — no pitch): Arnel Ackar (CMMC + AI governance) and William Taylor (CISO, cyber-assurance intersection). Deferred from 2026-08-25, -26, -27 — open each profile and personalize the opening line before sending.",
+  "2026-08-31":
+    "Carried connects (peer note only — no pitch): Arnel Ackar (CMMC + AI governance) and William Taylor (CISO, cyber-assurance intersection). Deferred 2026-08-25 through -28 — open each profile and personalize the opening line before sending.",
 };
 
 export function founderLinkedInNetworkHygiene2026SeedSpecs(): OpsScheduleSeedSpec[] {

@@ -1,11 +1,12 @@
 # LinkedIn Fri — Evidence provenance at ingest
 
 **Slot intent:** Friday practical control lesson  
-**Ops calendar:** `marketing/linkedin-2026-08-28-evidence-provenance` — due **Fri 2026-08-28**  
+**Ops calendar:** `marketing/linkedin-2026-09-04-evidence-provenance` — due **Fri 2026-09-04**  
 **Source:** GF recurring theme — untrusted ingest; complements Jul 15 current-pain fragmented-evidence framing  
 **Complements:** Aug 24 shared-stack problem post; Aug 26 entity-scoped export path — this one is **attribution at ingest**, upstream of both  
 **Avoids:** naming a specific compromised vendor as a customer-impact claim; incident-response advice; product feature list; Path B pitch in body  
 **Industry pull:** Operators whose registers are populated by scanner, connector, and gateway output they do not control  
+**History:** Carded for Fri 2026-08-28, not published — the independent citation was never supplied. Moved to Fri 2026-09-04.  
 **Drafted:** 2026-08-27 · **Voice pass:** pending · **Status:** DRAFT — citations unverified, do not publish
 
 ### Board voice (founder cadence)

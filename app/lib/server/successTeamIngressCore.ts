@@ -1,9 +1,8 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import type { Prisma } from "@prisma/client";
-
 import { PENDING_CS_ADVISORY_TAG } from "@/app/lib/server/approvalQueueCore";
+import { bindIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import type { SuccessTeamAdvisoryPayload } from "@/app/lib/ingress/successTeamIngressSchema";
 import prisma from "@/lib/prisma";
 
@@ -48,14 +47,6 @@ function sanitizeText(raw: unknown, maxLen: number): string {
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "[STRIPPED]")
     .trim()
     .slice(0, maxLen);
-}
-
-async function bindIronguardTenant(tx: Prisma.TransactionClient, tenantId: string): Promise<void> {
-  try {
-    await tx.$executeRaw`SELECT ironguard_set_session_tenant(${tenantId}::uuid);`;
-  } catch {
-    await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true);`;
-  }
 }
 
 function daysBetween(from: Date, to: Date): number {

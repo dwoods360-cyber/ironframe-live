@@ -8,6 +8,7 @@ import {
   normalizeAccountDomain,
   normalizeSuspectCompanyKey,
 } from "@/app/lib/ingress/ironleadsSuspectIdentity";
+import { bindIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { websiteUrlFromDomainOrUrl } from "@/app/lib/server/ironleadsSuspectLocation";
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import {
@@ -59,14 +60,6 @@ function sanitizeText(raw: unknown, maxLen: number): string {
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "[STRIPPED]")
     .trim()
     .slice(0, maxLen);
-}
-
-async function bindIronguardTenant(tx: Prisma.TransactionClient, tenantId: string): Promise<void> {
-  try {
-    await tx.$executeRaw`SELECT ironguard_set_session_tenant(${tenantId}::uuid);`;
-  } catch {
-    await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true);`;
-  }
 }
 
 function qualificationInput(

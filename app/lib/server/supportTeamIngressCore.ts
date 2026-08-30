@@ -1,14 +1,13 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import type { Prisma } from "@prisma/client";
-
 import {
   PENDING_DRAFT_TAG,
   PENDING_SUPPORT_INTAKE_TAG,
 } from "@/app/lib/server/approvalQueueCore";
 import type { SupportTeamReplyPayload } from "@/app/lib/ingress/supportTeamIngressSchema";
 import { buildInTenantSupportTelemetry } from "@/app/lib/server/inTenantSupportTelemetry";
+import { bindIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import prisma from "@/lib/prisma";
 
 const SUPPORT_TEAM_EXECUTION_SOURCE = "supportTeamPoll | Severity:";
@@ -47,14 +46,6 @@ function sanitizeText(raw: unknown, maxLen: number): string {
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "[STRIPPED]")
     .trim()
     .slice(0, maxLen);
-}
-
-async function bindIronguardTenant(tx: Prisma.TransactionClient, tenantId: string): Promise<void> {
-  try {
-    await tx.$executeRaw`SELECT ironguard_set_session_tenant(${tenantId}::uuid);`;
-  } catch {
-    await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true);`;
-  }
 }
 
 function parseIntakeSummary(summary: string): {

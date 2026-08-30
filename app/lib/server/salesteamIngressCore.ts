@@ -1,12 +1,11 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import type { Prisma } from "@prisma/client";
-
 import { isSalesDispatchHoldCompany } from "@/app/lib/approvalDispatchValidation";
 import {
   PENDING_SALES_DRAFT_TAG,
 } from "@/app/lib/server/approvalQueueCore";
+import { bindIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { isOperatorHoldArchived } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import type { SalesteamOutreachPayload } from "@/app/lib/ingress/salesteamIngressSchema";
 import prisma from "@/lib/prisma";
@@ -56,14 +55,6 @@ function peelCadenceFooter(body: string): { body: string; cadenceLine: string | 
     body: body.replace(/\n*\[Cadence:\s*[^\]]+\]\s*$/i, "").trim(),
     cadenceLine: `Cadence: ${match[1]!.trim()}`,
   };
-}
-
-async function bindIronguardTenant(tx: Prisma.TransactionClient, tenantId: string): Promise<void> {
-  try {
-    await tx.$executeRaw`SELECT ironguard_set_session_tenant(${tenantId}::uuid);`;
-  } catch {
-    await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true);`;
-  }
 }
 
 export function buildSalesTeamPendingDraftSummary(input: {

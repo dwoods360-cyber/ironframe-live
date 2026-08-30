@@ -1297,10 +1297,10 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       href: "/dashboard/operations/publishing?desk=linkedin&li=2026-09-04-evidence-provenance",
       priorityHint: 5,
       synopsis:
-        "Founder LinkedIn (Fri): control lesson — evidence should carry its origin as long as it carries its claim. Untrusted-ingest theme; points to /trust-center. Draft: linkedin-drafts-2026-09-04-evidence-provenance.md. Moved off Fri 2026-08-28 (unpublished; independent citation still missing). BLOCKED: independent citation slot empty.",
+        "Founder LinkedIn (Fri): control lesson — evidence should carry its origin as long as it carries its claim. Untrusted-ingest theme; points to /trust-center. Draft: linkedin-drafts-2026-09-04-evidence-provenance.md. Moved off Fri 2026-08-28. Unblocked 2026-08-30: independent citation is CVE-2026-33634 (NVD) — the Trivy scanner compromise, i.e. the evidence producer itself.",
       nextActions: [
-        "Supply verified primary URL for the upstream-compromise claim (no lnkd.in shortener)",
         "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Voice-pass the draft (last remaining gate)",
         "Verify research citations, Copy body → LinkedIn",
         "Paste first-comment CTA after publish",
         "Mark Done with LinkedIn URL",

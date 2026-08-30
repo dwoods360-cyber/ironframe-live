@@ -6,8 +6,8 @@
 **Complements:** Aug 24 shared-stack problem post; Aug 26 entity-scoped export path — this one is **attribution at ingest**, upstream of both  
 **Avoids:** naming a specific compromised vendor as a customer-impact claim; incident-response advice; product feature list; Path B pitch in body  
 **Industry pull:** Operators whose registers are populated by scanner, connector, and gateway output they do not control  
-**History:** Carded for Fri 2026-08-28, not published — the independent citation was never supplied. Moved to Fri 2026-09-04.  
-**Drafted:** 2026-08-27 · **Voice pass:** pending · **Status:** DRAFT — citations unverified, do not publish
+**History:** Carded for Fri 2026-08-28, not published — the independent citation was missing. Moved to Fri 2026-09-04; citation supplied 2026-08-30 (CVE-2026-33634, NVD).  
+**Drafted:** 2026-08-27 · **Voice pass:** pending · **Status:** DRAFT — citations verified 2026-08-30, holding for voice pass
 
 ### Board voice (founder cadence)
 
@@ -52,9 +52,16 @@ https://ironframegrc.com/register/contact
 | Post claim (paraphrase) | What the research actually supports | Citation (full URL — open before post) | How Ironframe relieves it (product truth only) |
 |---|---|---|---|
 | Registers store tool output without retaining source attribution | Published GF current-pain research — fragmented evidence / untrusted ingest | https://research.ironframegrc.com/briefings/2026-07-15-research-grc-current-pain | Attribution captured at ingest, retained through export |
-| Upstream package compromise can reach evidence-producing tooling | **TO VERIFY — operator must supply** the primary report for the Trivy / KICS / LiteLLM supply-chain compromises (AFP charging announcement or equivalent primary source). Do not cite a `lnkd.in` shortener. | _(blank — paste verified URL before Save/Copy)_ | Provenance makes blast-radius enumeration a query, not a manual search |
+| Upstream package compromise can reach evidence-producing tooling | **Verified 2026-08-30.** CVE-2026-33634: on 2026-03-19 a threat actor published a malicious Trivy v0.69.4, force-pushed 76 of 77 version tags in `aquasecurity/trivy-action` to credential-stealing malware, and replaced all 7 tags in `aquasecurity/setup-trivy`. Trivy is itself a scanner whose output populates registers — so the compromise landed *on the evidence producer*, which is exactly the post's claim. Added to CISA KEV on 2026-03-26 (remediation due 2026-04-09). | https://nvd.nist.gov/vuln/detail/CVE-2026-33634 | Provenance makes blast-radius enumeration a query, not a manual search |
 | Evidence integrity posture (Ironframe) | Public trust information | https://ironframegrc.com/trust-center | CTA: workflow review, not free pilot |
+
+**Corroborating (open only if challenged in comments — NVD is the citation of record):**
+
+- Vendor disclosure: https://github.com/aquasecurity/trivy/discussions/10425 — Aqua's own incident thread; states containment of the 2026-03-01 incident was incomplete and secret rotation "wasn't atomic."
+- Vendor advisory: https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23
+- Microsoft Security Response Center analysis: https://www.microsoft.com/en-us/security/blog/2026/03/24/detecting-investigating-defending-against-trivy-supply-chain-compromise/
+- CISA KEV entry: https://www.cisa.gov/known-exploited-vulnerabilities-catalog?field_cve=CVE-2026-33634
 
 **Do not claim:** that any named vendor compromise affected Ironframe customers or any specific organization; incident counts or credential totals without the primary citation open; SOC 2 or ISO certification; that provenance capture prevents compromise rather than bounding it.
 
-**Blocking:** the Publishing Desk requires at least one **independent** (non-`ironframegrc.com`) citation before Save or Copy. Row 2 is the only independent slot and is currently empty — this draft cannot be copied to LinkedIn until the operator pastes a verified primary URL.
+**Blocking:** cleared 2026-08-30. The Publishing Desk requires at least one **independent** (non-`ironframegrc.com`) citation before Save or Copy; row 2 now carries the NVD entry for CVE-2026-33634, which is independent, government-hosted and stable. Remaining gate is the voice pass.

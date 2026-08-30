@@ -1256,6 +1256,24 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       ],
     },
     {
+      title: "LinkedIn Mon — ISO 27001 is not NIS2 compliance",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-08-31T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-08-31-nis2-iso-accountability",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-31-nis2-iso-accountability",
+      priorityHint: 3,
+      synopsis:
+        "Founder LinkedIn (Mon problem post): certificate ≠ regulatory clocks ≠ named accountable party. Arts 20/21/23 of Directive (EU) 2022/2555 verified against EUR-Lex 2026-08-28. Points to /marketing. First comment: clocks→owners map + transposition caveat. Draft: linkedin-drafts-2026-08-31-nis2-iso-accountability.md. Moved off Fri 2026-08-28 (draft file had never been written).",
+      nextActions: [
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Voice-pass body; confirm no legal-advice framing",
+        "Verify research citations, Copy body → LinkedIn",
+        "Paste first-comment clocks→owners map + CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
       title: "LinkedIn Mon — Security debt shows up in deal valuation",
       kind: "OPS_GENERAL",
       status: "PLANNED",

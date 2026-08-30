@@ -1025,6 +1025,15 @@ export function queueBacklog2026SeedSpecs(): OpsScheduleSeedSpec[] {
  * Starts 2026-08-20 through 2026-09-18. sourceRef avoids `marketing/linkedin*`
  * so these cards do not create Publishing Desk draft slots.
  */
+/**
+ * Named connects carried onto a specific hygiene day, keyed by ISO date.
+ * Re-seeding refreshes synopses, so moving a connect means moving its entry here.
+ */
+const FOUNDER_LI_NETWORK_CARRIED_CONNECTS: Record<string, string> = {
+  "2026-08-31":
+    "Carried connects (peer note only — no pitch): Arnel Ackar (CMMC + AI governance) and William Taylor (CISO, cyber-assurance intersection). Deferred 2026-08-25 through -28 — open each profile and personalize the opening line before sending.",
+};
+
 export function founderLinkedInNetworkHygiene2026SeedSpecs(): OpsScheduleSeedSpec[] {
   const start = new Date("2026-08-20T16:00:00.000Z");
   const end = new Date("2026-09-18T16:00:00.000Z");
@@ -1038,6 +1047,7 @@ export function founderLinkedInNetworkHygiene2026SeedSpecs(): OpsScheduleSeedSpe
       const d = String(day.getUTCDate()).padStart(2, "0");
       const isoDate = `${y}-${m}-${d}`;
       const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dow]!;
+      const carried = FOUNDER_LI_NETWORK_CARRIED_CONNECTS[isoDate];
       specs.push({
         title: `LinkedIn network — ${weekday} ${isoDate}`,
         kind: "OPS_GENERAL",
@@ -1046,10 +1056,15 @@ export function founderLinkedInNetworkHygiene2026SeedSpecs(): OpsScheduleSeedSpe
         sourceRef: `marketing/founder-li-network-${isoDate}`,
         href: "https://www.linkedin.com/feed/",
         priorityHint: 22,
-        synopsis:
+        synopsis: [
           "Daily 10–15 min: prune noise, ≤3 peer engages (no pitch), 3–5 Path B–fit connects with a 1-line note. Separate from Mon/Wed/Fri posts.",
+          carried,
+        ]
+          .filter(Boolean)
+          .join(" "),
         nextActions: [
           "Prune spam / non-ICP suggested noise (2 min)",
+          ...(carried ? ["Send carried connects: Arnel Ackar, William Taylor"] : []),
           "Engage ≤3 peers (comment/react/reply) — no Ironframe pitch",
           "Send 3–5 Path B–fit connection requests with a 1-line personal note",
           "Mark Done (outcome: connects sent / notable threads)",
@@ -1270,6 +1285,24 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
         "Voice-pass body; confirm no legal-advice framing",
         "Verify research citations, Copy body → LinkedIn",
         "Paste first-comment clocks→owners map + CTA after publish",
+        "Mark Done with LinkedIn URL",
+      ],
+    },
+    {
+      title: "LinkedIn Fri — Evidence provenance at ingest",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-09-04T20:00:00.000Z",
+      sourceRef: "marketing/linkedin-2026-09-04-evidence-provenance",
+      href: "/dashboard/operations/publishing?desk=linkedin&li=2026-09-04-evidence-provenance",
+      priorityHint: 5,
+      synopsis:
+        "Founder LinkedIn (Fri): control lesson — evidence should carry its origin as long as it carries its claim. Untrusted-ingest theme; points to /trust-center. Draft: linkedin-drafts-2026-09-04-evidence-provenance.md. Moved off Fri 2026-08-28 (unpublished; independent citation still missing). BLOCKED: independent citation slot empty.",
+      nextActions: [
+        "Supply verified primary URL for the upstream-compromise claim (no lnkd.in shortener)",
+        "Open Publishing Desk → LinkedIn (this calendar card)",
+        "Verify research citations, Copy body → LinkedIn",
+        "Paste first-comment CTA after publish",
         "Mark Done with LinkedIn URL",
       ],
     },

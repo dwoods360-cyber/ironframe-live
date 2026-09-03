@@ -7,6 +7,14 @@ dotenv.config({ path: '.env' });
 const productionTarget =
   process.env.E2E_PRODUCTION === '1' ||
   process.env.PLAYWRIGHT_TARGET?.trim().toLowerCase() === 'production';
+const useProductionBuildServer =
+  process.env.CI === 'true' ||
+  process.env.CI === '1' ||
+  process.env.E2E_USE_BUILD_SERVER === '1';
+
+if (!productionTarget) {
+  process.env.IRONFRAME_PUBLIC_INSTANT_CHECKOUT_ENABLED = "1";
+}
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -21,7 +29,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Auth bootstrap uses one operator account; serial workers prevent OTP invalidation races.
+  workers: 1,
   reporter: 'html',
 
   use: {
@@ -49,12 +58,21 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
-          command: process.env.CI
+          command: useProductionBuildServer
             ? 'npm run build && npm run start -- -p 3000'
             : 'npm run dev -- -p 3000',
           url: 'http://127.0.0.1:3000',
-          reuseExistingServer: !process.env.CI,
-          timeout: process.env.CI ? 240 * 1000 : 120 * 1000,
+          // Never inherit a manually started server that may have stale E2E gate settings.
+          reuseExistingServer: false,
+          timeout: useProductionBuildServer ? 240 * 1000 : 120 * 1000,
+          // Exercise the real provisioning branch without enabling public checkout outside E2E.
+          env: {
+            IRONFRAME_PLAYWRIGHT_E2E: "1",
+            IRONFRAME_PUBLIC_INSTANT_CHECKOUT_ENABLED: "1",
+            // Keep local production-bundle tests on the wildcard loopback domain.
+            IRONFRAME_TENANT_APEX_DOMAIN: "lvh.me",
+            NEXT_PUBLIC_DEVELOPMENT_DOMAIN: "lvh.me:3000",
+          },
         },
       }),
 });

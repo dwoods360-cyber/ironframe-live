@@ -2,7 +2,19 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import type { Page } from "@playwright/test";
 
-const APEX_ORIGIN = "http://127.0.0.1:3000";
+export const APEX_ORIGIN = "http://lvh.me:3000";
+
+function redactAuthQueryValues(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    for (const key of ["token", "access_token", "refresh_token", "apikey"]) {
+      if (url.searchParams.has(key)) url.searchParams.set(key, "[redacted]");
+    }
+    return url.toString();
+  } catch {
+    return rawUrl.split("?", 1)[0] ?? "[unparseable-url]";
+  }
+}
 
 /** Serialize Supabase generateLink — parallel workers invalidate each other's OTP. */
 let apexAuthBootstrapChain: Promise<void> = Promise.resolve();
@@ -128,7 +140,7 @@ async function materializeSupabaseAuthCookies(
   return pending;
 }
 
-/** Mint Supabase session cookies on apex 127.0.0.1 (matches playwright.config baseURL). */
+/** Mint host-only Supabase session cookies on the local apex before tenant handoff. */
 export async function bootstrapApexOperatorSession(page: Page, email: string): Promise<void> {
   await (apexAuthBootstrapChain = apexAuthBootstrapChain.then(() =>
     bootstrapApexOperatorSessionInner(page, email),
@@ -201,8 +213,7 @@ async function bootstrapApexOperatorSessionInner(page: Page, email: string): Pro
       ...authCookies.map((cookie) => ({
         name: cookie.name,
         value: cookie.value,
-        domain: "127.0.0.1",
-        path: typeof cookie.options.path === "string" ? cookie.options.path : "/",
+        url: APEX_ORIGIN,
         httpOnly: Boolean(cookie.options.httpOnly),
         secure: false,
         sameSite: normalizeSameSite(cookie.options.sameSite),
@@ -217,7 +228,7 @@ export async function openWorkspaceCommandPost(
   tenantSlug: "medshield" | "vaultbank" | "gridcore" = "medshield",
 ): Promise<void> {
   await page
-    .goto(`/api/auth/workspace-launch?tenant=${tenantSlug}&next=%2F`, {
+    .goto(`${APEX_ORIGIN}/api/auth/workspace-launch?tenant=${tenantSlug}&next=%2F`, {
       waitUntil: "commit",
       timeout: 90_000,
     })
@@ -256,7 +267,7 @@ export async function runCommandPostClickDiagnostic(
       url.includes("/login") ||
       url.includes("/integrity")
     ) {
-      networkEvents.push(`${request.method()} ${url}`);
+      networkEvents.push(`${request.method()} ${redactAuthQueryValues(url)}`);
     }
   };
   const onResponse = (response: { url: () => string; status: () => number; headers: () => Record<string, string> }) => {
@@ -266,9 +277,13 @@ export async function runCommandPostClickDiagnostic(
       url.includes("session-bootstrap") ||
       (url.includes("/login") && !url.includes("_next"))
     ) {
-      const location = response.headers()["location"] ?? response.headers()["Location"];
+      const headers = response.headers();
+      const locationRaw = headers["location"] ?? headers["Location"];
+      const location = locationRaw ? redactAuthQueryValues(locationRaw) : null;
+      const denial = headers["x-ironframe-workspace-launch-denial"];
+      const target = headers["x-ironframe-workspace-launch-target"];
       responseEvents.push(
-        `${response.status()} ${url}${location ? ` -> ${location}` : ""}`,
+        `${response.status()} ${redactAuthQueryValues(url)}${location ? ` -> ${location}` : ""}${denial ? ` [denial=${denial}]` : ""}${target ? ` [target=${target}]` : ""}`,
       );
     }
   };
@@ -279,7 +294,7 @@ export async function runCommandPostClickDiagnostic(
   await page.goto(`${APEX_ORIGIN}/integrity`, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.waitForTimeout(2_000);
 
-  const cookies = await page.context().cookies("http://127.0.0.1");
+  const cookies = await page.context().cookies(APEX_ORIGIN);
   const ironframeTenantCookie =
     cookies.find((row) => row.name === "ironframe-tenant")?.value ?? null;
   const supabaseCookieCount = cookies.filter((row) => row.name.includes("sb-")).length;
@@ -294,16 +309,18 @@ export async function runCommandPostClickDiagnostic(
   await chip.waitFor({ state: "visible", timeout: 20_000 });
 
   const urlBeforeClick = page.url();
+  const expectedTenantHostname = commandPost.slug ? `${commandPost.slug}.lvh.me` : null;
   await chip.click({ noWaitAfter: true, timeout: 10_000 });
 
   let workspaceLaunchSeen = false;
   try {
     await page.waitForURL(
       (url) =>
-        url.href.includes("workspace-launch") ||
-        (url.hostname.includes("lvh.me") && !url.pathname.includes("session-bootstrap")) ||
+        (expectedTenantHostname != null &&
+          url.hostname === expectedTenantHostname &&
+          !url.pathname.includes("session-bootstrap")) ||
         url.pathname === "/login",
-      { timeout: 60_000 },
+      { timeout: 20_000 },
     );
   } catch {
     // Capture final state even when navigation stalls.
@@ -311,7 +328,7 @@ export async function runCommandPostClickDiagnostic(
 
   workspaceLaunchSeen = networkEvents.some((line) => line.includes("workspace-launch"));
 
-  await page.waitForTimeout(2_000);
+  if (!page.isClosed()) await page.waitForTimeout(1_000);
   page.off("request", onRequest);
   page.off("response", onResponse);
 

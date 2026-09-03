@@ -10,11 +10,18 @@ import { buildTenantLoginRedirectUrl } from "@/app/lib/tenantSubdomain";
 
 export const dynamic = "force-dynamic";
 
-function tenantLoginRedirect(tenantSlug: string, nextPath: string, fresh = false): NextResponse {
+function tenantLoginRedirect(
+  tenantSlug: string,
+  nextPath: string,
+  reason: string,
+  fresh = false,
+): NextResponse {
   const loginUrl = new URL(buildTenantLoginRedirectUrl(tenantSlug));
   loginUrl.searchParams.set("next", nextPath);
   if (fresh) loginUrl.searchParams.set("fresh", "1");
-  return NextResponse.redirect(loginUrl);
+  const response = NextResponse.redirect(loginUrl);
+  response.headers.set("x-ironframe-workspace-launch-denial", reason);
+  return response;
 }
 
 async function launchWorkspace(
@@ -30,11 +37,16 @@ async function launchWorkspace(
 
   if (!minted.ok) {
     // Never bounce through apex /login — middleware sends authed apex users to /integrity.
-    return tenantLoginRedirect(
+    const response = tenantLoginRedirect(
       tenantSlug,
       nextPath,
+      minted.reason,
       minted.reason === "unauthenticated",
     );
+    if (minted.targetDescriptor) {
+      response.headers.set("x-ironframe-workspace-launch-target", minted.targetDescriptor);
+    }
+    return response;
   }
 
   const response = NextResponse.redirect(minted.bootstrapUrl);

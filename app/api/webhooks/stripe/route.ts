@@ -61,23 +61,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: result.error, retryable: result.retryable }, { status });
     }
 
+    const tenantSlug = result.tenantSlug.trim();
+    if (!tenantSlug) {
+      console.error("[stripe/webhook] fulfill returned an empty tenant slug");
+      return NextResponse.json(
+        { ok: false, error: "Provisioning completed without a tenant identifier.", retryable: true },
+        { status: 500 },
+      );
+    }
+
+    const successPayload = {
+      ok: true as const,
+      tenantSlug,
+      email: result.email,
+      idempotent: result.idempotent,
+    };
+
     return NextResponse.json(
       result.invitePending
         ? {
+            ...successPayload,
             status: "SUCCESS",
             invitePending: true,
             message: result.message,
-            ok: true,
-            tenantSlug: result.tenantSlug,
-            email: result.email,
-            idempotent: result.idempotent,
           }
-        : {
-            ok: true,
-            tenantSlug: result.tenantSlug,
-            email: result.email,
-            idempotent: result.idempotent,
-          },
+        : successPayload,
     );
   } catch (err) {
     console.error("[stripe/webhook] unhandled", err);

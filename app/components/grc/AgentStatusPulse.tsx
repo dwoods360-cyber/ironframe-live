@@ -3,7 +3,7 @@
 import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useTenantContext } from "@/app/context/TenantProvider";
+import { useActiveTenantScope } from "@/app/context/TenantProvider";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
 import { useAgentStore } from "@/app/store/agentStore";
 import { LeftPanelFeatureIndex } from "@/app/components/leftPanel/LeftPanelFeatureIndex";
@@ -19,7 +19,7 @@ export interface AgentStatusPulseProps {
 
 /** Tenant-scoped THREATS_RESOLVED scoreboard — vault shortcut + portaled agent rank tooltip. */
 export function AgentKillsInlineTag({ featureIndex }: { featureIndex?: number } = {}) {
-  const { activeTenantUuid } = useTenantContext();
+  const { activeTenantUuid } = useActiveTenantScope();
   const tenantScopeForKills = resolveDashboardTenantUuid(activeTenantUuid);
   const anchorRef = useRef<HTMLAnchorElement>(null);
   const [hovered, setHovered] = useState(false);

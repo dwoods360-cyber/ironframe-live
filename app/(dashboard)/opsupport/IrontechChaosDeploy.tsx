@@ -31,7 +31,7 @@ import { applyManualSimulationStandDownResumeFeed } from "@/app/utils/manualSimu
 import { requestVictoryLapFromNeutralize } from "@/app/utils/activeThreatLifecycleBridge";
 import { markRegistryResolvedForThreatEvent } from "@/app/utils/riskRegistryResolvedPurge";
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
-import { useTenantContext } from "@/app/context/TenantProvider";
+import { useActiveTenantScope } from "@/app/context/TenantProvider";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 import ChaosConstitutionalCollapsePanel from "@/app/components/ChaosConstitutionalCollapsePanel";
@@ -147,7 +147,7 @@ async function runPerimeterOnlyShadowDrill(
 
 export default function IrontechChaosDeploy({ embedded = false, featureIndex }: Props) {
   const router = useRouter();
-  const { activeTenantUuid, tenantFetch } = useTenantContext();
+  const { activeTenantUuid, tenantFetch } = useActiveTenantScope();
   const [collapseArmed, setCollapseArmed] = useState(false);
   const { isSimulationMode } = useSystemConfigStore();
   const [logDive, setLogDive] = useState(false);

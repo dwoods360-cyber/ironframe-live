@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const IRONQUERY_MODEL = "gemini-1.5-flash";
+const IRONQUERY_MODEL = "gemini-2.0-flash";
 const MAX_PAYLOAD_CHARS = 12_000;
 
 const FALLBACK_INSIGHT =

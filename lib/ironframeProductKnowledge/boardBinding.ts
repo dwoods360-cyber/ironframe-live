@@ -29,20 +29,16 @@ import {
   buildPartnerLearningLinksBlurb,
   buildTrainingDocsLocationAnswer,
 } from './productFacts';
-import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import {
+  buildSixCreditDoctrineBinding,
+  buildWorkerSixCreditMandate,
+} from './sixCreditDoctrine';
+import { buildPublishedGovernanceFrameKnowledgeBinding } from '../governanceFrame/publishedResearchKnowledge';
 
-/**
- * Optional GF binding — perimeter workers may lack publishedResearchKnowledge.
- * Use cwd/package.json (never import.meta) so Ironboard CJS tsc and Next bundling stay happy.
- */
+/** GF binding with fallback when published briefings are unavailable on disk. */
 function publishedGovernanceFrameBindingOrFallback(): string {
   try {
-    const requireFromCwd = createRequire(join(process.cwd(), 'package.json'));
-    const mod = requireFromCwd('./lib/governanceFrame/publishedResearchKnowledge') as {
-      buildPublishedGovernanceFrameKnowledgeBinding: () => string;
-    };
-    return mod.buildPublishedGovernanceFrameKnowledgeBinding();
+    return buildPublishedGovernanceFrameKnowledgeBinding();
   } catch {
     return 'Governance Frame: cite published research at research.ironframegrc.com only — never quarantine drafts; never invent GF paper IDs.';
   }
@@ -84,6 +80,7 @@ Docs spine:
 - Message constitution: docs/sales-enablement/message-constitution.md
 - Workforce briefing: docs/sales/design-partner-workforce-briefing.md
 - Workflow review protocol: docs/sales/design-partner-workflow-review-protocol.md (peer-to-peer diligence; human hosts)
+- Regulated-buyer signal (GTM only, not GF): docs/marketing-strategy/regulated-buyer-signal-distillate.md — no TAM tables; no DSPM/comms-surveillance product claims
 - Docs Hub reader: ${DOCS_HUB_HREF} (DocsChrome — NOT Command Center tripane)
 - Partner learning: ${PARTNER_OPERATOR_PACKET_HREF} · ${PARTNER_TRAINING_INDEX_HREF} · ${PARTNER_GET_STARTED_HREF}
 - CS playbook: ${PARTNER_CS_PLAYBOOK_DOC}
@@ -98,6 +95,8 @@ Canonical training-docs answer (use verbatim when asked where user training docu
 ${buildTrainingDocsLocationAnswer()}
 
 ${publishedGovernanceFrameBindingOrFallback()}
+
+${buildSixCreditDoctrineBinding()}
 `.trim();
 }
 
@@ -116,6 +115,8 @@ ${buildAntiHallucinationMandate()}
 - Ban: medshield/vaultbank/gridcore as customers; seat/month pricing; "fastest SOC 2."; "we're SOC 2 certified" (say SOC2-aligned until certified).
 - Beachhead keys: ${BEACHHEAD_SECTORS.join(' · ')} — prompts in beachheadPrompts.ts; no SalesTeam admin portal.
 - Governance Frame: cite published research at research.ironframegrc.com only — never quarantine drafts; never invent GF paper IDs.
+
+${buildWorkerSixCreditMandate('salesteam')}
 `.trim();
 }
 
@@ -134,6 +135,8 @@ ${buildAntiHallucinationMandate()}
 - Never prospect/cold outreach. Never cite medshield/vaultbank/gridcore as customers. Never auto-send.
 - Playbook: ${PARTNER_CS_PLAYBOOK_DOC}
 - Governance Frame: partners may be pointed to research.ironframegrc.com for institutional research — never cite quarantine drafts.
+
+${buildWorkerSixCreditMandate('success-team')}
 `.trim();
 }
 
@@ -146,6 +149,8 @@ ${buildAntiHallucinationMandate()}
 - Point partners to ${PARTNER_OPERATOR_PACKET_HREF}, ${PARTNER_TRAINING_INDEX_HREF}, ${PARTNER_GET_STARTED_HREF}, and ${DOCS_HUB_HREF} when the issue is orientation — never invent a Support Knowledge Base.
 - Do not invent billing amounts, certification status, or features not in the product spine.
 - Governance Frame research (research.ironframegrc.com) is optional context — not a break/fix runbook.
+
+${buildWorkerSixCreditMandate('support-team')}
 `.trim();
 }
 
@@ -156,5 +161,7 @@ IRONLEADS — SUSPECT TRIGGER HARVEST (AUTHORITATIVE — from lib/ironframeProdu
 ${buildAntiHallucinationMandate()}
 - Own SUSPECT intake / trigger harvest only — never PROSPECT cold email, never Approvals DISPATCH, never invent named customers as proof.
 - Hand off to SalesTeam for outreach drafts; do not invent CRM stages you did not write via tools.
+
+${buildWorkerSixCreditMandate('ironleads')}
 `.trim();
 }

@@ -8,7 +8,7 @@ type Metrics = Record<string, unknown>;
 export default function CfoRolePage() {
   const supabase = useMemo(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://build-bypass.supabase.co';
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'build-bypass-key';
+    const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'build-bypass-key';
     return createClient(url, key);
   }, []);
 

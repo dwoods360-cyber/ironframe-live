@@ -86,7 +86,10 @@ export async function GET(request: NextRequest) {
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const anonKey = (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )?.trim();
   if (!supabaseUrl || !anonKey) {
     return NextResponse.redirect(new URL("/login?error=auth_not_configured", requestUrl.origin));
   }

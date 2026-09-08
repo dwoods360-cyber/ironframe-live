@@ -8,7 +8,11 @@ export function envPublicSupabaseUrl(): string {
 }
 
 export function envSupabaseAnonKey(): string {
-  let s = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").trim();
+  let s = (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    ""
+  ).trim();
   if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
     s = s.slice(1, -1).trim();
   }

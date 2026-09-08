@@ -143,7 +143,10 @@ export async function exchangePasswordForSession(
   password: string,
 ): Promise<{ accessToken: string; refreshToken: string } | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const anonKey = (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )?.trim();
   if (!supabaseUrl || !anonKey) return null;
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -195,7 +198,10 @@ export async function exchangeSupabaseMagicLinkForSession(
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const anonKey = (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )?.trim();
 
   if (!supabaseUrl || !anonKey) return null;
 

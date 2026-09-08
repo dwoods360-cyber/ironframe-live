@@ -28,6 +28,7 @@ export type MintWorkspaceBootstrapResult =
         | "unauthenticated"
         | "tenant_membership_required"
         | "invalid_bootstrap_target";
+      targetDescriptor?: string;
     };
 
 export function normalizeWorkspaceLaunchSlug(raw: string | null | undefined): string | null {
@@ -63,7 +64,10 @@ export async function mintWorkspaceBootstrapFromRequest(
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const anonKey = (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )?.trim();
   if (!supabaseUrl || !anonKey) {
     return { ok: false, reason: "auth_not_configured" };
   }
@@ -104,7 +108,14 @@ export async function mintWorkspaceBootstrapFromRequest(
   }
 
   if (!isTenantWorkspaceBootstrapUrl(bootstrapUrl, slug)) {
-    return { ok: false, reason: "invalid_bootstrap_target" };
+    let targetDescriptor = bootstrapUrl.split("?", 1)[0]?.slice(0, 256) || "unparseable";
+    try {
+      const parsed = new URL(bootstrapUrl);
+      targetDescriptor = `${parsed.origin}${parsed.pathname}`;
+    } catch {
+      // Intentionally omit the query string because it contains the bootstrap ticket.
+    }
+    return { ok: false, reason: "invalid_bootstrap_target", targetDescriptor };
   }
 
   return { ok: true, bootstrapUrl, cookieMutations };

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { envPublicSupabaseUrl, envSupabaseAnonKey } from "@/lib/supabase/envPublic";
 
 import { isPlatformGlobalAdminEmail } from "@/config/platformSecurity";
 
@@ -14,8 +15,8 @@ const OPERATOR_COOKIE = "ironframe-operator-id";
  * Service-role server clients do not reliably resolve `auth.getUser()` from the browser session.
  */
 async function createSupabaseServerClientFromCookies() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const supabaseUrl = envPublicSupabaseUrl();
+  const anonKey = envSupabaseAnonKey();
   if (!supabaseUrl || !anonKey) return null;
 
   const cookieStore = await cookies();

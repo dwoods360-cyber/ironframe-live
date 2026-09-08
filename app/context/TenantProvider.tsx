@@ -207,6 +207,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
 export function useActiveTenantScope(): {
   activeTenantUuid: string | null;
   activeTenantKey: TenantKey | null;
+  tenantFetch: TenantContextValue["tenantFetch"];
 } {
   const ctx = useContext(TenantContext);
   const hostUuid = useHostTenantUuidServerSnapshot();
@@ -217,22 +218,40 @@ export function useActiveTenantScope(): {
     () => null,
   );
 
-  if (ctx) {
-    return { activeTenantUuid: ctx.activeTenantUuid, activeTenantKey: ctx.activeTenantKey };
-  }
-
-  const activeTenantUuid =
+  const fallbackTenantUuid =
     hostUuid ??
     (hostSlug ? TENANT_UUIDS[hostSlug as TenantKey] : null) ??
     cookieTenantUuid ??
     getIronguardEffectiveTenant() ??
     getDashboardWorkspaceFallbackTenant();
+  const activeTenantUuid = ctx?.activeTenantUuid ?? fallbackTenantUuid;
+  const activeTenantKey =
+    ctx?.activeTenantKey ??
+    ((hostSlug ?? tenantKeyFromUuid(cookieTenantUuid ?? activeTenantUuid)) as TenantKey | null);
 
-  const activeTenantKey = (
-    hostSlug ?? tenantKeyFromUuid(cookieTenantUuid ?? activeTenantUuid)
-  ) as TenantKey | null;
+  const fallbackTenantFetch = useCallback<TenantContextValue["tenantFetch"]>(
+    async (input, init = {}, targetTenantUuid) => {
+      const explicitTarget = targetTenantUuid?.trim() ?? "";
+      const scopeUuid = explicitTarget || activeTenantUuid?.trim() || "";
+      if (scopeUuid && activeTenantUuid && !assertTenantAccess(activeTenantUuid, scopeUuid)) {
+        throw new Error("Tenant isolation violation: attempted cross-tenant data access.");
+      }
 
-  return { activeTenantUuid, activeTenantKey };
+      const headers = new Headers(init.headers);
+      if (scopeUuid) {
+        headers.set("x-tenant-id", scopeUuid);
+        headers.set("x-target-tenant-id", scopeUuid);
+      }
+      return ironguardFetch(input, { ...init, headers });
+    },
+    [activeTenantUuid],
+  );
+
+  return {
+    activeTenantUuid,
+    activeTenantKey,
+    tenantFetch: ctx?.tenantFetch ?? fallbackTenantFetch,
+  };
 }
 
 export function useTenantContext() {

@@ -15,6 +15,9 @@ import { describe, expect, it } from "vitest";
 const REPO_ROOT = join(__dirname, "..", "..");
 const SCHEMA_PATH = join(REPO_ROOT, "prisma", "schema.prisma");
 const ROLLOUT_PATH = join(REPO_ROOT, "prisma", "scripts", "tenant_rls_rollout.sql");
+const CRM_RLS_PATH = join(REPO_ROOT, "prisma", "scripts", "ironboard_crm_rls.sql");
+const PRISMA_CLIENT_PATH = join(REPO_ROOT, "lib", "prisma.ts");
+const THREAT_ACTIONS_PATH = join(REPO_ROOT, "app", "actions", "threatActions.ts");
 
 /**
  * Excluded in the rollout script for stated reasons: `user_role_assignments` is the authorization
@@ -45,6 +48,9 @@ function tenantScopedModels(schema: string): { model: string; table: string }[] 
 describe("tenant RLS rollout coverage", () => {
   const schema = readFileSync(SCHEMA_PATH, "utf8");
   const rollout = readFileSync(ROLLOUT_PATH, "utf8");
+  const crmRollout = readFileSync(CRM_RLS_PATH, "utf8");
+  const prismaClient = readFileSync(PRISMA_CLIENT_PATH, "utf8");
+  const threatActions = readFileSync(THREAT_ACTIONS_PATH, "utf8");
 
   it("keeps a rollout script that discovers tenant tables dynamically", () => {
     // Dynamic discovery is what lets new tables be covered without editing a list.
@@ -62,6 +68,9 @@ describe("tenant RLS rollout coverage", () => {
     expect(rollout).toContain("AS PERMISSIVE");
     expect(rollout).toContain("tenant_access_base_");
     expect(rollout).toMatch(/USING \(true\)[\s\S]*WITH CHECK \(true\)/);
+    expect(crmRollout).toContain("AS PERMISSIVE");
+    expect(crmRollout).toContain("tenant_access_base_ironboard_crm_contacts");
+    expect(crmRollout).toMatch(/USING \(true\) WITH CHECK \(true\)/);
   });
 
   it("documents every exclusion it makes", () => {
@@ -79,5 +88,26 @@ describe("tenant RLS rollout coverage", () => {
   it("does not grant BYPASSRLS to the application role", () => {
     expect(rollout).toContain("NOBYPASSRLS");
     expect(rollout).not.toMatch(/^\s*ALTER ROLE ironframe_app BYPASSRLS/m);
+  });
+
+  it("does not attribute audit rows to an arbitrary fallback tenant", () => {
+    const resolver = prismaClient.slice(
+      prismaClient.indexOf("async function resolveAuditTenantId"),
+      prismaClient.indexOf("return base.$extends"),
+    );
+    expect(resolver).not.toContain("base.tenant.findFirst");
+    expect(resolver).toContain("tenant context could not be resolved");
+  });
+
+  it("never binds a company bigint as the RLS tenant UUID", () => {
+    const transactionWrapper = threatActions.slice(
+      threatActions.indexOf("async function runThreatTransaction"),
+      threatActions.indexOf("export type AcknowledgeThreatActionResult"),
+    );
+    expect(transactionWrapper).toContain("select: { tenantId: true }");
+    expect(transactionWrapper).toContain("await bindIronguardTenant");
+    expect(transactionWrapper).not.toMatch(
+      /set_config\('app\.current_tenant_id',\s*\$\{tenantCompanyId\.toString\(\)\}/,
+    );
   });
 });

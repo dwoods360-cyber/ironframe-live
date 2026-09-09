@@ -87,10 +87,9 @@ const prismaClientSingleton = () => {
       /* non-fatal — e.g. non-request contexts */
     }
 
-    const row = await base.tenant.findFirst({ select: { id: true }, orderBy: { id: "asc" } });
-    if (row) return row.id;
-
-    throw new Error("Prisma extension: cannot resolve AuditLog.tenant_id.");
+    throw new Error(
+      "Prisma extension: AuditLog.tenant_id is required; tenant context could not be resolved.",
+    );
   }
 
   return base.$extends({

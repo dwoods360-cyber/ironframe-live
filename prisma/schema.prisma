@@ -54,6 +54,7 @@ model Tenant {
   governanceFrameTriadSnapshots GovernanceFrameTriadSnapshot[]
   publishedBriefings           PublishedBriefing[]
   contactProfile               TenantContactProfile?
+  stakeholderMetrics           StakeholderMetric[]
 
   @@index([parentTenantId])
   @@map("tenants")
@@ -1099,6 +1100,20 @@ model GovernanceFrameTriadSnapshot {
   @@unique([tenantId, operationalDate])
   @@index([tenantId, operationalDate])
   @@map("governance_frame_triad_snapshots")
+}
+
+model StakeholderMetric {
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id") @db.Uuid
+  roleKey    String   @map("role_key")
+  metricData Json     @map("metric_data")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, roleKey])
+  @@index([tenantId])
+  @@map("stakeholder_metrics")
 }
 
 model QuarantineRecord {

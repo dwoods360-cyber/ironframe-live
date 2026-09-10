@@ -96,6 +96,11 @@ model Fellow {
   sandboxExpiresAt    DateTime?           @map("sandbox_expires_at")
   completionBadgeHash String?             @unique @map("completion_badge_hash")
   badgeIssuedAt       DateTime?           @map("badge_issued_at")
+  /// Hashed, single-use email-ownership challenge for Fellow lab access.
+  accessTokenHash      String?             @unique @map("access_token_hash")
+  accessTokenExpiresAt DateTime?           @map("access_token_expires_at")
+  accessTokenConsumedAt DateTime?          @map("access_token_consumed_at")
+  accessTokenRequestedAt DateTime?         @map("access_token_requested_at")
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
 
@@ -108,6 +113,7 @@ model Fellow {
   @@index([sandboxExpiresAt])
   @@index([requestArchitectureBrief])
   @@index([notesProductImprovementConsent])
+  @@index([accessTokenExpiresAt])
   @@map("fellows")
   @@schema("academic_fellows")
 }

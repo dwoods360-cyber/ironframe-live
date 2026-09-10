@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { mintFellowSessionToken } from "@/app/lib/fellows/session";
+import { issueFellowAccessVerification } from "@/app/lib/fellows/accessVerification";
 import { fellowsSandboxExpiryFrom } from "@/app/lib/fellows/sandboxTtl";
 import {
   FELLOWS_ACADEMIC_SANDBOX_ID,
-  FELLOWS_SESSION_COOKIE,
 } from "@/config/fellowsPortal";
 import prismaFellows from "@/lib/prismaFellows";
 
@@ -58,8 +57,8 @@ const ApplySchema = z
   });
 
 /**
- * Phase 1: auto-activate so lab is usable immediately.
- * Ops can later flip PENDING_VERIFY for stricter cohorts.
+ * Create a pending application and email a proof-of-ownership link. Existing records are never
+ * mutated from this public endpoint until mailbox ownership has been proved.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -71,9 +70,9 @@ export async function POST(req: NextRequest) {
     const sandboxExpiresAt = fellowsSandboxExpiryFrom();
 
     const existing = await prismaFellows.fellow.findUnique({ where: { email } });
-    const fellow =
-      existing ??
-      (await prismaFellows.fellow.create({
+    const fellow = existing
+      ? existing
+      : await prismaFellows.fellow.create({
         data: {
           email,
           fullName: body.fullName,
@@ -84,49 +83,35 @@ export async function POST(req: NextRequest) {
           employmentContext,
           requestArchitectureBrief: body.requestArchitectureBrief,
           sandboxExpiresAt,
-          status: "ACTIVE",
+          status: "PENDING_VERIFY",
           tenantEnclaveId: FELLOWS_ACADEMIC_SANDBOX_ID,
         },
-      }));
-
-    if (existing && existing.status === "REVOKED") {
-      return NextResponse.json({ error: "Access revoked" }, { status: 403 });
-    }
-
-    if (existing) {
-      await prismaFellows.fellow.update({
-        where: { id: existing.id },
-        data: {
-          status: existing.status === "ACTIVE" ? existing.status : "ACTIVE",
-          fullName: body.fullName,
-          linkedInUrl: body.linkedInUrl,
-          academicTrack: body.academicTrack,
-          labFocus: body.labFocus,
-          employerType: body.employerType,
-          employmentContext,
-          requestArchitectureBrief: body.requestArchitectureBrief,
-          sandboxExpiresAt: existing.sandboxExpiresAt ?? sandboxExpiresAt,
-        },
       });
-    }
 
-    const token = mintFellowSessionToken(fellow.id);
-    const res = NextResponse.json({
-      success: true,
-      fellowId: fellow.id,
-      tenantEnclaveId: fellow.tenantEnclaveId,
-      sandboxExpiresAt: (existing?.sandboxExpiresAt ?? sandboxExpiresAt).toISOString(),
-      labPath: "/fellows/lab",
-      note: "Independent Ironframe academic lab — not a WGU-operated site.",
-    });
-    res.cookies.set(FELLOWS_SESSION_COOKIE, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-    });
-    return res;
+    const issued =
+      fellow.status !== "REVOKED"
+        ? await issueFellowAccessVerification({
+            fellowId: fellow.id,
+            email: fellow.email,
+            requestOrigin: req.nextUrl.origin,
+            lastRequestedAt: fellow.accessTokenRequestedAt,
+          }).catch((error) => {
+            console.error(
+              "[fellows/apply] access-link issue failed",
+              error instanceof Error ? error.message : "unknown issue error",
+            );
+            return null;
+          })
+        : null;
+
+    return NextResponse.json(
+      {
+        accepted: true,
+        message: "Check your email for a single-use link to activate or resume Fellow access.",
+        ...(issued?.devVerifyUrl ? { devVerifyUrl: issued.devVerifyUrl } : {}),
+      },
+      { status: 202 },
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

@@ -10,6 +10,7 @@ import {
   writeLocalWormBytes,
 } from "@/app/lib/evidence/wormStoragePolicy";
 import { uploadImmutableWormObject } from "@/app/lib/evidence/supabaseWormStorage";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 type EvidenceUploadInput = {
   fileData: Blob | ArrayBuffer | Uint8Array | string;
@@ -151,16 +152,18 @@ export async function finalizeArtifactUpload(
       bytes,
     });
 
-    const artifact = await prisma.evidenceArtifact.create({
-      data: {
-        tenantId: tenantRole.tenantId,
-        uploadedByUserId: userId,
-        sha256,
-        storagePath: stored.storagePath,
-        mimeType,
-      },
-      select: { id: true },
-    });
+    const artifact = await withIronguardTenant(tenantRole.tenantId, (tx) =>
+      tx.evidenceArtifact.create({
+        data: {
+          tenantId: tenantRole.tenantId,
+          uploadedByUserId: userId,
+          sha256,
+          storagePath: stored.storagePath,
+          mimeType,
+        },
+        select: { id: true },
+      }),
+    );
 
     revalidatePath("/");
     return { success: true, artifactId: artifact.id };
@@ -191,15 +194,21 @@ export async function attachEvidenceToThreat(
       return { success: false, error: "Threat not found or tenant context missing." };
     }
 
-    const artifact = await prisma.evidenceArtifact.findFirst({
-      where: { id: aid, tenantId: tenantCtx.tenantId },
-      select: { id: true, sha256: true },
+    const membership = await prisma.userRoleAssignment.findFirst({
+      where: { userId, tenantId: tenantCtx.tenantId },
+      select: { id: true },
     });
-    if (!artifact) {
-      return { success: false, error: "Artifact not found in this tenant scope." };
+    if (!membership) {
+      return { success: false, error: "Threat not found or tenant access denied." };
     }
 
-    await prisma.$transaction(async (tx) => {
+    const attached = await withIronguardTenant(tenantCtx.tenantId, async (tx) => {
+      const artifact = await tx.evidenceArtifact.findFirst({
+        where: { id: aid, tenantId: tenantCtx.tenantId },
+        select: { id: true, sha256: true },
+      });
+      if (!artifact) return false;
+
       await tx.evidenceAttachment.create({
         data: {
           tenantId: tenantCtx.tenantId,
@@ -243,7 +252,12 @@ export async function attachEvidenceToThreat(
           createdAt,
         },
       });
+
+      return true;
     });
+    if (!attached) {
+      return { success: false, error: "Artifact not found in this tenant scope." };
+    }
 
     revalidatePath("/");
     revalidatePath("/integrity");
@@ -289,24 +303,26 @@ export async function listEvidenceForThreatEntity(
       return { ok: false, items: [], error: "No tenant role assignment found for user." };
     }
 
-    const rows = await prisma.evidenceAttachment.findMany({
-      where: {
-        tenantId: tenantRole.tenantId,
-        entityType: "THREAT_EVENT",
-        entityId: eid,
-      },
-      orderBy: { createdAt: "desc" },
-      include: {
-        artifact: {
-          select: {
-            id: true,
-            sha256: true,
-            mimeType: true,
-            storagePath: true,
+    const rows = await withIronguardTenant(tenantRole.tenantId, (tx) =>
+      tx.evidenceAttachment.findMany({
+        where: {
+          tenantId: tenantRole.tenantId,
+          entityType: "THREAT_EVENT",
+          entityId: eid,
+        },
+        orderBy: { createdAt: "desc" },
+        include: {
+          artifact: {
+            select: {
+              id: true,
+              sha256: true,
+              mimeType: true,
+              storagePath: true,
+            },
           },
         },
-      },
-    });
+      }),
+    );
 
     return {
       ok: true,

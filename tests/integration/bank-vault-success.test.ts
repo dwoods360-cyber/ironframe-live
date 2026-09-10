@@ -96,6 +96,7 @@ type IntegrityRow = {
 
 const state = {
   threat: null as ThreatRow | null,
+  membershipAllowed: true,
   approvals: [] as ApprovalRow[],
   artifacts: [] as ArtifactRow[],
   attachments: [] as AttachmentRow[],
@@ -322,7 +323,7 @@ Object.assign(prismaMock, {
     }),
   },
   userRoleAssignment: {
-    findFirst: vi.fn(async () => ({ id: "role-ciso" })),
+    findFirst: vi.fn(async () => (state.membershipAllowed ? { id: "role-ciso" } : null)),
   },
   syntheticEmployee: {
     findUnique: vi.fn(async () => null),
@@ -357,6 +358,7 @@ import { attachEvidenceToThreat } from "@/app/actions/evidenceActions";
 
 describe("Epic 11 bank vault positive chain", () => {
   beforeEach(() => {
+    state.membershipAllowed = true;
     state.threat = {
       id: "threat-bank-vault-success",
       tenantCompanyId: 9001n,
@@ -395,6 +397,23 @@ describe("Epic 11 bank vault positive chain", () => {
         status: "QUARANTINED",
       },
     ];
+  });
+
+  it("rejects evidence attachment when the authenticated user is outside the threat tenant", async () => {
+    state.membershipAllowed = false;
+
+    const attached = await attachEvidenceToThreat(
+      "artifact-uploaded-1",
+      "threat-bank-vault-success",
+      "Cross-tenant attachment must be denied.",
+    );
+
+    expect(attached).toEqual({
+      success: false,
+      error: "Threat not found or tenant access denied.",
+    });
+    expect(state.attachments).toHaveLength(0);
+    expect(state.integrityEvents).toHaveLength(0);
   });
 
   it("creates chain and resolves with permanent quarantine promotion + valid integrity event hash", async () => {

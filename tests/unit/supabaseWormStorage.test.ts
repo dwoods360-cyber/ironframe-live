@@ -3,13 +3,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const uploadMock = vi.fn();
 const removeMock = vi.fn();
 
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: vi.fn(async () => ({
+vi.mock("@/lib/supabase/wormStorageAdmin", () => ({
+  createSupabaseWormStorageClient: vi.fn(() => ({
     storage: {
       from: vi.fn(() => ({
         upload: uploadMock,
         remove: removeMock,
       })),
+    },
+  })),
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: vi.fn(async () => ({
+    storage: {
+      from: vi.fn(() => ({ remove: removeMock })),
     },
   })),
 }));

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseWormStorageClient } from "@/lib/supabase/wormStorageAdmin";
 import {
   assertEpic12WormStorageConfig,
   assertStorageDeletePermitted,
@@ -57,7 +58,7 @@ export async function uploadImmutableWormObject(
   const mimeType = input.mimeType?.trim() || "application/octet-stream";
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseWormStorageClient();
     const { error } = await supabase.storage.from(bucket).upload(
       objectPath,
       input.bytes,

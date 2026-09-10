@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 /**
@@ -27,9 +28,12 @@ function ensurePerimeterSqliteSchema(opts: PerimeterSqliteBootstrap): void {
   const schema = join(packageRoot, "prisma", "schema.prisma");
   if (!existsSync(schema)) return;
 
-  const dataDir = join(packageRoot, "data");
+  // Keep SQLite paths short on Windows. Prisma's schema engine can fail with a
+  // generic error when a Codex worktree path pushes the database path too long.
+  const dataDir = join(tmpdir(), "ironframe-vitest", opts.packageDir);
   if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
   const dbPath = join(dataDir, opts.dbFileName).replace(/\\/g, "/");
+  closeSync(openSync(dbPath, "a"));
   if (!process.env[opts.envVar]?.trim()) {
     process.env[opts.envVar] = `file:${dbPath}`;
   }

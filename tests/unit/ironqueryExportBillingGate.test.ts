@@ -1,26 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  downloadIronqueryAnalystPack,
-  getIronqueryExportDashboardContext,
-} from "@/app/actions/ironqueryExportActions";
-import { TENANT_BILLING_STATUS } from "@/app/lib/billing/constants";
+const TENANT_A = "11111111-1111-4111-8111-111111111111";
+const TENANT_B = "22222222-2222-4222-8222-222222222222";
 
-vi.mock("@/lib/prisma", () => ({
-  default: {
+const { prismaMock } = vi.hoisted(() => ({
+  prismaMock: {
     tenant: { findUnique: vi.fn() },
     tenantBilling: { findUnique: vi.fn() },
     evidenceArtifact: { findMany: vi.fn() },
-  },
+  } as any,
+}));
+
+Object.assign(prismaMock, {
+  $transaction: vi.fn(async (callback: (tx: typeof prismaMock) => unknown) => callback(prismaMock)),
+  $queryRaw: vi.fn(async () => [{ present: true }]),
+  $executeRaw: vi.fn(async () => 1),
+});
+
+vi.mock("@/lib/prisma", () => ({
+  default: prismaMock,
 }));
 
 vi.mock("@/app/utils/serverTenantContext", () => ({
   getActiveTenantUuidFromCookies: vi.fn(),
-  isValidTenantUuid: vi.fn((id: string) => id === "tenant-uuid-abc" || id === "run2-tenant-uuid"),
+  isValidTenantUuid: vi.fn((id: string) => /^[0-9a-f-]{36}$/i.test(id)),
 }));
 
 vi.mock("@/app/utils/tenantIsolation", () => ({
-  tenantKeyFromUuid: vi.fn((id: string) => (id === "tenant-uuid-abc" ? "medshield" : null)),
+  tenantKeyFromUuid: vi.fn((id: string) => (id.startsWith("11111111") ? "medshield" : null)),
 }));
 
 vi.mock("@/app/lib/auth/platformAdminAccess", () => ({
@@ -44,6 +51,11 @@ vi.mock("@/app/services/ironbloom/rateEngine", () => ({
   }),
 }));
 
+import {
+  downloadIronqueryAnalystPack,
+  getIronqueryExportDashboardContext,
+} from "@/app/actions/ironqueryExportActions";
+import { TENANT_BILLING_STATUS } from "@/app/lib/billing/constants";
 import prisma from "@/lib/prisma";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
@@ -52,7 +64,7 @@ import { fetchUtilityRateForAnalystExport } from "@/app/services/ironbloom/rateE
 describe("ironquery export billing perimeter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValue("tenant-uuid-abc");
+    vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValue(TENANT_A);
     vi.mocked(prisma.tenant.findUnique).mockResolvedValue({
       slug: "abc-co",
       ale_baseline: 0n,
@@ -81,11 +93,15 @@ describe("ironquery export billing perimeter", () => {
     } as never);
 
     const context = await getIronqueryExportDashboardContext();
-    expect(context).toMatchObject({ ok: true, tenantId: "tenant-uuid-abc" });
+    expect(context).toMatchObject({ ok: true, tenantId: TENANT_A });
+    expect(prismaMock.$executeRaw).toHaveBeenCalled();
+    expect(prismaMock.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(prisma.evidenceArtifact.findMany).mock.invocationCallOrder[0],
+    );
   });
 
   it("allows provisioned workspace slug when billing is ACTIVE", async () => {
-    vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValue("run2-tenant-uuid");
+    vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValue(TENANT_B);
     vi.mocked(prisma.tenant.findUnique).mockResolvedValue({
       slug: "run2",
       ale_baseline: 100000000n,
@@ -95,7 +111,7 @@ describe("ironquery export billing perimeter", () => {
     } as never);
 
     const context = await getIronqueryExportDashboardContext();
-    expect(context).toMatchObject({ ok: true, tenantId: "run2-tenant-uuid" });
+    expect(context).toMatchObject({ ok: true, tenantId: TENANT_B });
 
     const download = await downloadIronqueryAnalystPack("csv");
     expect(download).toMatchObject({
@@ -128,7 +144,7 @@ describe("ironquery export billing perimeter", () => {
   });
 
   it("returns SCOPE_REQUIRED when provisioned tenant has no ALE baseline", async () => {
-    vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValue("run2-tenant-uuid");
+    vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValue(TENANT_B);
     vi.mocked(prisma.tenant.findUnique).mockResolvedValue({
       slug: "run2",
       ale_baseline: 0n,
@@ -148,6 +164,6 @@ describe("ironquery export billing perimeter", () => {
     } as never);
 
     const context = await getIronqueryExportDashboardContext();
-    expect(context).toMatchObject({ ok: true, tenantId: "tenant-uuid-abc" });
+    expect(context).toMatchObject({ ok: true, tenantId: TENANT_A });
   });
 });

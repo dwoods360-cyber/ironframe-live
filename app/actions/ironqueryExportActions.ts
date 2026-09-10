@@ -22,6 +22,7 @@ import {
   type ArchiveFormat,
 } from "@/src/services/ironquery/exportArchive";
 import type { PdfExportDescriptor } from "@/src/services/ironquery/exportSigner";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 export type IronqueryExportHistoryRow = {
   artifactId: string;
@@ -131,22 +132,24 @@ export async function getIronqueryExportDashboardContext(): Promise<IronqueryExp
   const billing = await requireExportBillingEntitlement(scoped.scope.tenantId);
   if (!billing.ok) return billing;
 
-  const rows = await prisma.evidenceArtifact.findMany({
-    where: {
-      tenantId: scoped.scope.tenantId,
-      OR: [{ storagePath: { contains: "/financial/" } }, { storagePath: { contains: "/forensic/" } }],
-      storagePath: { contains: "/ironquery/" },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: {
-      id: true,
-      sha256: true,
-      storagePath: true,
-      createdAt: true,
-      uploadedByUserId: true,
-    },
-  });
+  const rows = await withIronguardTenant(scoped.scope.tenantId, (tx) =>
+    tx.evidenceArtifact.findMany({
+      where: {
+        tenantId: scoped.scope.tenantId,
+        OR: [{ storagePath: { contains: "/financial/" } }, { storagePath: { contains: "/forensic/" } }],
+        storagePath: { contains: "/ironquery/" },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        sha256: true,
+        storagePath: true,
+        createdAt: true,
+        uploadedByUserId: true,
+      },
+    }),
+  );
 
   return {
     ok: true,

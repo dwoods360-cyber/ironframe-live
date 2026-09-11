@@ -1,0 +1,3 @@
+# This migration was applied to production from a CRLF file. Preserve its exact
+# bytes so Prisma's recorded checksum remains stable on every operating system.
+/prisma/migrations/20260827220000_academic_fellowship_fellows/migration.sql -text whitespace=cr-at-eol

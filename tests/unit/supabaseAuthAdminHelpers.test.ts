@@ -56,7 +56,7 @@ describe("exchangePasswordForSession", () => {
 
   it("redeems password grant via POST token endpoint", async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_test_placeholder";
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -73,7 +73,7 @@ describe("exchangePasswordForSession", () => {
       "https://example.supabase.co/auth/v1/token?grant_type=password",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ apikey: "anon-key" }),
+        headers: expect.objectContaining({ apikey: "sb_publishable_test_placeholder" }),
       }),
     );
   });
@@ -93,7 +93,7 @@ describe("exchangeSupabaseMagicLinkForSession", () => {
 
   it("redeems hashed_token via POST verify", async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_test_placeholder";
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -112,7 +112,7 @@ describe("exchangeSupabaseMagicLinkForSession", () => {
       "https://example.supabase.co/auth/v1/verify",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ apikey: "anon-key" }),
+        headers: expect.objectContaining({ apikey: "sb_publishable_test_placeholder" }),
       }),
     );
   });

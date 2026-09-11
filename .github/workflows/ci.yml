@@ -10,7 +10,7 @@ env:
   DATABASE_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
   DIRECT_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
   NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.placeholder
   GOOGLE_API_KEY: ci-vitest-compile-placeholder
 
 jobs:
@@ -144,7 +144,7 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.placeholder' }}
 
   typecheck-ironboard:
     name: Ironboard Subpackage Typecheck

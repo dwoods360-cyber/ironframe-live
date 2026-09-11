@@ -119,7 +119,7 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
     resetWorkspaceBootstrapTicketStoreForTests();
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "public-anon-key";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_test_placeholder";
     configureAuthenticatedMintSession();
     configureSuccessfulRedeemSession();
   });

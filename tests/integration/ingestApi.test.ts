@@ -69,6 +69,7 @@ function buildIngestRequest(
     headers: new Headers({
       'Content-Type': 'application/json',
       'x-tenant-id': SAMPLE_TENANT,
+      'x-ironframe-simulation-mode': '1',
       ...headers,
     }),
     body: JSON.stringify(body),

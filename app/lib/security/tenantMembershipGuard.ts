@@ -5,7 +5,10 @@ import prisma from "@/lib/prisma";
 import { isPlatformAdministratorIdentity } from "@/app/lib/auth/platformAdminAccess";
 import { isDevConstitutionalAuthorityUser } from "@/app/lib/grc/devConstitutionalElevation";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
-import { assertIronguardApiTenantOr403 } from "@/app/lib/security/ironguardApiGuard";
+import {
+  assertIronguardApiTenantOr403,
+  permitsUnauthenticatedIronguardRequest,
+} from "@/app/lib/security/ironguardApiGuard";
 
 export async function userHasTenantRoleAssignment(
   userId: string,
@@ -33,7 +36,9 @@ export type AuthenticatedTenantGuardResult =
 
 /**
  * Ironguard tenant scope + authenticated operator must hold `user_role_assignment` for that tenant.
- * Unauthenticated simulation/shadow clients keep Ironguard-only behavior (no membership row).
+ * Unauthenticated clients are rejected in production unless the deployment itself
+ * is explicitly configured as the shadow plane. Non-production simulation traffic
+ * keeps Ironguard-only behavior (no membership row).
  * Platform administrators and constitutional dev authority bypass membership for cross-tenant ops.
  */
 export async function assertAuthenticatedIronguardTenantOr403(
@@ -46,6 +51,15 @@ export async function assertAuthenticatedIronguardTenantOr403(
 
   const user = await getSupabaseSessionUser();
   if (!user?.id?.trim()) {
+    if (!permitsUnauthenticatedIronguardRequest(request)) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "Authentication required for tenant-scoped API access." },
+          { status: 401 },
+        ),
+      };
+    }
     return {
       ok: true,
       tenantUuid: guard.tenantUuid,

@@ -35,7 +35,32 @@ describe("assertIronguardApiTenantOr403 host envelope", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    vi.unstubAllEnvs();
     mockCookiesGet.mockReturnValue({ value: TENANT_UUIDS.medshield });
+  });
+
+  it("does not let client simulation headers bypass production authentication", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { permitsUnauthenticatedIronguardRequest } = await import(
+      "@/app/lib/security/ironguardApiGuard"
+    );
+    const request = new NextRequest("https://ironframegrc.com/api/dashboard", {
+      headers: { "x-ironframe-simulation-mode": "1" },
+    });
+
+    expect(permitsUnauthenticatedIronguardRequest(request)).toBe(false);
+  });
+
+  it("retains the explicit simulation exemption outside production", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    const { permitsUnauthenticatedIronguardRequest } = await import(
+      "@/app/lib/security/ironguardApiGuard"
+    );
+    const request = new NextRequest("http://localhost/api/dashboard", {
+      headers: { "x-ironframe-simulation-mode": "1" },
+    });
+
+    expect(permitsUnauthenticatedIronguardRequest(request)).toBe(true);
   });
 
   it("allows same-origin reads when x-tenant-id is absent but ironframe-tenant cookie is set", async () => {

@@ -62,10 +62,12 @@ function buildRequest(
   body: Record<string, unknown>,
   headers: Record<string, string> = {}
 ): NextRequest {
+  const hasTenantScope = Boolean(headers['x-tenant-id']?.trim());
   return new NextRequest('http://localhost:3000/api/threats', {
     method: 'POST',
     headers: new Headers({
       'Content-Type': 'application/json',
+      ...(hasTenantScope ? { 'x-ironframe-simulation-mode': '1' } : {}),
       ...headers,
     }),
     body: JSON.stringify(body),

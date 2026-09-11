@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const assertIronguardApiTenantOr403 = vi.fn();
+const permitsUnauthenticatedIronguardRequest = vi.fn();
 const getSupabaseSessionUser = vi.fn();
 const isPlatformAdministratorIdentity = vi.fn();
 const isDevConstitutionalAuthorityUser = vi.fn();
@@ -9,6 +10,7 @@ const findFirst = vi.fn();
 
 vi.mock("@/app/lib/security/ironguardApiGuard", () => ({
   assertIronguardApiTenantOr403,
+  permitsUnauthenticatedIronguardRequest,
 }));
 
 vi.mock("@/app/utils/serverAuth", () => ({
@@ -39,10 +41,12 @@ describe("assertAuthenticatedIronguardTenantOr403", () => {
       ok: true,
       tenantUuid: "11111111-1111-1111-1111-111111111111",
     });
+    permitsUnauthenticatedIronguardRequest.mockReturnValue(false);
   });
 
   it("allows unauthenticated simulation clients after Ironguard passes", async () => {
     getSupabaseSessionUser.mockResolvedValue(null);
+    permitsUnauthenticatedIronguardRequest.mockReturnValue(true);
     const { assertAuthenticatedIronguardTenantOr403 } = await import(
       "@/app/lib/security/tenantMembershipGuard"
     );
@@ -55,6 +59,27 @@ describe("assertAuthenticatedIronguardTenantOr403", () => {
     if (!result.ok) return;
     expect(result.userId).toBeNull();
     expect(result.membershipEnforced).toBe(false);
+    expect(findFirst).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 when a tenant header has no authenticated production session", async () => {
+    getSupabaseSessionUser.mockResolvedValue(null);
+    const { assertAuthenticatedIronguardTenantOr403 } = await import(
+      "@/app/lib/security/tenantMembershipGuard"
+    );
+
+    const result = await assertAuthenticatedIronguardTenantOr403(
+      new NextRequest("https://ironframegrc.com/api/dashboard", {
+        headers: { "x-tenant-id": "11111111-1111-1111-1111-111111111111" },
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.response.status).toBe(401);
+    await expect(result.response.json()).resolves.toEqual({
+      error: "Authentication required for tenant-scoped API access.",
+    });
     expect(findFirst).not.toHaveBeenCalled();
   });
 

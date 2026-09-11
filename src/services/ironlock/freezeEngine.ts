@@ -1,15 +1,39 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
-import { auditLogCreateLoose } from "@/lib/auditLogLoose";
+import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
 
 const FREEZE_AUDIT_ACTION = "AUTONOMOUS_STATE_FREEZE_TRIGGERED";
 
-async function resolveGovernanceTenantUuidForAudit(): Promise<string> {
-  const row = await prisma.tenant.findFirst({ select: { id: true }, orderBy: { id: "asc" } });
-  if (!row?.id) throw new Error("No tenant row for AuditLog governance partition.");
-  return row.id;
+async function appendGlobalFreezeAuditForEveryTenant(input: {
+  action: string;
+  justification: string;
+  operatorId: string;
+}): Promise<void> {
+  const tenants = await prisma.tenant.findMany({
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+  if (!tenants.length) {
+    throw new Error("No tenant rows available for global freeze audit fan-out.");
+  }
+
+  for (const tenant of tenants) {
+    await withIronguardTenant(tenant.id, (tx) =>
+      auditLogCreateLooseTx(tx, {
+        data: {
+          action: input.action,
+          justification: input.justification,
+          operatorId: input.operatorId,
+          threatId: null,
+          isSimulation: false,
+          governance_tenant_uuid: tenant.id,
+        },
+      }),
+    );
+  }
 }
 
 export type IronlockFreezeDiagnosticBundle = {
@@ -80,7 +104,6 @@ export async function initiateStateFreeze(reason: string): Promise<{ ok: true; a
       data: { stateFreezeActive: true },
     });
 
-    const governance = await resolveGovernanceTenantUuidForAudit();
     const since = new Date(Date.now() - 60 * 60 * 1000);
     const violations = await countIronguardViolationsSince(since);
     const bundle: IronlockFreezeDiagnosticBundle = {
@@ -94,15 +117,10 @@ export async function initiateStateFreeze(reason: string): Promise<{ ok: true; a
       ironguardViolationsLastHour: violations,
     };
 
-    await auditLogCreateLoose({
-      data: {
-        action: FREEZE_AUDIT_ACTION,
-        justification: `[${FREEZE_AUDIT_ACTION}] ${bundle.triggeredAtIso} | reason=${reason.slice(0, 500)} | violations_1h=${violations}`,
-        operatorId: "IRONLOCK_AGENT_6",
-        threatId: null,
-        isSimulation: false,
-        governance_tenant_uuid: governance,
-      },
+    await appendGlobalFreezeAuditForEveryTenant({
+      action: FREEZE_AUDIT_ACTION,
+      justification: `[${FREEZE_AUDIT_ACTION}] ${bundle.triggeredAtIso} | reason=${reason.slice(0, 500)} | violations_1h=${violations}`,
+      operatorId: "IRONLOCK_AGENT_6",
     });
 
     await sendDevDiagnosticWebhook(bundle);
@@ -129,15 +147,9 @@ export async function clearGlobalSecurityStateFreeze(operatorId: string): Promis
     where: { id: "global" },
     data: { stateFreezeActive: false },
   });
-  const governance = await resolveGovernanceTenantUuidForAudit();
-  await auditLogCreateLoose({
-    data: {
-      action: "GLOBAL_STATE_FREEZE_CLEARED",
-      justification: `Cleared by ${operatorId}`,
-      operatorId,
-      threatId: null,
-      isSimulation: false,
-      governance_tenant_uuid: governance,
-    },
+  await appendGlobalFreezeAuditForEveryTenant({
+    action: "GLOBAL_STATE_FREEZE_CLEARED",
+    justification: `Cleared by ${operatorId}`,
+    operatorId,
   });
 }

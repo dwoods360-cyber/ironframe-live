@@ -24,13 +24,19 @@ const META_AUDIT_ELIGIBLE_ROLES: UserRole[] = [
   'GRC_MANAGER',
 ];
 
-async function getCompanyIdForActiveTenant(): Promise<bigint | null> {
+async function getCompanyForActiveTenant(): Promise<{
+  tenantUuid: string;
+  companyId: bigint;
+} | null> {
   const tenantUuid = await getActiveTenantUuidFromCookies();
-  const company = await prisma.company.findFirst({
-    where: { tenantId: tenantUuid },
-    select: { id: true },
-  });
-  return company?.id ?? null;
+  if (!tenantUuid) return null;
+  const company = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.company.findFirst({
+      where: { tenantId: tenantUuid },
+      select: { id: true },
+    }),
+  );
+  return company ? { tenantUuid, companyId: company.id } : null;
 }
 
 /** Serializable audit row for Client Components (RSC / server actions). */
@@ -52,20 +58,22 @@ export async function fetchTenantAuditLedgerRows(
 ): Promise<AuditLedgerFeedRow[]> {
   const tid = tenantUuid.trim();
   if (!tid) return [];
-  const rows = await prisma.auditLog.findMany({
-    where: { tenantId: tid },
-    orderBy: { createdAt: "desc" },
-    take: Math.min(200, Math.max(1, take)),
-    select: {
-      id: true,
-      action: true,
-      operatorId: true,
-      createdAt: true,
-      threatId: true,
-      simThreatId: true,
-      justification: true,
-    },
-  });
+  const rows = await withIronguardTenant(tid, (tx) =>
+    tx.auditLog.findMany({
+      where: { tenantId: tid },
+      orderBy: { createdAt: "desc" },
+      take: Math.min(200, Math.max(1, take)),
+      select: {
+        id: true,
+        action: true,
+        operatorId: true,
+        createdAt: true,
+        threatId: true,
+        simThreatId: true,
+        justification: true,
+      },
+    }),
+  );
   return rows.map((row) => ({
     id: row.id,
     action: row.action,
@@ -80,26 +88,29 @@ export async function fetchTenantAuditLedgerRows(
  * Latest AuditLog rows for the active tenant (via linked ThreatEvent.tenantCompanyId).
  */
 export async function getRecentAuditLogs(limit = 5): Promise<RecentAuditLogRow[]> {
-  const companyId = await getCompanyIdForActiveTenant();
-  if (companyId == null) {
+  const scope = await getCompanyForActiveTenant();
+  if (!scope) {
     return [];
   }
 
-  const rows = await prisma.auditLog.findMany({
-    where: {
-      threat: { tenantCompanyId: companyId },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-    select: {
-      id: true,
-      action: true,
-      createdAt: true,
-      operatorId: true,
-      threatId: true,
-      justification: true,
-    },
-  });
+  const rows = await withIronguardTenant(scope.tenantUuid, (tx) =>
+    tx.auditLog.findMany({
+      where: {
+        tenantId: scope.tenantUuid,
+        threat: { tenantCompanyId: scope.companyId },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        action: true,
+        createdAt: true,
+        operatorId: true,
+        threatId: true,
+        justification: true,
+      },
+    }),
+  );
 
   return rows.map((r) => ({
     id: r.id,
@@ -246,7 +257,7 @@ export async function logTestCompletion(data: LogTestCompletionInput): Promise<{
   try {
     console.log('[AUDIT_WRITE_ATTEMPT]', data.botType, data.tenantId);
     if (threatId) {
-      await prisma.$transaction(async (tx) => {
+      await withIronguardTenant(tenantId, async (tx) => {
         const threatRow = await tx.threatEvent.findUnique({
           where: { id: threatId },
           select: {
@@ -336,15 +347,17 @@ export async function logTestCompletion(data: LogTestCompletionInput): Promise<{
         });
       });
     } else {
-      await prisma.botAuditLog.create({
-        data: {
-          tenantId,
-          operator,
-          botType,
-          disposition,
-          metadata: enrichedMetadata as Prisma.InputJsonValue,
-        },
-      });
+      await withIronguardTenant(tenantId, (tx) =>
+        tx.botAuditLog.create({
+          data: {
+            tenantId,
+            operator,
+            botType,
+            disposition,
+            metadata: enrichedMetadata as Prisma.InputJsonValue,
+          },
+        }),
+      );
     }
     console.log('[AUDIT_WRITE_SUCCESS]', data.botType);
   } catch (error) {
@@ -698,62 +711,63 @@ export async function generateSignedExport(
     const role = await ensureAuditorOrAdminRole(tid);
     if (!role) return { ok: false, error: 'Auditor or global admin role required.' };
 
-    const [integrityEvents, threatApprovals, evidenceArtifacts] = await Promise.all([
-      (prisma as any).integrityEvent.findMany({
-        where: { tenantId: tid, createdAt: { gte: startDate, lte: endDate } },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      }),
-      (prisma as any).threatApproval.findMany({
-        where: { tenantId: tid, createdAt: { gte: startDate, lte: endDate } },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      }),
-      prisma.evidenceArtifact.findMany({
-        where: { tenantId: tid, createdAt: { gte: startDate, lte: endDate } },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      }),
-    ]);
-
-    const data: MetaAuditExportData = {
-      tenantId: tid,
-      periodStart: startDate.toISOString(),
-      periodEnd: endDate.toISOString(),
-      generatedAt: new Date().toISOString(),
-      integrityEvents: toJsonSafe(integrityEvents) as Array<Record<string, JsonValue>>,
-      threatApprovals: toJsonSafe(threatApprovals) as Array<Record<string, JsonValue>>,
-      evidenceArtifacts: toJsonSafe(evidenceArtifacts) as Array<Record<string, JsonValue>>,
-    };
-
-    const canonicalJson = deterministicStringify(data);
-    const manifestHash = hashSha256(canonicalJson);
     const signingConfig = getActiveSigningKeyConfig();
     if ('error' in signingConfig) {
       return { ok: false, error: signingConfig.error };
     }
-    const signature = signManifest(manifestHash);
+    return withIronguardTenant(tid, async (tx) => {
+      const [integrityEvents, threatApprovals, evidenceArtifacts] = await Promise.all([
+        tx.integrityEvent.findMany({
+          where: { tenantId: tid, createdAt: { gte: startDate, lte: endDate } },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        }),
+        tx.threatApproval.findMany({
+          where: { tenantId: tid, createdAt: { gte: startDate, lte: endDate } },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        }),
+        tx.evidenceArtifact.findMany({
+          where: { tenantId: tid, createdAt: { gte: startDate, lte: endDate } },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        }),
+      ]);
 
-    const saved = await (prisma as any).integrityExport.create({
-      data: {
+      const data: MetaAuditExportData = {
         tenantId: tid,
-        periodStart: startDate,
-        periodEnd: endDate,
-        manifestHash,
-        publicKeyId: signingConfig.publicKeyId,
-        signature,
-        createdByUserId: role.userId,
-      },
-      select: { id: true },
-    });
+        periodStart: startDate.toISOString(),
+        periodEnd: endDate.toISOString(),
+        generatedAt: new Date().toISOString(),
+        integrityEvents: toJsonSafe(integrityEvents) as Array<Record<string, JsonValue>>,
+        threatApprovals: toJsonSafe(threatApprovals) as Array<Record<string, JsonValue>>,
+        evidenceArtifacts: toJsonSafe(evidenceArtifacts) as Array<Record<string, JsonValue>>,
+      };
 
-    return {
-      ok: true,
-      bundle: {
-        exportId: saved.id as string,
-        data,
-        manifestHash,
-        publicKeyId: signingConfig.publicKeyId,
-        signature,
-      },
-    };
+      const canonicalJson = deterministicStringify(data);
+      const manifestHash = hashSha256(canonicalJson);
+      const signature = signManifest(manifestHash);
+      const saved = await tx.integrityExport.create({
+        data: {
+          tenantId: tid,
+          periodStart: startDate,
+          periodEnd: endDate,
+          manifestHash,
+          publicKeyId: signingConfig.publicKeyId,
+          signature,
+          createdByUserId: role.userId,
+        },
+        select: { id: true },
+      });
+
+      return {
+        ok: true as const,
+        bundle: {
+          exportId: saved.id,
+          data,
+          manifestHash,
+          publicKeyId: signingConfig.publicKeyId,
+          signature,
+        },
+      };
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to generate export.';
     return { ok: false, error: message };
@@ -824,23 +838,25 @@ export async function listIntegrityLedgerForMetaAudit(
   if (!role) return [];
 
   const take = Math.min(200, Math.max(1, limit));
-  const rows = await prisma.integrityEvent.findMany({
-    where: { tenantId: tid },
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    take,
-    select: {
-      id: true,
-      createdAt: true,
-      eventType: true,
-      entityType: true,
-      entityId: true,
-      actorUserId: true,
-      source: true,
-      payloadHash: true,
-      prevEventHash: true,
-      eventHash: true,
-    },
-  });
+  const rows = await withIronguardTenant(tid, (tx) =>
+    tx.integrityEvent.findMany({
+      where: { tenantId: tid },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take,
+      select: {
+        id: true,
+        createdAt: true,
+        eventType: true,
+        entityType: true,
+        entityId: true,
+        actorUserId: true,
+        source: true,
+        payloadHash: true,
+        prevEventHash: true,
+        eventHash: true,
+      },
+    }),
+  );
 
   return rows.map((r) => ({
     id: r.id,

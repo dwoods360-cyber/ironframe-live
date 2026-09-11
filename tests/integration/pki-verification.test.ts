@@ -1,6 +1,8 @@
 import { generateKeyPairSync } from "crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const TENANT_ID = "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01";
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
@@ -13,11 +15,13 @@ vi.mock("@/app/utils/serverAuth", () => ({
 }));
 
 vi.mock("@/app/utils/serverTenantContext", () => ({
-  getActiveTenantUuidFromCookies: vi.fn(async () => "tenant-medshield-uuid"),
+  getActiveTenantUuidFromCookies: vi.fn(async () => "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01"),
 }));
 
-const { prismaMock } = vi.hoisted(() => ({
-  prismaMock: {
+const { prismaMock } = vi.hoisted(() => {
+  const mock = {
+    $queryRaw: vi.fn(async () => [{ present: false }]),
+    $executeRaw: vi.fn(async () => 1),
     userRoleAssignment: {
       findFirst: vi.fn(async () => ({ id: "role-auditor" })),
     },
@@ -25,7 +29,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findMany: vi.fn(async () => [
         {
           id: "ie-1",
-          tenantId: "tenant-medshield-uuid",
+          tenantId: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
           eventType: "EVIDENCE_ATTACHED",
           payloadHash: "hash-a",
           createdAt: new Date("2026-04-27T00:00:00.000Z"),
@@ -36,7 +40,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findMany: vi.fn(async () => [
         {
           id: "approval-1",
-          tenantId: "tenant-medshield-uuid",
+          tenantId: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
           status: "APPROVED",
           threatId: "threat-1",
           createdAt: new Date("2026-04-27T00:10:00.000Z"),
@@ -47,7 +51,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findMany: vi.fn(async () => [
         {
           id: "artifact-1",
-          tenantId: "tenant-medshield-uuid",
+          tenantId: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
           sha256: "abc",
           storagePath: "uploads/evidence/a.bin",
           mimeType: "application/octet-stream",
@@ -58,8 +62,14 @@ const { prismaMock } = vi.hoisted(() => ({
     integrityExport: {
       create: vi.fn(async () => ({ id: "export-1" })),
     },
-  },
-}));
+  };
+  return {
+    prismaMock: {
+      ...mock,
+      $transaction: vi.fn(async (run: (tx: typeof mock) => Promise<unknown>) => run(mock)),
+    },
+  };
+});
 
 vi.mock("@/lib/prisma", () => ({
   default: prismaMock,
@@ -80,7 +90,7 @@ describe("Epic 11 PKI signature audit", () => {
 
   it("verifies valid export and fails after manifest mutation", async () => {
     const generated = await generateSignedExport(
-      "tenant-medshield-uuid",
+      TENANT_ID,
       "2026-04-01T00:00:00.000Z",
       "2026-04-30T23:59:59.000Z",
     );

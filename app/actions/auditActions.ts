@@ -8,10 +8,12 @@ import prisma from '@/lib/prisma';
 import { auditLogCreateLoose, auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import { getActiveTenantUuidFromCookies } from '@/app/utils/serverTenantContext';
 import { getSupabaseSessionUser } from '@/app/utils/serverAuth';
+import { requirePlatformAdministrator } from '@/app/lib/auth/platformAdminAccess';
 import {
   resolveDevConstitutionalAuthorityUserId,
 } from '@/app/lib/grc/devConstitutionalElevation';
 import { withIronguardTenant } from '@/app/lib/server/ironguardSessionTenant';
+import { getPrismaPrivileged } from '@/lib/prismaPrivileged';
 import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
 
 /** Meta-audit / Integrity Hub — professional GRC roles only. */
@@ -380,8 +382,12 @@ export async function logTestCompletion(data: LogTestCompletionInput): Promise<{
 
 export async function getRecentBotAuditLogs(limit = 20): Promise<BotAuditLogRow[]> {
   const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
+  const admin = await requirePlatformAdministrator();
+  if ('error' in admin) throw new Error(admin.error);
+  const privileged = getPrismaPrivileged();
+
   try {
-    const rows = await prisma.botAuditLog.findMany({
+    const rows = await privileged.botAuditLog.findMany({
       orderBy: { createdAt: 'desc' },
       take: safeLimit,
       select: {
@@ -416,20 +422,28 @@ export async function voidReceiptAndReopen(
   receiptId: string,
   threatId: string,
   voidReason: string,
-  operatorId: string,
 ): Promise<VoidReceiptAndReopenResult> {
   const rid = receiptId.trim();
   const tid = threatId.trim();
   const reason = voidReason.trim();
-  const operator = operatorId.trim() || process.env.DMZ_DISPOSITION_OPERATOR_ID?.trim() || 'SYSTEM';
   if (!rid || !tid || !reason) {
     return { ok: false, error: 'Missing required void fields (receiptId, threatId, reason).' };
   }
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      const row = await tx.botAuditLog.findUnique({
-        where: { id: rid },
+    const admin = await requirePlatformAdministrator();
+    if ('error' in admin) return { ok: false, error: admin.error };
+    const operator = admin.userId;
+
+    const receiptScope = await getPrismaPrivileged().botAuditLog.findUnique({
+      where: { id: rid },
+      select: { tenantId: true },
+    });
+    if (!receiptScope) return { ok: false, error: 'Receipt not found.' };
+
+    const result = await withIronguardTenant(receiptScope.tenantId, async (tx) => {
+      const row = await tx.botAuditLog.findFirst({
+        where: { id: rid, tenantId: receiptScope.tenantId },
         select: {
           id: true,
           tenantId: true,
@@ -444,6 +458,27 @@ export async function voidReceiptAndReopen(
         row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
           ? ({ ...(row.metadata as Record<string, unknown>) } as Record<string, unknown>)
           : {};
+      const receiptThreatId =
+        typeof metadata.threatId === 'string' ? metadata.threatId.trim() : '';
+      if (receiptThreatId && receiptThreatId !== tid) {
+        throw new Error('Receipt and threat do not match.');
+      }
+
+      const threat = await tx.threatEvent.findUnique({
+        where: { id: tid },
+        select: { tenantCompanyId: true },
+      });
+      if (threat?.tenantCompanyId == null) {
+        throw new Error('Threat is not assigned to a tenant company.');
+      }
+      const tenantCompany = await tx.company.findFirst({
+        where: { id: threat.tenantCompanyId, tenantId: receiptScope.tenantId },
+        select: { id: true },
+      });
+      if (!tenantCompany) {
+        throw new Error('Receipt and threat tenant scopes do not match.');
+      }
+
       const parseNumeric = (value: unknown): number | null => {
         if (typeof value === 'number' && Number.isFinite(value)) return value;
         if (typeof value === 'string' && value.trim() !== '') {
@@ -474,7 +509,7 @@ export async function voidReceiptAndReopen(
       };
 
       await tx.botAuditLog.update({
-        where: { id: rid },
+        where: { id: rid, tenantId: receiptScope.tenantId },
         data: {
           metadata: nextMetadata as Prisma.InputJsonValue,
         },
@@ -487,6 +522,7 @@ export async function voidReceiptAndReopen(
           operatorId: operator,
           threatId: tid,
           isSimulation: false,
+          governance_tenant_uuid: receiptScope.tenantId,
         },
       });
 

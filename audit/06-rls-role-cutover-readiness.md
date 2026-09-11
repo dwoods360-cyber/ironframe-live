@@ -39,6 +39,14 @@ RLS policy shape, and LangGraph checkpoint storage.
 4. Updated the standalone Ironboard CRM RLS script to create permissive base policies before its
    restrictive tenant policies.
 5. Added unit and architecture tests for the common binding wrapper and CRM policy shape.
+6. Replaced the primary-client `prismaAdmin` alias with a lazy, separately configured
+   `PRIVILEGED_DATABASE_URL` client that fails closed when absent or when it reuses the
+   application database role.
+7. Added in-action platform-administrator authorization to cross-tenant Audit Intelligence
+   receipt and telemetry reads. Administrative void attribution now comes from the authenticated
+   administrator session, and mutation resumes inside the receipt tenant's bound transaction.
+8. Moved Ironlock global freeze discovery and global-state access to the privileged client while
+   retaining per-tenant bound audit fan-out.
 
 These fixes reduce immediate risk but do not make the application ready for role cutover.
 
@@ -70,6 +78,11 @@ Provision distinct roles and connection variables:
 - migration/maintenance role: schema deployment, controlled purge, and seeding only.
 
 Imports of a privileged client should be restricted by an architecture-test allowlist.
+
+The runtime boundary and initial allowlist now exist, but production remains blocked until the
+`ironframe_privileged` role is provisioned with the reviewed narrow grants,
+`PRIVILEGED_DATABASE_URL` is configured in each deployment environment, and remaining global
+workers are migrated or explicitly classified. Do not point `DATABASE_URL` at this role.
 
 ### Cron refactor
 

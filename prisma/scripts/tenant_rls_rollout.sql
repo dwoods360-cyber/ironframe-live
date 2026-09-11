@@ -181,6 +181,33 @@ $$;
 
 
 -- -----------------------------------------------------------------------------
+-- STEP 3A — Narrow cross-tenant platform role. Provision before deploying code
+-- that requires PRIVILEGED_DATABASE_URL. Never use this credential as DATABASE_URL.
+--
+-- The initial grant set supports only the reviewed platform operations:
+-- cross-tenant BotAuditLog receipt discovery/read and global freeze state.
+-- Add future tables explicitly after security review; do not grant ALL TABLES.
+-- -----------------------------------------------------------------------------
+-- DO $$
+-- BEGIN
+--   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ironframe_privileged') THEN
+--     CREATE ROLE ironframe_privileged LOGIN PASSWORD 'REPLACE_ME';
+--   END IF;
+-- END
+-- $$;
+--
+-- ALTER ROLE ironframe_privileged NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION BYPASSRLS;
+-- GRANT USAGE ON SCHEMA public TO ironframe_privileged;
+-- GRANT SELECT ON TABLE public.tenants TO ironframe_privileged;
+-- GRANT SELECT ON TABLE public."BotAuditLog" TO ironframe_privileged;
+-- GRANT SELECT ON TABLE public.ironguard_violation TO ironframe_privileged;
+-- GRANT SELECT, UPDATE ON TABLE public."SystemConfig" TO ironframe_privileged;
+--
+-- Store its pooled connection string as PRIVILEGED_DATABASE_URL. The runtime
+-- rejects a credential whose database username matches DATABASE_URL.
+
+
+-- -----------------------------------------------------------------------------
 -- VERIFY after step 3 — as ironframe_app, this must return 0 with no tenant
 -- bound, and only that tenant's rows once bound.
 -- -----------------------------------------------------------------------------

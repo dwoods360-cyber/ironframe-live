@@ -19,7 +19,7 @@ describe("Audit Intelligence tenant binding", () => {
   it("fans global freeze audits out without choosing a fallback tenant", () => {
     const freeze = source("src/services/ironlock/freezeEngine.ts");
 
-    expect(freeze).toContain("prisma.tenant.findMany");
+    expect(freeze).toContain("getPrismaPrivileged().tenant.findMany");
     expect(freeze).toContain("withIronguardTenant(tenant.id");
     expect(freeze).not.toContain("prisma.tenant.findFirst");
     expect(freeze).not.toContain("resolveGovernanceTenantUuidForAudit");

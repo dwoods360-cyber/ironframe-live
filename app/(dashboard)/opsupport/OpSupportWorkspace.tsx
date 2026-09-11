@@ -87,13 +87,9 @@ export default function OpSupportWorkspace() {
       );
       if (!confirmed) return;
 
-      const operator =
-        typeof window !== "undefined"
-          ? localStorage.getItem("operatorId") ?? localStorage.getItem("user:id") ?? "admin-user-01"
-          : "admin-user-01";
       setIsVoidingReceiptId(row.id);
       try {
-        const result = await voidReceiptAndReopen(row.id, threatId, reason, operator);
+        const result = await voidReceiptAndReopen(row.id, threatId, reason);
         if (!result.ok) {
           setForensicStatus(`Void failed: ${result.error}`);
           return;

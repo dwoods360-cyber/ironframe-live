@@ -1,8 +1,8 @@
 import "server-only";
 
-import prisma from "@/lib/prisma";
 import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getPrismaPrivileged } from "@/lib/prismaPrivileged";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
 
 const FREEZE_AUDIT_ACTION = "AUTONOMOUS_STATE_FREEZE_TRIGGERED";
@@ -12,7 +12,7 @@ async function appendGlobalFreezeAuditForEveryTenant(input: {
   justification: string;
   operatorId: string;
 }): Promise<void> {
-  const tenants = await prisma.tenant.findMany({
+  const tenants = await getPrismaPrivileged().tenant.findMany({
     select: { id: true },
     orderBy: { id: "asc" },
   });
@@ -48,7 +48,7 @@ export type IronlockFreezeDiagnosticBundle = {
 };
 
 async function countIronguardViolationsSince(since: Date): Promise<number> {
-  return prisma.ironguardViolation.count({
+  return getPrismaPrivileged().ironguardViolation.count({
     where: { createdAt: { gte: since } },
   });
 }
@@ -90,7 +90,8 @@ async function sendDevDiagnosticWebhook(bundle: IronlockFreezeDiagnosticBundle):
  */
 export async function initiateStateFreeze(reason: string): Promise<{ ok: true; alreadyActive?: boolean } | { ok: false; error: string }> {
   try {
-    const cfg = await prisma.systemConfig.findUnique({
+    const privileged = getPrismaPrivileged();
+    const cfg = await privileged.systemConfig.findUnique({
       where: { id: "global" },
       select: { stateFreezeActive: true, sustainabilityLiveApiDegraded: true },
     });
@@ -99,7 +100,7 @@ export async function initiateStateFreeze(reason: string): Promise<{ ok: true; a
       return { ok: true, alreadyActive: true };
     }
 
-    await prisma.systemConfig.update({
+    await privileged.systemConfig.update({
       where: { id: "global" },
       data: { stateFreezeActive: true },
     });
@@ -134,7 +135,7 @@ export async function initiateStateFreeze(reason: string): Promise<{ ok: true; a
 
 /** Read-only: global security freeze flag (distinct from Irontech sustainability stale lockdown). */
 export async function getGlobalSecurityStateFreezeActive(): Promise<boolean> {
-  const row = await prisma.systemConfig.findUnique({
+  const row = await getPrismaPrivileged().systemConfig.findUnique({
     where: { id: "global" },
     select: { stateFreezeActive: true },
   });
@@ -143,7 +144,7 @@ export async function getGlobalSecurityStateFreezeActive(): Promise<boolean> {
 
 /** Ops / recovery: clear autonomous global freeze (does not clear sustainability stale-data flags). */
 export async function clearGlobalSecurityStateFreeze(operatorId: string): Promise<void> {
-  await prisma.systemConfig.update({
+  await getPrismaPrivileged().systemConfig.update({
     where: { id: "global" },
     data: { stateFreezeActive: false },
   });

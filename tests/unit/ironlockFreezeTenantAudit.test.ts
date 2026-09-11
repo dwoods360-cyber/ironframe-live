@@ -4,16 +4,13 @@ const mocks = vi.hoisted(() => ({
   bind: vi.fn(),
   createAudit: vi.fn(),
   updateConfig: vi.fn(),
-}));
-
-vi.mock("@/lib/prisma", () => ({
-  default: {
+  privileged: {
     systemConfig: {
       findUnique: vi.fn(async () => ({
         stateFreezeActive: false,
         sustainabilityLiveApiDegraded: false,
       })),
-      update: mocks.updateConfig,
+      update: vi.fn(),
     },
     tenant: {
       findMany: vi.fn(async () => [
@@ -25,6 +22,10 @@ vi.mock("@/lib/prisma", () => ({
       count: vi.fn(async () => 4),
     },
   },
+}));
+
+vi.mock("@/lib/prismaPrivileged", () => ({
+  getPrismaPrivileged: vi.fn(() => mocks.privileged),
 }));
 
 vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({

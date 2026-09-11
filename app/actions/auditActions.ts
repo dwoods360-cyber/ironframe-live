@@ -11,6 +11,7 @@ import { getSupabaseSessionUser } from '@/app/utils/serverAuth';
 import {
   resolveDevConstitutionalAuthorityUserId,
 } from '@/app/lib/grc/devConstitutionalElevation';
+import { withIronguardTenant } from '@/app/lib/server/ironguardSessionTenant';
 import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
 
 /** Meta-audit / Integrity Hub — professional GRC roles only. */
@@ -123,21 +124,31 @@ export async function logThreatActivity(
     operatorId?: string;
     /** When set, audit row links to `SimThreatEvent` (`threatId` cleared). */
     simThreatId?: string | null;
+    /** Explicit governance tenant for non-request workflows and RLS binding. */
+    tenantId?: string;
   },
 ): Promise<void> {
   try {
     const simId = options?.simThreatId?.trim() || null;
     const linkSim = Boolean(simId);
-    await auditLogCreateLoose({
-      data: {
-        action: actionName,
-        justification: details,
-        operatorId: options?.operatorId?.trim() || 'THREAT_ACTIVITY',
-        threatId: linkSim ? null : threatId,
-        simThreatId: linkSim ? simId : null,
-        isSimulation: linkSim ? true : (options?.isSimulation ?? false),
-      },
-    });
+    const tenantId = options?.tenantId?.trim();
+    const data = {
+      action: actionName,
+      justification: details,
+      operatorId: options?.operatorId?.trim() || 'THREAT_ACTIVITY',
+      threatId: linkSim ? null : threatId,
+      simThreatId: linkSim ? simId : null,
+      isSimulation: linkSim ? true : (options?.isSimulation ?? false),
+      ...(tenantId ? { governance_tenant_uuid: tenantId } : {}),
+    };
+
+    if (tenantId) {
+      await withIronguardTenant(tenantId, (tx) =>
+        auditLogCreateLooseTx(tx, { data }),
+      );
+    } else {
+      await auditLogCreateLoose({ data });
+    }
   } catch (error) {
     console.error('[AUDIT_LOG_ERROR] Failed to record activity:', error);
   }

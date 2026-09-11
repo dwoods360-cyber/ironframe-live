@@ -187,6 +187,7 @@ export async function POST(request: NextRequest) {
         status,
         ttlSeconds: DEFAULT_TTL_SECONDS,
         tenantCompanyId: company?.id,
+        tenantId,
         assigneeId: 'User_00',
         aiReport: descriptionText,
         ...(ingestionDetailsForCreate != null ? { ingestionDetails: ingestionDetailsForCreate } : {}),

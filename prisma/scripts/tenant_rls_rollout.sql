@@ -93,6 +93,53 @@ BEGIN
 END
 $$;
 
+-- Production-threat child ledgers do not duplicate tenant_id. Scope them through
+-- their immutable ThreatEvent parent so a direct SQL query cannot cross tenants.
+DO $$
+DECLARE
+  r RECORD;
+  policy_name text;
+  base_policy_name text;
+BEGIN
+  FOR r IN
+    SELECT * FROM (VALUES
+      ('agent_reasoning', 'threat_id'),
+      ('AgentOperation', 'threatId'),
+      ('WorkNote', 'threatId'),
+      ('SustainabilityMetric', 'threatId')
+    ) AS child(table_name, threat_column)
+  LOOP
+    policy_name := 'tenant_isolation_' || r.table_name;
+    base_policy_name := 'tenant_access_base_' || r.table_name;
+
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', r.table_name);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', base_policy_name, r.table_name);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', policy_name, r.table_name);
+
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I AS PERMISSIVE FOR ALL USING (true) WITH CHECK (true)',
+      base_policy_name, r.table_name
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR ALL
+         USING (EXISTS (
+           SELECT 1 FROM public."ThreatEvent" threat
+           WHERE threat.id = %I::text
+             AND threat.tenant_id::text = current_setting(''app.current_tenant_id'', true)
+         ))
+         WITH CHECK (EXISTS (
+           SELECT 1 FROM public."ThreatEvent" threat
+           WHERE threat.id = %I::text
+             AND threat.tenant_id::text = current_setting(''app.current_tenant_id'', true)
+         ))',
+      policy_name, r.table_name, r.threat_column, r.threat_column
+    );
+
+    RAISE NOTICE 'RLS armed through ThreatEvent: public.%', r.table_name;
+  END LOOP;
+END
+$$;
+
 
 -- -----------------------------------------------------------------------------
 -- VERIFY after step 2 — expect one row per tenant-scoped table, and expect the

@@ -26,8 +26,8 @@
 | `MarketBenchmarkSnapshot` | None | **Global benchmark** — exempt with governance review |
 | `Company`, `Vendor`, `AgentLog`, `AgentComputeLog`, `RiskEvent` (`SimThreatEvent`), `AuditLog`, `BotAuditLog`, `user_role_assignments`, `evidence_*`, `integrity_*`, etc. | Direct UUID | **RLS candidate** — `tenant_id` / `tenantId` present |
 | `Department`, `Policy`, `ActiveRisk` | Via `company_id` → `companies.tenantId` | **Indirect** — policies must join `companies` |
-| `ThreatEvent` | `tenantCompanyId` only | **CRITICAL GAP** — no UUID `tenant_id` on row; isolation relies on join to `companies` |
-| `AgentReasoning`, `AgentOperation`, `WorkNote`, `SustainabilityMetric` | Via `threatId` → `ThreatEvent` | **CRITICAL GAP path** — inherits production-threat linkage; RLS via join/subquery |
+| `ThreatEvent` | Direct UUID `tenant_id` plus optional `tenantCompanyId` | **Remediated pending deployment** — fail-closed backfill, tenant FK, and company/tenant consistency trigger |
+| `AgentReasoning`, `AgentOperation`, `WorkNote`, `SustainabilityMetric` | Via `threatId` → `ThreatEvent` | **Remediated pending rollout** — restrictive join policies bind each row through its production threat parent |
 | `SimulationConfig`, `SystemConfig`, `ChaosConfig`, `DailySnapshot`, `MarketBenchmarkSnapshot` | Global/singleton | **Exempt** — not per-tenant rows |
 | `CommunityInsights`, `CommunityIntelligence`, `SyntheticEmployee`, `IronwatchLog` | None / simulation global | **Flagged** — classify under platform policy (non-production tenant PII) |
 | `ClearanceRequest` | Partial (`riskEventId` nullable) | **Review** — tie to shadow tenant via risk join |
@@ -37,6 +37,13 @@
 
 1. Documented **CRITICAL** rows where indirect tenancy or missing `tenant_id` blocks naive `WHERE tenant_id = current_setting(...)` without joins.
 2. Retained **GUC helper** migration as the kernel hook for phased RLS rollout.
+
+### Gate 2 remediation update — 2026-09-11
+
+- `20260911120000_threat_event_direct_tenant_scope` adds a required UUID `tenant_id` to `ThreatEvent`, backfills only from an owning Company, and aborts if any legacy row remains unresolved.
+- A database trigger rejects a `tenantCompanyId` that belongs to a different tenant than the threat's direct tenant stamp.
+- `tenant_rls_rollout.sql` now applies restrictive parent-join policies to the four production-threat child ledgers identified above.
+- All production threat creation paths stamp the direct tenant UUID; the ingress gateway independently verifies company, tenant, and active-session alignment.
 
 ---
 
@@ -109,5 +116,5 @@
 ## Residual risks (explicit)
 
 1. **RLS not enabled** on all tables until DB session sets `app.current_tenant_id` on every connection path.
-2. **`ThreatEvent`** lacks UUID `tenant_id`; cross-tenant leakage at SQL layer requires join policies.
+2. **Deployment sequencing**: the new `ThreatEvent.tenant_id` migration must complete before the updated RLS rollout is applied; unresolved legacy rows intentionally stop that migration for manual ownership repair.
 3. **Cookie absent**: API guard allows header-only tenant UUID when cookie missing — tighten with mandatory session for production.

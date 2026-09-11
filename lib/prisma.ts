@@ -69,15 +69,9 @@ const prismaClientSingleton = () => {
     if (typeof tid === "string" && tid.trim()) {
       const te = await base.threatEvent.findFirst({
         where: { id: tid.trim() },
-        select: { tenantCompanyId: true },
+        select: { tenantId: true },
       });
-      if (te?.tenantCompanyId != null) {
-        const c = await base.company.findFirst({
-          where: { id: te.tenantCompanyId },
-          select: { tenantId: true },
-        });
-        if (c?.tenantId) return c.tenantId;
-      }
+      if (te?.tenantId) return te.tenantId;
     }
 
     try {

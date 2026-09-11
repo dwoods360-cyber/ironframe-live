@@ -41,7 +41,10 @@ export async function ingressUsesRiskEventTable(): Promise<boolean> {
 }
 
 /** Unchecked create payload shared by `ThreatEvent` and `SimThreatEvent` (same scalar layout). */
-export type IngressPayload = Prisma.ThreatEventUncheckedCreateInput;
+export type IngressPayload = Omit<Prisma.ThreatEventUncheckedCreateInput, "tenantId"> & {
+  /** Resolved and verified by the gateway when callers only know tenantCompanyId. */
+  tenantId?: string;
+};
 
 const BOT_THREAT_WRITE_SELECT = {
   id: true,
@@ -204,7 +207,9 @@ async function resolveCanonicalCompanyIdForSessionTenant(): Promise<bigint | nul
 
 async function writeThreatEvent(payload: IngressPayload): Promise<IngressBotThreatCreated> {
   const useRiskEventTable = await ingressUsesRiskEventTable();
-  const sanitizedPayload = sanitizeThreatIngressPayload(payload);
+  const sanitizedPayload = sanitizeThreatIngressPayload(
+    payload as Prisma.ThreatEventUncheckedCreateInput,
+  );
   const payloadWithCategory: IngressPayload = {
     ...sanitizedPayload,
     ingestionDetails: stampWorkforceAgentIngressIfMissing(
@@ -343,8 +348,38 @@ async function writeThreatEvent(payload: IngressPayload): Promise<IngressBotThre
       status: row.status,
     };
   }
+  const cookieTenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  const payloadCompanyRaw = payloadWithCategory.tenantCompanyId;
+  const payloadCompanyId =
+    payloadCompanyRaw == null
+      ? null
+      : typeof payloadCompanyRaw === "bigint"
+        ? payloadCompanyRaw
+        : BigInt(String(payloadCompanyRaw));
+  const companyTenant = payloadCompanyId == null
+    ? null
+    : await prisma.company.findUnique({
+        where: { id: payloadCompanyId },
+        select: { tenantId: true },
+      });
+  const explicitTenantId = payloadWithCategory.tenantId?.trim();
+  const tenantId = explicitTenantId || companyTenant?.tenantId?.trim() || cookieTenantUuid;
+
+  if (!tenantId || !TENANT_UUID_REGEX.test(tenantId)) {
+    throw new Error("Ingress: ThreatEvent requires a valid tenant UUID.");
+  }
+  if (payloadCompanyId != null && !companyTenant) {
+    throw new Error("Ingress: tenantCompanyId on payload is not bound to a tenant.");
+  }
+  if (companyTenant?.tenantId && companyTenant.tenantId !== tenantId) {
+    throw new Error("Ingress: tenantCompanyId does not belong to the ThreatEvent tenant.");
+  }
+  if (cookieTenantUuid && cookieTenantUuid !== tenantId) {
+    throw new Error("Ingress: ThreatEvent tenant does not match the active session tenant.");
+  }
+
   return prisma.threatEvent.create({
-    data: payloadWithCategory,
+    data: { ...payloadWithCategory, tenantId },
     select: BOT_THREAT_WRITE_SELECT,
   });
 }

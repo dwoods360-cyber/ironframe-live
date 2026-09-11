@@ -39,8 +39,9 @@ describe("assertIronguardApiTenantOr403 host envelope", () => {
     mockCookiesGet.mockReturnValue({ value: TENANT_UUIDS.medshield });
   });
 
-  it("does not let client simulation headers bypass production authentication", async () => {
+  it("does not let any shadow signal bypass production authentication", async () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SHADOW_PLANE_ACTIVE", "true");
     const { permitsUnauthenticatedIronguardRequest } = await import(
       "@/app/lib/security/ironguardApiGuard"
     );

@@ -2,7 +2,8 @@ import "server-only";
 
 import { randomUUID } from "crypto";
 import type { Checkpoint } from "@langchain/langgraph-checkpoint";
-import { auditLogCreateLoose } from "@/lib/auditLogLoose";
+import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
 import {
   healthBarRequiresTriage,
@@ -76,23 +77,25 @@ async function logAutomatedSelfHealingToAuditIntelligence(input: {
   outcome: Extract<SystemTriageResult, { status: "TRIAGED_AND_HEALED" }>;
 }): Promise<boolean> {
   try {
-    await auditLogCreateLoose({
-      data: {
-        action: "AUTOMATED_SELF_HEALING_ENGAGED",
-        operatorId: IRONTECH_OPERATOR,
-        governance_tenant_uuid: input.tenantId,
-        threatId: input.threadId,
-        isSimulation: false,
-        justification: JSON.stringify({
-          tasSection: "4.3",
-          message: `CRITICAL RESILIENCE ENGAGED: Posture dropped to ${input.healthBarPercent}%. State frozen in Postgres. Caches purged.`,
-          checkpointId: input.outcome.checkpointId,
-          incidentZone: input.outcome.incidentZone,
-          lockTimestamp: input.outcome.lockTimestamp,
-          repairLog: input.outcome.repairLog,
-        }),
-      },
-    });
+    await withIronguardTenant(input.tenantId, (tx) =>
+      auditLogCreateLooseTx(tx, {
+        data: {
+          action: "AUTOMATED_SELF_HEALING_ENGAGED",
+          operatorId: IRONTECH_OPERATOR,
+          governance_tenant_uuid: input.tenantId,
+          threatId: input.threadId,
+          isSimulation: false,
+          justification: JSON.stringify({
+            tasSection: "4.3",
+            message: `CRITICAL RESILIENCE ENGAGED: Posture dropped to ${input.healthBarPercent}%. State frozen in Postgres. Caches purged.`,
+            checkpointId: input.outcome.checkpointId,
+            incidentZone: input.outcome.incidentZone,
+            lockTimestamp: input.outcome.lockTimestamp,
+            repairLog: input.outcome.repairLog,
+          }),
+        },
+      }),
+    );
     return true;
   } catch (e) {
     console.error("[healthPostureMonitor] Audit Intelligence mirror failed:", e);

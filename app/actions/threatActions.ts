@@ -36,6 +36,7 @@ import { grcGatePass, getGrcThresholdCents } from '@/app/utils/grcGate';
 import { getPrimaryThreatNotificationRecipient } from '@/app/utils/threatNotificationRecipients';
 import { shadowReceiptAuditStub } from '@/app/lib/grc/threatReceipt';
 import { workNoteSchema } from '@/app/utils/irongateSchema';
+import { bindIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import {
   assigneeKeyToDisplayName,
   normalizeAssigneeOptionLabel,
@@ -862,20 +863,24 @@ async function runThreatTransaction<T>(
   options?: { missingRecordError?: string; sessionTenantUuid?: string | null },
 ): Promise<T> {
   const missingErr = options?.missingRecordError ?? DEFAULT_THREAT_TX_GUARD_ERROR;
-  const sessionTenantUuid = options?.sessionTenantUuid?.trim() || null;
+  let sessionTenantUuid = options?.sessionTenantUuid?.trim() || null;
+  if (!sessionTenantUuid && tenantCompanyId != null) {
+    const company = await prisma.company.findUnique({
+      where: { id: tenantCompanyId },
+      select: { tenantId: true },
+    });
+    sessionTenantUuid = company?.tenantId?.trim() || null;
+    if (!sessionTenantUuid) {
+      throw new Error(`IRONGUARD_TENANT_NOT_FOUND_FOR_COMPANY:${tenantCompanyId.toString()}`);
+    }
+  }
   return prisma.$transaction(
     async (tx) => {
     const client = tx as unknown as TransactionClient;
     // Bridge Next.js transaction context to Postgres RLS.
     // Must be the first operation in the transaction block.
     if (sessionTenantUuid) {
-      try {
-        await client.$executeRaw`SELECT ironguard_set_session_tenant(${sessionTenantUuid}::uuid);`;
-      } catch {
-        await client.$executeRaw`SELECT set_config('app.current_tenant_id', ${sessionTenantUuid}, true);`;
-      }
-    } else if (tenantCompanyId != null) {
-      await client.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantCompanyId.toString()}, true);`;
+      await bindIronguardTenant(client as unknown as Prisma.TransactionClient, sessionTenantUuid);
     }
     const exists =
       tenantCompanyId != null

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 type ApplyState = {
@@ -26,14 +25,15 @@ const INITIAL: ApplyState = {
 };
 
 export default function FellowsApplyForm() {
-  const router = useRouter();
   const [form, setForm] = useState<ApplyState>(INITIAL);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setMessage(null);
 
     if (!form.employerType) {
       setError("Select your employment context");
@@ -62,7 +62,11 @@ export default function FellowsApplyForm() {
           setError(data.error || "Application failed");
           return;
         }
-        router.push("/fellows/lab");
+        if (data.devVerifyUrl) {
+          window.location.assign(data.devVerifyUrl);
+          return;
+        }
+        setMessage(data.message || "Check your email for a secure access link.");
       } catch {
         setError("Network error — try again");
       }
@@ -216,17 +220,22 @@ export default function FellowsApplyForm() {
           {error}
         </p>
       )}
+      {message && (
+        <p className="mt-3 rounded border border-emerald-900 bg-emerald-950/40 px-2 py-1.5 text-xs text-emerald-300">
+          {message}
+        </p>
+      )}
 
       <button
         type="submit"
         disabled={pending}
         className="mt-5 w-full rounded-md bg-teal-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-500 disabled:bg-slate-700"
       >
-        {pending ? "Provisioning…" : "Request sandbox enclave"}
+        {pending ? "Sending secure link…" : "Request sandbox enclave"}
       </button>
 
       <ul className="mt-4 space-y-1.5 text-[11px] leading-relaxed text-slate-500">
-        <li>[✓] Instant browser access — zero software installation</li>
+        <li>[✓] Email-verified browser access — zero software installation</li>
         <li>
           [✓] ~1 hour learning missions · 60-day access window for capstone writing (extends on
           activity)

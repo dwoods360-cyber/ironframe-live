@@ -163,7 +163,11 @@ export async function evaluateSystemTriage(
       frozenAt: lockTimestamp,
       checkpointId: operationalFreeze.checkpointId,
     }),
-    { operatorId: IRONTECH_AGENT_12_ASSIGNEE, isSimulation: false },
+    {
+      operatorId: IRONTECH_AGENT_12_ASSIGNEE,
+      isSimulation: false,
+      tenantId,
+    },
   );
 
   try {
@@ -204,7 +208,11 @@ async function activateIronlockPriorityInterrupt(input: {
       input.threadId,
       "AUTONOMOUS_STATE_FREEZE_TRIGGERED",
       `[IRONLOCK_PRIORITY_INTERRUPT] TAS §4.3 | zone=${input.incidentZone} | health=${input.healthBarPercent}% | lockedAt=${input.lockTimestamp} | DMZ ingress hold armed for tenant ${input.tenantId}.`,
-      { operatorId: "Agent_06_Ironlock", isSimulation: false },
+      {
+        operatorId: "Agent_06_Ironlock",
+        isSimulation: false,
+        tenantId: input.tenantId,
+      },
     );
     return true;
   } catch {

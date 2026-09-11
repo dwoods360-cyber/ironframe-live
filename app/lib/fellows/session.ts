@@ -8,12 +8,9 @@ import {
 } from "@/config/fellowsPortal";
 
 function sessionSecret(): string {
-  const s =
-    process.env.FELLOWS_SESSION_SECRET?.trim() ||
-    process.env.IRONFRAME_CRON_SECRET?.trim() ||
-    process.env.INTERNAL_GATEWAY_SECRET_KEY?.trim();
+  const s = process.env.FELLOWS_SESSION_SECRET?.trim();
   if (!s) {
-    throw new Error("FELLOWS_SESSION_SECRET (or CRON/GATEWAY secret) required");
+    throw new Error("FELLOWS_SESSION_SECRET is required");
   }
   return s;
 }

@@ -6,23 +6,30 @@ const {
   uploadImmutableWormObject,
   evidenceArtifactCreate,
   evidenceArtifactFindMany,
+  prismaMock,
 } = vi.hoisted(() => ({
   uploadImmutableWormObject: vi.fn(),
   evidenceArtifactCreate: vi.fn(),
   evidenceArtifactFindMany: vi.fn(),
+  prismaMock: {} as any,
 }));
+
+Object.assign(prismaMock, {
+  evidenceArtifact: {
+    create: evidenceArtifactCreate,
+    findMany: evidenceArtifactFindMany,
+  },
+  $transaction: vi.fn(async (callback: (tx: typeof prismaMock) => unknown) => callback(prismaMock)),
+  $queryRaw: vi.fn(async () => [{ present: true }]),
+  $executeRaw: vi.fn(async () => 1),
+});
 
 vi.mock("@/app/lib/evidence/supabaseWormStorage", () => ({
   uploadImmutableWormObject,
 }));
 
 vi.mock("@/lib/prisma", () => ({
-  default: {
-    evidenceArtifact: {
-      create: evidenceArtifactCreate,
-      findMany: evidenceArtifactFindMany,
-    },
-  },
+  default: prismaMock,
 }));
 
 import { GET, POST } from "@/app/api/ironquery/export/route";
@@ -91,6 +98,10 @@ describe("Epic 16 — enterprise exports", () => {
     expect(body.seal?.bodySha256).toMatch(/^[a-f0-9]{64}$/);
     expect(body.sealCheck?.ok).toBe(true);
     expect(uploadImmutableWormObject).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$executeRaw).toHaveBeenCalled();
+    expect(prismaMock.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      evidenceArtifactCreate.mock.invocationCallOrder[0],
+    );
   });
 
   it("fails signature verification when canonical body is tampered by one byte", () => {

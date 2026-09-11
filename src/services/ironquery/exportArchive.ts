@@ -1,6 +1,5 @@
 import "server-only";
 
-import prisma from "@/lib/prisma";
 import { uploadImmutableWormObject } from "@/app/lib/evidence/supabaseWormStorage";
 import {
   canonicalizeExportPayload,
@@ -11,6 +10,7 @@ import {
   type TamperEvidentSeal,
 } from "@/src/services/ironquery/exportSigner";
 import { normalizeCsvPayload, type CsvRow } from "@/src/services/ironquery/csvNormalizer";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 export type ArchiveClassification = "financial" | "forensic";
 export type ArchiveFormat = "csv" | "pdf";
@@ -112,16 +112,18 @@ export async function archiveComplianceReport(
     throw new Error(`EPIC_16_EXPORT_ARCHIVE_FAILED: ${upload.error}`);
   }
 
-  const artifact = await prisma.evidenceArtifact.create({
-    data: {
-      tenantId,
-      uploadedByUserId: generatedByUserId,
-      sha256: seal.bodySha256,
-      storagePath: upload.storagePath,
-      mimeType: "application/json",
-    },
-    select: { id: true },
-  });
+  const artifact = await withIronguardTenant(tenantId, (tx) =>
+    tx.evidenceArtifact.create({
+      data: {
+        tenantId,
+        uploadedByUserId: generatedByUserId,
+        sha256: seal.bodySha256,
+        storagePath: upload.storagePath,
+        mimeType: "application/json",
+      },
+      select: { id: true },
+    }),
+  );
 
   console.info(
     "[epic16-ironquery-export]",

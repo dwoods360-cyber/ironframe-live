@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
-import prisma from "@/lib/prisma";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +16,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "artifactId required." }, { status: 400 });
   }
 
-  const artifact = await prisma.evidenceArtifact.findFirst({
-    where: { id: artifactId, tenantId },
-    select: { id: true, sha256: true, storagePath: true, createdAt: true, mimeType: true },
-  });
+  const artifact = await withIronguardTenant(tenantId, (tx) =>
+    tx.evidenceArtifact.findFirst({
+      where: { id: artifactId, tenantId },
+      select: { id: true, sha256: true, storagePath: true, createdAt: true, mimeType: true },
+    }),
+  );
   if (!artifact) {
     return NextResponse.json({ ok: false, error: "Artifact not found." }, { status: 404 });
   }

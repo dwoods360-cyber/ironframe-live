@@ -6,7 +6,7 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     get: (name: string) => {
       if (name === "ironframe-tenant") {
-        return { value: "tenant-medshield-uuid" };
+        return { value: "11111111-1111-1111-1111-111111111111" };
       }
       return undefined;
     },
@@ -96,6 +96,7 @@ type IntegrityRow = {
 
 const state = {
   threat: null as ThreatRow | null,
+  membershipAllowed: true,
   approvals: [] as ApprovalRow[],
   artifacts: [] as ArtifactRow[],
   attachments: [] as AttachmentRow[],
@@ -181,15 +182,19 @@ Object.assign(prismaMock, {
     findUnique: vi.fn(async (args: { where?: { id?: string; slug?: string } }) => {
       const id = args?.where?.id;
       const slug = args?.where?.slug;
-      if (id === "tenant-medshield-uuid" || slug === "medshield" || slug === "tenant-medshield-uuid") {
-        return { id: "tenant-medshield-uuid" };
+      if (
+        id === "11111111-1111-1111-1111-111111111111" ||
+        slug === "medshield" ||
+        slug === "11111111-1111-1111-1111-111111111111"
+      ) {
+        return { id: "11111111-1111-1111-1111-111111111111" };
       }
       return null;
     }),
-    findFirst: vi.fn(async () => ({ id: "tenant-medshield-uuid" })),
+    findFirst: vi.fn(async () => ({ id: "11111111-1111-1111-1111-111111111111" })),
   },
   company: {
-    findUnique: vi.fn(async () => ({ tenantId: "tenant-medshield-uuid" })),
+    findUnique: vi.fn(async () => ({ tenantId: "11111111-1111-1111-1111-111111111111" })),
     findFirst: vi.fn(async () => ({ id: 9001n })),
   },
   threatApproval: {
@@ -318,7 +323,7 @@ Object.assign(prismaMock, {
     }),
   },
   userRoleAssignment: {
-    findFirst: vi.fn(async () => ({ id: "role-ciso" })),
+    findFirst: vi.fn(async () => (state.membershipAllowed ? { id: "role-ciso" } : null)),
   },
   syntheticEmployee: {
     findUnique: vi.fn(async () => null),
@@ -336,6 +341,7 @@ Object.assign(prismaMock, {
     if (typeof callback === "function") return callback(prismaMock as any);
     return Promise.all(callback);
   }),
+  $queryRaw: vi.fn(async () => [{ present: false }]),
   $executeRaw: vi.fn(async () => 1),
 });
 
@@ -352,6 +358,7 @@ import { attachEvidenceToThreat } from "@/app/actions/evidenceActions";
 
 describe("Epic 11 bank vault positive chain", () => {
   beforeEach(() => {
+    state.membershipAllowed = true;
     state.threat = {
       id: "threat-bank-vault-success",
       tenantCompanyId: 9001n,
@@ -374,10 +381,10 @@ describe("Epic 11 bank vault positive chain", () => {
     state.artifacts = [
       {
         id: "artifact-uploaded-1",
-        tenantId: "tenant-medshield-uuid",
+        tenantId: "11111111-1111-1111-1111-111111111111",
         uploadedByUserId: "user-ciso-001",
         sha256: "sha256-abc",
-        storagePath: "uploads/evidence/tenant-medshield-uuid/artifact-uploaded-1.bin",
+        storagePath: "uploads/evidence/11111111-1111-1111-1111-111111111111/artifact-uploaded-1.bin",
         mimeType: "application/octet-stream",
         createdAt: new Date("2026-04-27T12:00:00.000Z"),
       },
@@ -385,11 +392,28 @@ describe("Epic 11 bank vault positive chain", () => {
     state.quarantineRecords = [
       {
         id: "qr-1",
-        tenantId: "tenant-medshield-uuid",
-        storagePath: "uploads/evidence/tenant-medshield-uuid/artifact-uploaded-1.bin",
+        tenantId: "11111111-1111-1111-1111-111111111111",
+        storagePath: "uploads/evidence/11111111-1111-1111-1111-111111111111/artifact-uploaded-1.bin",
         status: "QUARANTINED",
       },
     ];
+  });
+
+  it("rejects evidence attachment when the authenticated user is outside the threat tenant", async () => {
+    state.membershipAllowed = false;
+
+    const attached = await attachEvidenceToThreat(
+      "artifact-uploaded-1",
+      "threat-bank-vault-success",
+      "Cross-tenant attachment must be denied.",
+    );
+
+    expect(attached).toEqual({
+      success: false,
+      error: "Threat not found or tenant access denied.",
+    });
+    expect(state.attachments).toHaveLength(0);
+    expect(state.integrityEvents).toHaveLength(0);
   });
 
   it("creates chain and resolves with permanent quarantine promotion + valid integrity event hash", async () => {

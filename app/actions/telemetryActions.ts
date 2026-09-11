@@ -1,6 +1,7 @@
 "use server";
 
-import { prismaAdmin } from "@/lib/prismaAdmin";
+import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { getPrismaPrivileged } from "@/lib/prismaPrivileged";
 
 export type LiveAuditTelemetryRow = {
   id: string;
@@ -15,7 +16,10 @@ export type LiveAuditTelemetryRow = {
  * Pulls latest BotAuditLog receipts for polling clients.
  */
 export async function fetchLiveAuditTelemetry(): Promise<LiveAuditTelemetryRow[]> {
-  const rows = await prismaAdmin.botAuditLog.findMany({
+  const admin = await requirePlatformAdministrator();
+  if ("error" in admin) throw new Error(admin.error);
+
+  const rows = await getPrismaPrivileged().botAuditLog.findMany({
     orderBy: { createdAt: "desc" },
     take: 50,
     select: {

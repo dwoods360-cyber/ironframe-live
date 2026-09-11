@@ -161,13 +161,23 @@ $$;
 -- DO $$
 -- BEGIN
 --   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ironframe_app') THEN
---     CREATE ROLE ironframe_app LOGIN PASSWORD 'REPLACE_ME';
+--     CREATE ROLE ironframe_app;
 --   END IF;
 -- END
 -- $$;
 --
--- -- Explicitly NOT granted: BYPASSRLS, SUPERUSER, table ownership.
--- ALTER ROLE ironframe_app NOBYPASSRLS;
+-- ALTER ROLE ironframe_app LOGIN PASSWORD 'REPLACE_ME';
+-- DO $$
+-- BEGIN
+--   IF EXISTS (
+--     SELECT 1 FROM pg_roles
+--     WHERE rolname = 'ironframe_app'
+--       AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)
+--   ) THEN
+--     RAISE EXCEPTION 'ironframe_app has prohibited elevated attributes';
+--   END IF;
+-- END
+-- $$;
 -- GRANT USAGE ON SCHEMA public TO ironframe_app;
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ironframe_app;
 -- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ironframe_app;
@@ -178,6 +188,50 @@ $$;
 --   GRANT USAGE, SELECT ON SEQUENCES TO ironframe_app;
 --
 -- Then rotate DATABASE_URL to ironframe_app and redeploy.
+
+
+-- -----------------------------------------------------------------------------
+-- STEP 3A — Narrow cross-tenant platform role. Provision before deploying code
+-- that requires PRIVILEGED_DATABASE_URL. Never use this credential as DATABASE_URL.
+--
+-- The initial grant set supports only the reviewed platform operations:
+-- cross-tenant BotAuditLog receipt discovery/read and global freeze state.
+-- Add future tables explicitly after security review; do not grant ALL TABLES.
+-- -----------------------------------------------------------------------------
+-- DO $$
+-- BEGIN
+--   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ironframe_privileged') THEN
+--     CREATE ROLE ironframe_privileged;
+--   END IF;
+-- END
+-- $$;
+--
+-- -- Supabase's managed postgres role cannot change BYPASSRLS. This role uses
+-- -- PostgreSQL's secure defaults and aborts provisioning if elevated attributes
+-- -- are ever detected. Exempt only the reviewed BotAuditLog policy below; table
+-- -- grants remain the primary boundary for cross-tenant platform operations.
+-- ALTER ROLE ironframe_privileged LOGIN PASSWORD 'REPLACE_ME';
+-- DO $$
+-- BEGIN
+--   IF EXISTS (
+--     SELECT 1 FROM pg_roles
+--     WHERE rolname = 'ironframe_privileged'
+--       AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)
+--   ) THEN
+--     RAISE EXCEPTION 'ironframe_privileged has prohibited elevated attributes';
+--   END IF;
+-- END
+-- $$;
+-- GRANT USAGE ON SCHEMA public TO ironframe_privileged;
+-- GRANT SELECT ON TABLE public.tenants TO ironframe_privileged;
+-- GRANT SELECT ON TABLE public."BotAuditLog" TO ironframe_privileged;
+-- GRANT SELECT ON TABLE public.ironguard_violation TO ironframe_privileged;
+-- GRANT SELECT, UPDATE ON TABLE public."SystemConfig" TO ironframe_privileged;
+-- ALTER POLICY "tenant_isolation_BotAuditLog" ON public."BotAuditLog"
+--   TO ironframe_app, anon, authenticated;
+--
+-- Store its pooled connection string as PRIVILEGED_DATABASE_URL. The runtime
+-- rejects a credential whose database username matches DATABASE_URL.
 
 
 -- -----------------------------------------------------------------------------

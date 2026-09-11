@@ -55,6 +55,7 @@ model Tenant {
   publishedBriefings           PublishedBriefing[]
   contactProfile               TenantContactProfile?
   stakeholderMetrics           StakeholderMetric[]
+  threatEvents                 ThreatEvent[]
 
   @@index([parentTenantId])
   @@map("tenants")
@@ -238,6 +239,8 @@ model ThreatEvent {
   targetEntity             String
   financialRisk_cents      BigInt                @default(0)
   tenantCompanyId          BigInt?
+  /// Authoritative tenant boundary. Denormalized from Company so Postgres RLS does not depend on an application join.
+  tenantId                 String                @map("tenant_id") @db.Uuid
   status                   ThreatState           @default(IDENTIFIED)
   /// Level-3 remote tech dispatch: assigned specialist ref (set on URGENT DISPATCH).
   remoteTechId             String?               @map("remote_tech_id")
@@ -271,7 +274,9 @@ model ThreatEvent {
   notes                    WorkNote[]
   agentReasonings          AgentReasoning[]
   approvals                ThreatApproval[]
+  tenant                   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  @@index([tenantId])
   @@index([tenantCompanyId])
   @@index([resolutionApprovalId])
   @@map("ThreatEvent")

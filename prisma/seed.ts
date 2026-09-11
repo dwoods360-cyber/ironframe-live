@@ -133,6 +133,7 @@ async function main() {
         targetEntity: 'Medshield Health',
         financialRisk_cents: BigInt(5_000_000),
         tenantCompanyId: medshield.id,
+        tenantId: tenantMedshield.id,
         status: ThreatState.MITIGATED,
         ingestionDetails: JSON.stringify({
           summary: 'Outbound traffic matched restricted egress patterns; quarantine engaged.',
@@ -146,6 +147,7 @@ async function main() {
         targetEntity: 'Medshield Health',
         financialRisk_cents: BigInt(2_500_000),
         tenantCompanyId: medshield.id,
+        tenantId: tenantMedshield.id,
         status: ThreatState.CONFIRMED,
         ingestionDetails: JSON.stringify({
           summary: 'Stale privileged MFA token detected; active remediation required.',
@@ -159,6 +161,7 @@ async function main() {
         targetEntity: 'Medshield Health',
         financialRisk_cents: BigInt(1_250_000),
         tenantCompanyId: medshield.id,
+        tenantId: tenantMedshield.id,
         status: ThreatState.CONFIRMED,
       },
       {
@@ -168,6 +171,7 @@ async function main() {
         targetEntity: 'Medshield Health',
         financialRisk_cents: BigInt(900_000),
         tenantCompanyId: medshield.id,
+        tenantId: tenantMedshield.id,
         status: ThreatState.IDENTIFIED,
       },
 
@@ -179,6 +183,7 @@ async function main() {
         targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(4_000_000),
         tenantCompanyId: vaultbank.id,
+        tenantId: tenantVaultbank.id,
         status: ThreatState.CONFIRMED,
       },
       {
@@ -188,6 +193,7 @@ async function main() {
         targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(3_100_000),
         tenantCompanyId: vaultbank.id,
+        tenantId: tenantVaultbank.id,
         status: ThreatState.CONFIRMED,
       },
       {
@@ -197,6 +203,7 @@ async function main() {
         targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(1_800_000),
         tenantCompanyId: vaultbank.id,
+        tenantId: tenantVaultbank.id,
         status: ThreatState.IDENTIFIED,
       },
       {
@@ -206,6 +213,7 @@ async function main() {
         targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(6_500_000),
         tenantCompanyId: vaultbank.id,
+        tenantId: tenantVaultbank.id,
         status: ThreatState.CONFIRMED,
       },
 
@@ -217,6 +225,7 @@ async function main() {
         targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(5_750_000),
         tenantCompanyId: gridcore.id,
+        tenantId: tenantGridcore.id,
         status: ThreatState.CONFIRMED,
       },
       {
@@ -226,6 +235,7 @@ async function main() {
         targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(4_400_000),
         tenantCompanyId: gridcore.id,
+        tenantId: tenantGridcore.id,
         status: ThreatState.CONFIRMED,
       },
       {
@@ -235,6 +245,7 @@ async function main() {
         targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(2_200_000),
         tenantCompanyId: gridcore.id,
+        tenantId: tenantGridcore.id,
         status: ThreatState.IDENTIFIED,
       },
       {
@@ -244,6 +255,7 @@ async function main() {
         targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(3_600_000),
         tenantCompanyId: gridcore.id,
+        tenantId: tenantGridcore.id,
         status: ThreatState.CONFIRMED,
       },
     ],

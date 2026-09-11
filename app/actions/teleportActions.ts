@@ -37,7 +37,10 @@ export async function teleportThreatToProduction(simId: string): Promise<Telepor
     return { ok: false, error: "Shadow threat not found." };
   }
 
-  if (row.tenantCompanyId != null && !companyIds.has(row.tenantCompanyId)) {
+  if (
+    row.tenantId !== tenantUuid ||
+    (row.tenantCompanyId != null && !companyIds.has(row.tenantCompanyId))
+  ) {
     return { ok: false, error: "Threat is outside the active tenant boundary." };
   }
 
@@ -51,6 +54,7 @@ export async function teleportThreatToProduction(simId: string): Promise<Telepor
           targetEntity: row.targetEntity,
           financialRisk_cents: row.financialRisk_cents,
           tenantCompanyId: row.tenantCompanyId,
+          tenantId: row.tenantId,
           status: ThreatState.IDENTIFIED,
           remoteTechId: null,
           isRemoteAccessAuthorized: row.isRemoteAccessAuthorized,

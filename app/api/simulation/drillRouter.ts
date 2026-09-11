@@ -102,6 +102,7 @@ export async function executeChaosDrill(
       financialRisk_cents: 0n,
       status: ThreatState.IDENTIFIED,
       tenantCompanyId: companyId,
+      tenantId: tenantScopeUuid,
       ingestionDetails,
       ttlSeconds: 259_200,
     },

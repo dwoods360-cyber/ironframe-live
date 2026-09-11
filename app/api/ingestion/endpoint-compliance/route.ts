@@ -147,6 +147,7 @@ export async function POST(request: NextRequest) {
       data: sanitizeThreatIngressPayload({
         ...mapped,
         tenantCompanyId: company?.id,
+        tenantId: tenantId!,
       }),
       select: {
         id: true,

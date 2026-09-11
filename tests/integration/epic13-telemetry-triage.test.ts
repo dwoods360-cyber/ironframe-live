@@ -133,6 +133,7 @@ describe("Epic 13 — Active telemetry triage (TAS §4.3)", () => {
           sourceAgent: "IRONWATCH",
           score: 42,
           targetEntity: "telemetry-plane",
+          tenantId: testTenantId,
         },
       });
       threatFixtureId = threat.id;

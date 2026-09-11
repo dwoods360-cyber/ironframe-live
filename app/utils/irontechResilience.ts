@@ -631,6 +631,7 @@ const REMOTE_SUPPORT_ATTEMPT_MAX = 4;
 type RemoteSupportDrillCtx = {
   plane: "prod" | "shadow";
   tenantCompanyId: bigint;
+  tenantId: string;
 };
 
 async function resolveRemoteSupportDrillCtx(
@@ -638,17 +639,17 @@ async function resolveRemoteSupportDrillCtx(
 ): Promise<RemoteSupportDrillCtx | null> {
   const sim = await prisma.riskEvent.findFirst({
     where: { id: threatId },
-    select: { tenantCompanyId: true },
+    select: { tenantCompanyId: true, tenantId: true },
   });
   if (sim?.tenantCompanyId != null) {
-    return { plane: "shadow", tenantCompanyId: sim.tenantCompanyId };
+    return { plane: "shadow", tenantCompanyId: sim.tenantCompanyId, tenantId: sim.tenantId };
   }
   const prod = await prisma.threatEvent.findUnique({
     where: { id: threatId },
-    select: { tenantCompanyId: true },
+    select: { tenantCompanyId: true, tenantId: true },
   });
   if (prod?.tenantCompanyId != null) {
-    return { plane: "prod", tenantCompanyId: prod.tenantCompanyId };
+    return { plane: "prod", tenantCompanyId: prod.tenantCompanyId, tenantId: prod.tenantId };
   }
   return null;
 }
@@ -664,6 +665,7 @@ type ChaosDrillOperationalRow = {
   ingestionDetails: string | Prisma.JsonValue | null;
   createdAt: Date;
   tenantCompanyId: bigint;
+  tenantId: string;
   score: number | null;
   targetEntity: string | null;
   sourceAgent: string | null;
@@ -681,6 +683,7 @@ async function fetchChaosDrillOperationalRow(
         ingestionDetails: true,
         createdAt: true,
         tenantCompanyId: true,
+        tenantId: true,
         score: true,
         targetEntity: true,
         sourceAgent: true,
@@ -691,6 +694,7 @@ async function fetchChaosDrillOperationalRow(
     return {
       ...raw,
       tenantCompanyId: raw.tenantCompanyId ?? ctx.tenantCompanyId,
+      tenantId: raw.tenantId,
     };
   }
   const raw = await prisma.riskEvent.findFirst({
@@ -699,6 +703,7 @@ async function fetchChaosDrillOperationalRow(
       ingestionDetails: true,
       createdAt: true,
       tenantCompanyId: true,
+      tenantId: true,
       score: true,
       targetEntity: true,
       sourceAgent: true,
@@ -709,6 +714,7 @@ async function fetchChaosDrillOperationalRow(
   return {
     ...raw,
     tenantCompanyId: raw.tenantCompanyId ?? ctx.tenantCompanyId,
+    tenantId: raw.tenantId,
   };
 }
 
@@ -1767,6 +1773,7 @@ export async function runIsolatedCascadeDrill(
               targetEntity: row.targetEntity ?? "ChaosLab",
               financialRisk_cents: row.financialRisk_cents ?? 0n,
               tenantCompanyId: row.tenantCompanyId,
+              tenantId: row.tenantId,
               status: ThreatState.RESOLVED,
               assigneeId: INTERNAL_DRILL_OPERATOR_ID,
               /** Triage SLA metadata only — no app job deletes ThreatEvent by TTL. */

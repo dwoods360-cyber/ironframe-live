@@ -18,6 +18,13 @@ const ROLLOUT_PATH = join(REPO_ROOT, "prisma", "scripts", "tenant_rls_rollout.sq
 const CRM_RLS_PATH = join(REPO_ROOT, "prisma", "scripts", "ironboard_crm_rls.sql");
 const PRISMA_CLIENT_PATH = join(REPO_ROOT, "lib", "prisma.ts");
 const THREAT_ACTIONS_PATH = join(REPO_ROOT, "app", "actions", "threatActions.ts");
+const THREAT_TENANT_MIGRATION_PATH = join(
+  REPO_ROOT,
+  "prisma",
+  "migrations",
+  "20260911120000_threat_event_direct_tenant_scope",
+  "migration.sql",
+);
 
 /**
  * Excluded in the rollout script for stated reasons: `user_role_assignments` is the authorization
@@ -51,6 +58,7 @@ describe("tenant RLS rollout coverage", () => {
   const crmRollout = readFileSync(CRM_RLS_PATH, "utf8");
   const prismaClient = readFileSync(PRISMA_CLIENT_PATH, "utf8");
   const threatActions = readFileSync(THREAT_ACTIONS_PATH, "utf8");
+  const threatTenantMigration = readFileSync(THREAT_TENANT_MIGRATION_PATH, "utf8");
 
   it("keeps a rollout script that discovers tenant tables dynamically", () => {
     // Dynamic discovery is what lets new tables be covered without editing a list.
@@ -83,6 +91,28 @@ describe("tenant RLS rollout coverage", () => {
     const models = tenantScopedModels(schema);
     // Guards the parser itself: if this collapses to zero the test stops being meaningful.
     expect(models.length).toBeGreaterThan(10);
+  });
+
+  it("gives ThreatEvent a direct, fail-closed UUID tenant boundary", () => {
+    const threatBlock = schema.slice(
+      schema.indexOf("model ThreatEvent"),
+      schema.indexOf("model AgentReasoning"),
+    );
+    expect(threatBlock).toMatch(/tenantId\s+String\s+@map\("tenant_id"\)\s+@db\.Uuid/);
+    expect(threatTenantMigration).toContain('SET LOCAL app.worm_threat_event_bypass = \'1\'');
+    expect(threatTenantMigration).toContain('WHERE "tenant_id" IS NULL');
+    expect(threatTenantMigration).toContain("RAISE EXCEPTION");
+    expect(threatTenantMigration).toContain('ALTER COLUMN "tenant_id" SET NOT NULL');
+    expect(threatTenantMigration).toContain("ironguard_validate_threat_event_tenant_trigger");
+    expect(threatTenantMigration).toContain('company."tenantId" = NEW."tenant_id"');
+  });
+
+  it("scopes indirect production-threat ledgers through their ThreatEvent parent", () => {
+    for (const table of ["agent_reasoning", "AgentOperation", "WorkNote", "SustainabilityMetric"]) {
+      expect(rollout).toContain(`('${table}',`);
+    }
+    expect(rollout).toContain('FROM public."ThreatEvent" threat');
+    expect(rollout).toContain("threat.tenant_id::text = current_setting");
   });
 
   it("does not grant BYPASSRLS to the application role", () => {

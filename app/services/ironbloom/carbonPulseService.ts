@@ -1,6 +1,7 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import {
   pruneSamplesOlderThan24h,
   readCarbonPulseState,
@@ -77,25 +78,27 @@ export type CarbonPulsePayload = {
 };
 
 async function aggregateMitigatedCents(tenantId: string): Promise<bigint> {
-  const companies = await prisma.company.findMany({
-    where: { tenantId },
-    select: { id: true },
+  return withIronguardTenant(tenantId, async (tx) => {
+    const companies = await tx.company.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+    if (!companies.length) return 0n;
+    const threats = await tx.threatEvent.findMany({
+      where: { tenantCompanyId: { in: companies.map((c) => c.id) } },
+      select: { id: true },
+      take: 500,
+    });
+    if (!threats.length) return 0n;
+    const agg = await tx.sustainabilityMetric.aggregate({
+      where: {
+        threatId: { in: threats.map((t) => t.id) },
+        mitigatedValueCents: { gt: 0n },
+      },
+      _sum: { mitigatedValueCents: true },
+    });
+    return agg._sum?.mitigatedValueCents ?? 0n;
   });
-  if (!companies.length) return 0n;
-  const threats = await prisma.threatEvent.findMany({
-    where: { tenantCompanyId: { in: companies.map((c) => c.id) } },
-    select: { id: true },
-    take: 500,
-  });
-  if (!threats.length) return 0n;
-  const agg = await prisma.sustainabilityMetric.aggregate({
-    where: {
-      threatId: { in: threats.map((t) => t.id) },
-      mitigatedValueCents: { gt: 0n },
-    },
-    _sum: { mitigatedValueCents: true },
-  });
-  return agg._sum?.mitigatedValueCents ?? 0n;
 }
 
 async function findLatestSustainabilityMetricForTenant(tenantId: string): Promise<{
@@ -103,22 +106,23 @@ async function findLatestSustainabilityMetricForTenant(tenantId: string): Promis
   mitigatedValueCents: bigint | null;
   createdAt: Date;
 } | null> {
-  const companies = await prisma.company.findMany({
-    where: { tenantId },
-    select: { id: true },
+  return withIronguardTenant(tenantId, async (tx) => {
+    const companies = await tx.company.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+    if (!companies.length) return null;
+    const companyIds = companies.map((c) => c.id);
+    return tx.sustainabilityMetric.findFirst({
+      where: { threat: { tenantCompanyId: { in: companyIds } } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        threatId: true,
+        mitigatedValueCents: true,
+        createdAt: true,
+      },
+    });
   });
-  if (!companies.length) return null;
-  const companyIds = companies.map((c) => c.id);
-  const row = await prisma.sustainabilityMetric.findFirst({
-    where: { threat: { tenantCompanyId: { in: companyIds } } },
-    orderBy: { createdAt: "desc" },
-    select: {
-      threatId: true,
-      mitigatedValueCents: true,
-      createdAt: true,
-    },
-  });
-  return row;
 }
 
 async function forensicSealForThreat(
@@ -129,11 +133,13 @@ async function forensicSealForThreat(
   artifactId: string;
   canonicalPreview: string;
 } | null> {
-  const att = await prisma.evidenceAttachment.findFirst({
-    where: { tenantId, entityId: `sustainability:${threatId}` },
-    orderBy: { createdAt: "desc" },
-    include: { artifact: { select: { id: true, sha256: true, storagePath: true } } },
-  });
+  const att = await withIronguardTenant(tenantId, (tx) =>
+    tx.evidenceAttachment.findFirst({
+      where: { tenantId, entityId: `sustainability:${threatId}` },
+      orderBy: { createdAt: "desc" },
+      include: { artifact: { select: { id: true, sha256: true, storagePath: true } } },
+    }),
+  );
   if (!att?.artifact) return null;
   return {
     artifactId: att.artifact.id,
@@ -147,15 +153,17 @@ async function latestForensicSeal(tenantId: string): Promise<{
   artifactId: string;
   canonicalPreview: string;
 } | null> {
-  const artifact = await prisma.evidenceArtifact.findFirst({
-    where: {
-      tenantId,
-      uploadedByUserId: "IRONBLOOM_AGENT_18",
-      mimeType: "application/json",
-    },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, sha256: true, storagePath: true },
-  });
+  const artifact = await withIronguardTenant(tenantId, (tx) =>
+    tx.evidenceArtifact.findFirst({
+      where: {
+        tenantId,
+        uploadedByUserId: "IRONBLOOM_AGENT_18",
+        mimeType: "application/json",
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, sha256: true, storagePath: true },
+    }),
+  );
   if (!artifact) return null;
   return {
     artifactId: artifact.id,

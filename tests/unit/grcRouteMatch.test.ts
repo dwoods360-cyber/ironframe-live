@@ -143,6 +143,10 @@ describe("grcRouteMatch", () => {
     expect(isPublicRoute("/workflow-review")).toBe(true);
     expect(isPublicRoute("/contact")).toBe(true);
     expect(isPublicRoute("/terms")).toBe(true);
+    expect(isPublicRoute("/privacy")).toBe(true);
+    expect(isPublicCloudIngressPath("/terms")).toBe(true);
+    expect(isPublicCloudIngressPath("/privacy")).toBe(true);
+    expect(isPublicCloudIngressPath("/trust-center/dpa")).toBe(true);
     expect(isPublicRoute("/docs/TAS.md")).toBe(false);
     expect(isPublicRoute("/governance-frame/briefing")).toBe(true);
     expect(isPublicRoute("/gf-research/briefings")).toBe(true);

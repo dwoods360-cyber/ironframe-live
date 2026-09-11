@@ -31,13 +31,12 @@ function isShadowPlaneSessionRequest(request: NextRequest): boolean {
 }
 
 /**
- * An unauthenticated API request is permitted only in an explicitly configured
- * shadow deployment, or for simulation traffic outside production. Browser-set
- * simulation cookies and headers never create a production authentication bypass.
+ * Production always requires an authenticated Supabase session. Shadow flags,
+ * simulation cookies, and test headers may exempt only non-production traffic.
  */
 export function permitsUnauthenticatedIronguardRequest(request: NextRequest): boolean {
-  if (isShadowPlaneActiveFromEnv()) return true;
-  return process.env.NODE_ENV !== "production" && isShadowPlaneSessionRequest(request);
+  if (process.env.NODE_ENV === "production") return false;
+  return isShadowPlaneSessionRequest(request);
 }
 
 const SLUGS = new Set<TenantKey>(["medshield", "vaultbank", "gridcore", "defense"]);

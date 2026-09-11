@@ -36,9 +36,8 @@ export type AuthenticatedTenantGuardResult =
 
 /**
  * Ironguard tenant scope + authenticated operator must hold `user_role_assignment` for that tenant.
- * Unauthenticated clients are rejected in production unless the deployment itself
- * is explicitly configured as the shadow plane. Non-production simulation traffic
- * keeps Ironguard-only behavior (no membership row).
+ * Unauthenticated clients are always rejected in production. Non-production
+ * simulation traffic keeps Ironguard-only behavior (no membership row).
  * Platform administrators and constitutional dev authority bypass membership for cross-tenant ops.
  */
 export async function assertAuthenticatedIronguardTenantOr403(

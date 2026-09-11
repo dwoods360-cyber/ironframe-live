@@ -116,7 +116,8 @@ describe("tenant RLS rollout coverage", () => {
   });
 
   it("does not grant BYPASSRLS to the application role", () => {
-    expect(rollout).toContain("NOBYPASSRLS");
+    expect(rollout).toContain("rolbypassrls");
+    expect(rollout).toContain("ironframe_app has prohibited elevated attributes");
     expect(rollout).not.toMatch(/^\s*ALTER ROLE ironframe_app BYPASSRLS/m);
   });
 

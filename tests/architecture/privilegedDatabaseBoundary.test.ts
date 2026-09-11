@@ -37,7 +37,11 @@ describe("privileged database boundary", () => {
 
     expect(rollout).toContain("CREATE ROLE ironframe_privileged");
     expect(rollout).toContain("ALTER ROLE ironframe_privileged");
-    expect(rollout).toContain("BYPASSRLS");
+    expect(rollout).toContain("rolbypassrls");
+    expect(rollout).toContain(
+      'ALTER POLICY "tenant_isolation_BotAuditLog" ON public."BotAuditLog"',
+    );
+    expect(rollout).not.toMatch(/ALTER ROLE ironframe_privileged[^\n]*BYPASSRLS/);
     expect(rollout).not.toContain("ALL TABLES IN SCHEMA public TO ironframe_privileged");
   });
 });

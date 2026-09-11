@@ -21,12 +21,16 @@ function legacyJwtRole(value: string): string | null {
 }
 
 export function assertBrowserSafeSupabaseKey(value: string, variableName: string): string {
-  if (/^sb_secret_/i.test(value) || legacyJwtRole(value) === "service_role") {
+  const role = legacyJwtRole(value);
+  if (/^sb_secret_/i.test(value) || role === "service_role") {
     throw new Error(
       `${variableName} must contain a Supabase publishable/anon key, never a secret/service_role key.`,
     );
   }
-  return value;
+  if (/^sb_publishable_/i.test(value) || role === "anon") return value;
+  throw new Error(
+    `${variableName} is not a recognized Supabase browser key. Use an sb_publishable_ key or legacy anon JWT.`,
+  );
 }
 
 export function envSupabaseAnonKey(): string {

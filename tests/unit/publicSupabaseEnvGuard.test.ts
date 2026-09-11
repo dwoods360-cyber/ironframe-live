@@ -37,4 +37,18 @@ describe("public Supabase environment guard", () => {
       assertBrowserSafeSupabaseKey(`${header}.${payload}.signature`, "NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     ).toThrow("never a secret/service_role key");
   });
+
+  it("accepts a legacy anon JWT", () => {
+    const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+    const payload = Buffer.from(JSON.stringify({ role: "anon" })).toString("base64url");
+    expect(
+      assertBrowserSafeSupabaseKey(`${header}.${payload}.signature`, "NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    ).toContain(".signature");
+  });
+
+  it("rejects an invalid or placeholder browser key", () => {
+    expect(() =>
+      assertBrowserSafeSupabaseKey("not-a-real-key", "NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    ).toThrow("not a recognized Supabase browser key");
+  });
 });

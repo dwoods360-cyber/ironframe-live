@@ -24,15 +24,22 @@ const serverSecrets = new Set(
 const violations = [];
 
 for (const variableName of SUPABASE_PUBLIC_VARIABLES) {
-  const value = process.env[variableName]?.trim();
+  let value = process.env[variableName]?.trim();
   if (!value) continue;
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    value = value.slice(1, -1).trim();
+  }
+
+  const role = jwtRole(value);
 
   if (/^sb_secret_/i.test(value)) {
     violations.push(`${variableName} contains a Supabase secret key`);
   } else if (serverSecrets.has(value)) {
     violations.push(`${variableName} duplicates a server-side Supabase credential`);
-  } else if (jwtRole(value) === "service_role") {
+  } else if (role === "service_role") {
     violations.push(`${variableName} contains a legacy service_role JWT`);
+  } else if (!/^sb_publishable_/i.test(value) && role !== "anon") {
+    violations.push(`${variableName} is not a recognized Supabase publishable/anon key`);
   }
 }
 

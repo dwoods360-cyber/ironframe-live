@@ -15,6 +15,7 @@ describe("public environment build guard", () => {
     expect(guard).toContain("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
     expect(guard).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY");
     expect(guard).toContain("sb_secret_");
-    expect(guard).toContain('jwtRole(value) === "service_role"');
+    expect(guard).toContain('role === "service_role"');
+    expect(guard).toContain("not a recognized Supabase publishable/anon key");
   });
 });

@@ -7,6 +7,7 @@ import { EventSource } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import {
+  localWormFallbackAllowed,
   writeLocalWormBytes,
 } from "@/app/lib/evidence/wormStoragePolicy";
 import { uploadImmutableWormObject } from "@/app/lib/evidence/supabaseWormStorage";
@@ -106,6 +107,10 @@ async function writeArtifactToStorage(params: {
   });
   if (uploaded.ok) {
     return { storagePath: uploaded.storagePath };
+  }
+
+  if (!localWormFallbackAllowed()) {
+    throw new Error(`WORM_STORAGE_UPLOAD_REQUIRED: ${uploaded.error}`);
   }
 
   const localRelative = await writeLocalWormBytes({

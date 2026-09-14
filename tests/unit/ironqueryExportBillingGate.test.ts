@@ -11,6 +11,11 @@ const { prismaMock } = vi.hoisted(() => ({
   } as any,
 }));
 
+const { getSupabaseSessionUser, userHasTenantRoleAssignment } = vi.hoisted(() => ({
+  getSupabaseSessionUser: vi.fn(),
+  userHasTenantRoleAssignment: vi.fn(),
+}));
+
 Object.assign(prismaMock, {
   $transaction: vi.fn(async (callback: (tx: typeof prismaMock) => unknown) => callback(prismaMock)),
   $queryRaw: vi.fn(async () => [{ present: true }]),
@@ -33,6 +38,9 @@ vi.mock("@/app/utils/tenantIsolation", () => ({
 vi.mock("@/app/lib/auth/platformAdminAccess", () => ({
   canUsePlatformAdminTools: vi.fn().mockResolvedValue(false),
 }));
+
+vi.mock("@/app/utils/serverAuth", () => ({ getSupabaseSessionUser }));
+vi.mock("@/app/lib/security/tenantMembershipGuard", () => ({ userHasTenantRoleAssignment }));
 
 vi.mock("@/app/services/ironbloom/rateEngine", () => ({
   fetchUtilityRateForAnalystExport: vi.fn().mockResolvedValue({
@@ -65,6 +73,8 @@ describe("ironquery export billing perimeter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValue(TENANT_A);
+    getSupabaseSessionUser.mockResolvedValue({ id: "user-1", email: "user@example.test" });
+    userHasTenantRoleAssignment.mockResolvedValue(true);
     vi.mocked(prisma.tenant.findUnique).mockResolvedValue({
       slug: "abc-co",
       ale_baseline: 0n,
@@ -141,6 +151,22 @@ describe("ironquery export billing perimeter", () => {
       ok: false,
       code: "SCOPE_REQUIRED",
     });
+  });
+
+  it("rejects an unauthenticated export request even when the tenant cookie is valid", async () => {
+    getSupabaseSessionUser.mockResolvedValue(null);
+
+    const context = await getIronqueryExportDashboardContext();
+    expect(context).toMatchObject({ ok: false, code: "ACCESS_DENIED" });
+    expect(prisma.evidenceArtifact.findMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects an authenticated user without membership in the cookie tenant", async () => {
+    userHasTenantRoleAssignment.mockResolvedValue(false);
+
+    const context = await getIronqueryExportDashboardContext();
+    expect(context).toMatchObject({ ok: false, code: "ACCESS_DENIED" });
+    expect(prisma.evidenceArtifact.findMany).not.toHaveBeenCalled();
   });
 
   it("returns SCOPE_REQUIRED when provisioned tenant has no ALE baseline", async () => {

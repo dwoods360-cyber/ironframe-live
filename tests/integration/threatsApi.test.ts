@@ -32,8 +32,8 @@ vi.mock('@/src/services/orchestration/ingestBusBridge', () => ({
   invokeIngestOrchestrationBus: vi.fn(),
 }));
 
-vi.mock('@/lib/prisma', () => ({
-  default: {
+const prismaMock = vi.hoisted(() => {
+  const client = {
     threatEvent: {
       create: vi.fn(),
       update: vi.fn().mockImplementation(async ({ data }: { data?: { ingestionDetails?: string } }) => ({
@@ -47,8 +47,17 @@ vi.mock('@/lib/prisma', () => ({
     simulationConfig: {
       findUnique: vi.fn().mockResolvedValue(null),
     },
-  },
-}));
+    $queryRaw: vi.fn().mockResolvedValue([{ present: false }]),
+    $executeRaw: vi.fn().mockResolvedValue(1),
+  };
+
+  return {
+    ...client,
+    $transaction: vi.fn(async (callback: (tx: typeof client) => unknown) => callback(client)),
+  };
+});
+
+vi.mock('@/lib/prisma', () => ({ default: prismaMock }));
 
 import { POST } from '@/app/api/threats/route';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';

@@ -118,8 +118,10 @@ jobs:
           env_vars: |-
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             DIRECT_URL=${{ secrets.DIRECT_URL }}
+            PRIVILEGED_DATABASE_URL=${{ secrets.PRIVILEGED_DATABASE_URL }}
             SUPABASE_URL=${{ secrets.SUPABASE_URL }}
             SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+            SUPABASE_WORM_STORAGE_SECRET_KEY=${{ secrets.SUPABASE_WORM_STORAGE_SECRET_KEY }}
             GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
             IRONLEADS_INGRESS_SECRET=${{ secrets.IRONLEADS_INGRESS_SECRET }}
             SALESTEAM_INGRESS_SECRET=${{ secrets.SALESTEAM_INGRESS_SECRET }}

@@ -3,7 +3,10 @@ import "server-only";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { CheckpointTuple } from "@langchain/langgraph-checkpoint";
 import { TRANSACTION_ABORTED } from "@/src/services/orchestration/forensicFaultInjection";
-import { getPostgresCheckpointer } from "@/src/services/orchestration/checkpointer";
+import {
+  assertCheckpointTenant,
+  getPostgresCheckpointer,
+} from "@/src/services/orchestration/checkpointer";
 
 export const EPIC_15_ROLLBACK_LOG_PREFIX = "[epic15-forensic-rollback]";
 
@@ -30,11 +33,6 @@ export type CheckpointedGraphLike = {
 };
 
 const DEFAULT_BLOCKLISTED_NEXT = ["persist"] as const;
-
-function tenantFromValues(values: Record<string, unknown> | undefined): string | null {
-  const raw = values?.tenant_id ?? values?.tenantId;
-  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
-}
 
 function checkpointAssignee(values: Record<string, unknown> | undefined): string {
   const raw = values?.currentAssignee ?? values?.current_agent;
@@ -97,6 +95,14 @@ export async function executeForensicCheckpointRollback(args: {
   };
 
   const tuples = await listThreadCheckpointTuples(threadId);
+  for (const tuple of tuples) {
+    if (!tuple.checkpoint) continue;
+    assertCheckpointTenant(
+      tuple.checkpoint.channel_values,
+      tenantId,
+      `Rollback checkpoint ${tuple.checkpoint.id}`,
+    );
+  }
   const anchor = selectForensicRollbackAnchor(tuples, {
     blocklistedNext: args.blocklistedNext,
   });
@@ -120,14 +126,6 @@ export async function executeForensicCheckpointRollback(args: {
       reason: args.reason,
       checkpointsScanned: tuples.length,
     };
-  }
-
-  const anchorValues = (anchor.checkpoint.channel_values ?? {}) as Record<string, unknown>;
-  const stampedTenant = tenantFromValues(anchorValues);
-  if (stampedTenant && stampedTenant !== tenantId) {
-    throw new Error(
-      `CRITICAL_TENANT_VIOLATION: Rollback anchor tenant ${stampedTenant} != ${tenantId}`,
-    );
   }
 
   const anchorConfig: RunnableConfig = {

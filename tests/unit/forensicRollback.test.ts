@@ -6,6 +6,7 @@ import {
   selectForensicRollbackAnchor,
 } from "@/src/services/orchestration/forensicRollback";
 import { TRANSACTION_ABORTED } from "@/src/services/orchestration/forensicFaultInjection";
+import { assertCheckpointTenant } from "@/src/services/orchestration/checkpointer";
 
 function tuple(id: string, values: Record<string, unknown>, metadata?: CheckpointTuple["metadata"]): CheckpointTuple {
   return {
@@ -35,6 +36,11 @@ describe("forensicRollback — Epic 15", () => {
     const safe = tuple("cp-1", { tenant_id: "tenant-a", currentAssignee: "Agent_03_Irontrust" });
     const anchor = selectForensicRollbackAnchor([unsafe, safe]);
     expect(anchor?.checkpoint?.id).toBe("cp-1");
+  });
+
+  it("fails closed before rollback when an anchor lacks tenant ownership", () => {
+    expect(() => assertCheckpointTenant(tuple("cp-legacy", {}).checkpoint.channel_values, "tenant-a"))
+      .toThrow(/has no tenant ownership stamp/i);
   });
 
   it("exports stable rollback log prefix for buyer diligence filters", () => {

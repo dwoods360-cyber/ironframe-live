@@ -7,6 +7,7 @@ import {
   EPIC_12_WORM_DELETE_BLOCK_MESSAGE,
   isAllowedWormUploadObjectPath,
   isWormProtectedStoragePath,
+  localWormFallbackAllowed,
   parseStorageRef,
   resolveEpic12StorageConfig,
   WormStorageConfigError,
@@ -86,5 +87,15 @@ describe("Epic 12 — WORM storage policy", () => {
     vi.stubEnv("EVIDENCE_WORM_OBJECT_LOCK", "false");
     expect(() => assertEpic12WormStorageConfig()).toThrow(WormStorageConfigError);
     vi.unstubAllEnvs();
+  });
+
+  it("never permits local-disk fallback in production or Vercel", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(localWormFallbackAllowed()).toBe(false);
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("VERCEL", "1");
+    expect(localWormFallbackAllowed()).toBe(false);
+    vi.unstubAllEnvs();
+    expect(localWormFallbackAllowed()).toBe(true);
   });
 });

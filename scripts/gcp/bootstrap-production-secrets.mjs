@@ -8,8 +8,10 @@
  *   export GCP_PROJECT_ID=ironframe-prod
  *   export DATABASE_URL='...'          # Supabase pooler URL (same as Vercel)
  *   export DIRECT_URL='...'
+ *   export PRIVILEGED_DATABASE_URL='...'
  *   export SUPABASE_URL='https://....supabase.co'
  *   export SUPABASE_SERVICE_ROLE_KEY='eyJ...'
+ *   export SUPABASE_WORM_STORAGE_SECRET_KEY='...'
  *   export GOOGLE_API_KEY='...'
  *   export IRONLEADS_INGRESS_SECRET='...'
  *   export SALESTEAM_INGRESS_SECRET='...'
@@ -28,8 +30,10 @@ const RUNTIME_SA =
 const SECRET_ENV_KEYS = [
   "DATABASE_URL",
   "DIRECT_URL",
+  "PRIVILEGED_DATABASE_URL",
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_WORM_STORAGE_SECRET_KEY",
   "GOOGLE_API_KEY",
   "IRONLEADS_INGRESS_SECRET",
   "SALESTEAM_INGRESS_SECRET",

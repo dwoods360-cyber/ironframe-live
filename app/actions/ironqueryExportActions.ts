@@ -6,6 +6,8 @@ import prisma from "@/lib/prisma";
 import { encodeIronqueryAnalystCsv, type IronqueryAnalystCsvRow } from "@/app/utils/ironquery/csvEncoder";
 import { buildIronqueryAnalystPdf } from "@/app/utils/ironquery/pdfReportEncoder";
 import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
+import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
+import { userHasTenantRoleAssignment } from "@/app/lib/security/tenantMembershipGuard";
 import {
   assertTenantBillingActive,
   TenantBillingHoldError,
@@ -39,7 +41,7 @@ export type IronqueryExportDashboardContext =
   | {
       ok: false;
       error: string;
-      code?: "BILLING_HOLD" | "SCOPE_REQUIRED";
+      code?: "ACCESS_DENIED" | "BILLING_HOLD" | "SCOPE_REQUIRED";
       tenantSlug?: string;
       billingStatus?: string;
     };
@@ -50,11 +52,11 @@ function filenameFromStoragePath(storagePath: string): string {
 }
 
 async function requireIronqueryExportScope(): Promise<
-  | { ok: true; scope: IronqueryExportScope }
+  | { ok: true; scope: IronqueryExportScope; userId: string }
   | {
       ok: false;
       error: string;
-      code: "SCOPE_REQUIRED";
+      code: "ACCESS_DENIED" | "SCOPE_REQUIRED";
     }
 > {
   const tenantId = await getActiveTenantUuidFromCookies();
@@ -63,6 +65,25 @@ async function requireIronqueryExportScope(): Promise<
       ok: false,
       code: "SCOPE_REQUIRED",
       error: "Select a tenant in Command Center (ironframe-tenant cookie) to access analyst exports.",
+    };
+  }
+
+  const user = await getSupabaseSessionUser();
+  const userId = user?.id?.trim() ?? "";
+  if (!userId) {
+    return {
+      ok: false,
+      code: "ACCESS_DENIED",
+      error: "Authentication required for analyst exports.",
+    };
+  }
+
+  const platformAdmin = await canUsePlatformAdminTools();
+  if (!platformAdmin && !(await userHasTenantRoleAssignment(userId, tenantId))) {
+    return {
+      ok: false,
+      code: "ACCESS_DENIED",
+      error: "You are not assigned to this workspace.",
     };
   }
 
@@ -76,7 +97,7 @@ async function requireIronqueryExportScope(): Promise<
     };
   }
 
-  return { ok: true, scope };
+  return { ok: true, scope, userId };
 }
 
 async function requireExportBillingEntitlement(
@@ -174,7 +195,7 @@ export async function sealIronqueryComplianceExport(input: {
   | {
       ok: false;
       error: string;
-      code?: "BILLING_HOLD" | "SCOPE_REQUIRED";
+      code?: "ACCESS_DENIED" | "BILLING_HOLD" | "SCOPE_REQUIRED";
       tenantSlug?: string;
       billingStatus?: string;
     }
@@ -210,7 +231,7 @@ export async function sealIronqueryComplianceExport(input: {
 
     const archived = await archiveComplianceReport({
       tenantId: scoped.scope.tenantId,
-      generatedByUserId: "ANALYST_EXPORT_DASHBOARD",
+      generatedByUserId: scoped.userId,
       format: input.format,
       classification: input.classification,
       payload,
@@ -230,7 +251,7 @@ export async function downloadIronqueryAnalystPack(
   | {
       ok: false;
       error: string;
-      code?: "BILLING_HOLD" | "SCOPE_REQUIRED";
+      code?: "ACCESS_DENIED" | "BILLING_HOLD" | "SCOPE_REQUIRED";
       tenantSlug?: string;
       billingStatus?: string;
     }

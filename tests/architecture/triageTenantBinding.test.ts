@@ -9,7 +9,7 @@ describe("Irontech triage tenant binding", () => {
   it("passes the assessed tenant to both threat activity audit writes", () => {
     const router = source("src/services/irontech/triageRouter.ts");
 
-    expect(router).toContain("tenantId,\n    },");
+    expect(router).toMatch(/tenantId,\r?\n\s*},/);
     expect(router).toContain("tenantId: input.tenantId");
   });
 

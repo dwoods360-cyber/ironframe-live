@@ -87,7 +87,8 @@ export type OperationalStateFreezeResult = {
 
 function tenantIdFromCheckpointValues(values: unknown): string | null {
   if (values == null || typeof values !== "object") return null;
-  const tenant = (values as Record<string, unknown>).tenant_id;
+  const record = values as Record<string, unknown>;
+  const tenant = record.tenant_id ?? record.tenantId;
   return typeof tenant === "string" && tenant.trim() ? tenant.trim() : null;
 }
 

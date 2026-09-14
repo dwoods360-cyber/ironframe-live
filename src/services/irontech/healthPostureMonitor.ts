@@ -10,7 +10,10 @@ import {
   normalizeTriageIncidentZone,
   type TriageIncidentZone,
 } from "@/app/config/tasHealthTriage";
-import { getPostgresCheckpointer } from "@/src/services/orchestration/checkpointer";
+import {
+  assertCheckpointTenant,
+  getPostgresCheckpointer,
+} from "@/src/services/orchestration/checkpointer";
 import {
   evaluateSystemTriage,
   type SystemTriageResult,
@@ -48,7 +51,14 @@ export async function ensureTriageThreadCheckpoint(
     configurable: { thread_id: threadId.trim(), checkpoint_ns: "" },
   };
   const existing = await cp.getTuple(readConfig);
-  if (existing?.checkpoint) return;
+  if (existing?.checkpoint) {
+    assertCheckpointTenant(
+      existing.checkpoint.channel_values,
+      tenantId,
+      `Triage thread ${threadId.trim()}`,
+    );
+    return;
+  }
 
   const checkpoint: Checkpoint = {
     v: 4,
@@ -58,7 +68,10 @@ export async function ensureTriageThreadCheckpoint(
       tenant_id: tenantId.trim(),
       tas_health_posture_seed: true,
     },
-    channel_versions: { __start__: 1 },
+    channel_versions: {
+      tenant_id: 1,
+      tas_health_posture_seed: 1,
+    },
     versions_seen: { __input__: {} },
   };
 
@@ -66,7 +79,10 @@ export async function ensureTriageThreadCheckpoint(
     readConfig,
     checkpoint,
     { source: "input", step: -1, parents: {} },
-    { __start__: 1 },
+    {
+      tenant_id: 1,
+      tas_health_posture_seed: 1,
+    },
   );
 }
 

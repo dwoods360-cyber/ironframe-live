@@ -17,6 +17,7 @@ describe("Postgres checkpointer tenant isolation", () => {
   it("accepts only the expected tenant stamp", () => {
     const tenantId = uuidv4();
     expect(assertCheckpointTenant({ tenant_id: tenantId }, tenantId)).toBe(tenantId);
+    expect(assertCheckpointTenant({ tenantId }, tenantId)).toBe(tenantId);
     expect(() => assertCheckpointTenant({ tenant_id: uuidv4() }, tenantId)).toThrow(
       /CRITICAL_TENANT_VIOLATION/i,
     );

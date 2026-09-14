@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
-import prisma from '@/lib/prisma';
 import { ThreatState } from '@prisma/client';
 import { threatIngressSchema } from '@/app/utils/irongateSchema';
 import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
@@ -18,6 +17,7 @@ import {
   ingestOrchestrationBusDisabled,
   invokeIngestOrchestrationBus,
 } from '@/src/services/orchestration/ingestBusBridge';
+import { withIronguardTenant } from '@/app/lib/server/ironguardSessionTenant';
 
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
 const CENTS_PER_MILLION = 100_000_000;
@@ -120,11 +120,6 @@ export async function POST(request: NextRequest) {
       throw err;
     }
 
-    const company = await prisma.company.findFirst({
-      where: { tenantId: tenantId },
-      select: { id: true },
-    });
-
     const destination = (body.destination ?? 'pipeline').toLowerCase();
     const status = destination === 'active' ? ThreatState.CONFIRMED : ThreatState.IDENTIFIED;
 
@@ -176,32 +171,39 @@ export async function POST(request: NextRequest) {
       ? `Source: ${source} · ${description}`
       : `Source: ${source}`;
 
-    const created = await prisma.threatEvent.create({
-      data: sanitizeThreatIngressPayload({
-        id: threatId,
-        title,
-        sourceAgent: source || 'Manual Analyst Entry',
-        score,
-        targetEntity: target || 'Healthcare',
-        financialRisk_cents,
-        status,
-        ttlSeconds: DEFAULT_TTL_SECONDS,
-        tenantCompanyId: company?.id,
-        tenantId,
-        assigneeId: 'User_00',
-        aiReport: descriptionText,
-        ...(ingestionDetailsForCreate != null ? { ingestionDetails: ingestionDetailsForCreate } : {}),
-      }),
-      select: {
-        id: true,
-        title: true,
-        sourceAgent: true,
-        score: true,
-        targetEntity: true,
-        financialRisk_cents: true,
-        status: true,
-        ingestionDetails: true,
-      },
+    const created = await withIronguardTenant(tenantId, async (tx) => {
+      const company = await tx.company.findFirst({
+        where: { tenantId },
+        select: { id: true },
+      });
+
+      return tx.threatEvent.create({
+        data: sanitizeThreatIngressPayload({
+          id: threatId,
+          title,
+          sourceAgent: source || 'Manual Analyst Entry',
+          score,
+          targetEntity: target || 'Healthcare',
+          financialRisk_cents,
+          status,
+          ttlSeconds: DEFAULT_TTL_SECONDS,
+          tenantCompanyId: company?.id,
+          tenantId,
+          assigneeId: 'User_00',
+          aiReport: descriptionText,
+          ...(ingestionDetailsForCreate != null ? { ingestionDetails: ingestionDetailsForCreate } : {}),
+        }),
+        select: {
+          id: true,
+          title: true,
+          sourceAgent: true,
+          score: true,
+          targetEntity: true,
+          financialRisk_cents: true,
+          status: true,
+          ingestionDetails: true,
+        },
+      });
     });
     ingestionDetailsForCreate = created.ingestionDetails ?? ingestionDetailsForCreate;
 

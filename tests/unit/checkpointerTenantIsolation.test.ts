@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { v4 as uuidv4 } from "uuid";
+import { assertCheckpointTenant } from "@/src/services/orchestration/checkpointer";
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 const runLiveOrchestration =
@@ -7,6 +8,20 @@ const runLiveOrchestration =
   (!process.env.GITHUB_ACTIONS || process.env.RUN_LIVE_GRAPH_TESTS === "1");
 
 describe("Postgres checkpointer tenant isolation", () => {
+  it("rejects checkpoints with no tenant ownership stamp", () => {
+    expect(() => assertCheckpointTenant({}, uuidv4(), "Legacy checkpoint")).toThrow(
+      /has no tenant ownership stamp/i,
+    );
+  });
+
+  it("accepts only the expected tenant stamp", () => {
+    const tenantId = uuidv4();
+    expect(assertCheckpointTenant({ tenant_id: tenantId }, tenantId)).toBe(tenantId);
+    expect(() => assertCheckpointTenant({ tenant_id: uuidv4() }, tenantId)).toThrow(
+      /CRITICAL_TENANT_VIOLATION/i,
+    );
+  });
+
   it.skipIf(!runLiveOrchestration)("rejects checkpoint tenant stamp mismatch", async () => {
     const { getTenantBoundCheckpointTuple } = await import(
       "@/src/services/orchestration/checkpointer",

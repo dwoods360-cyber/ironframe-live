@@ -64,6 +64,11 @@ export function strictWormStorageConfig(): boolean {
   );
 }
 
+/** Local disk is a development aid, never an acceptable durable production WORM target. */
+export function localWormFallbackAllowed(): boolean {
+  return !strictWormStorageConfig();
+}
+
 export function resolveEpic12StorageConfig(): Epic12StorageConfig {
   return {
     evidenceBucket: resolveEvidenceStorageBucket(),

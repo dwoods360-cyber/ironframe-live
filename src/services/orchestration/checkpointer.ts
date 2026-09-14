@@ -91,6 +91,25 @@ function tenantIdFromCheckpointValues(values: unknown): string | null {
   return typeof tenant === "string" && tenant.trim() ? tenant.trim() : null;
 }
 
+/** Missing ownership is as unsafe as mismatched ownership: both fail closed. */
+export function assertCheckpointTenant(
+  values: unknown,
+  tenantId: string,
+  context = "Checkpoint",
+): string {
+  const expectedTenant = tenantId.trim();
+  const stampedTenant = tenantIdFromCheckpointValues(values);
+  if (!stampedTenant) {
+    throw new Error(`CRITICAL_TENANT_VIOLATION: ${context} has no tenant ownership stamp.`);
+  }
+  if (stampedTenant !== expectedTenant) {
+    throw new Error(
+      `CRITICAL_TENANT_VIOLATION: ${context} belongs to tenant ${stampedTenant}, not ${expectedTenant}.`,
+    );
+  }
+  return stampedTenant;
+}
+
 /**
  * Resolve latest LangGraph checkpoint for a thread and enforce tenant stamp parity.
  */
@@ -108,12 +127,11 @@ export async function getTenantBoundCheckpointTuple(
   });
   if (!tuple?.checkpoint) return null;
 
-  const stampedTenant = tenantIdFromCheckpointValues(tuple.checkpoint.channel_values);
-  if (stampedTenant && stampedTenant !== trimmedTenant) {
-    throw new Error(
-      `CRITICAL_TENANT_VIOLATION: Thread ${trimmedThread} belongs to tenant ${stampedTenant}, not ${trimmedTenant}.`,
-    );
-  }
+  assertCheckpointTenant(
+    tuple.checkpoint.channel_values,
+    trimmedTenant,
+    `Thread ${trimmedThread}`,
+  );
 
   return tuple;
 }

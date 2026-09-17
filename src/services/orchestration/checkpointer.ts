@@ -76,7 +76,11 @@ function configThreadId(config: RunnableConfig | undefined): string {
 }
 
 function configTenantId(config: RunnableConfig | undefined): string | undefined {
-  const raw = config?.configurable?.tenant_id;
+  const configurable = config?.configurable;
+  if (!configurable || typeof configurable !== "object") return undefined;
+  const raw =
+    (configurable as Record<string, unknown>).tenant_id ??
+    (configurable as Record<string, unknown>).tenantId;
   return typeof raw === "string" ? raw.trim() : undefined;
 }
 

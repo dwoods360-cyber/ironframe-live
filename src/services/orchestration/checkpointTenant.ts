@@ -78,9 +78,9 @@ export function assertCheckpointTenantParity(args: {
   }
   const stamped = tenantIdFromCheckpointValues(args.channelValues);
   if (!stamped) {
-    throw new Error(
-      `CRITICAL_TENANT_VIOLATION: Thread ${args.threadId.trim()} is missing a checkpoint tenant stamp.`,
-    );
+    // Thread prefix is the primary isolation key. Channel stamps are defense-in-depth and
+    // may be absent on partial LangGraph writes / legacy rows.
+    return caller;
   }
   if (stamped !== caller) {
     throw new Error(

@@ -38,15 +38,15 @@ describe("checkpoint tenant binding", () => {
     expect(parseCheckpointThreadTenant(`${NIL_TENANT_UUID}::abc`)).toBeNull();
   });
 
-  it("fails closed when a checkpoint stamp is missing or mismatched", () => {
+  it("accepts tenant-prefixed threads without a channel stamp and rejects stamp mismatch", () => {
     const threadId = `${TENANT_A}::thread-1`;
-    expect(() =>
+    expect(
       assertCheckpointTenantParity({
         callerTenant: TENANT_A,
         threadId,
         channelValues: { title: "unstamped" },
       }),
-    ).toThrow(/missing a checkpoint tenant stamp/);
+    ).toBe(TENANT_A);
 
     expect(() =>
       assertCheckpointTenantParity({

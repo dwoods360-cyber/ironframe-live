@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, beforeAll } from "vitest";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/prisma";
 import { TRANSACTION_ABORTED } from "@/src/services/orchestration/forensicFaultInjection";
-import { composeCheckpointThreadId } from "@/src/services/orchestration/checkpointTenant";
+import { composeCheckpointThreadId, NIL_TENANT_UUID } from "@/src/services/orchestration/checkpointTenant";
 
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
 let databaseReachable = false;
@@ -45,7 +45,11 @@ describe("Epic 15 — Postgres Saver transactional rollback validation", () => {
         return;
       }
 
-      const tenantRow = await prisma.tenant.findFirst({ select: { id: true } });
+      const tenantRow = await prisma.tenant.findFirst({
+        where: { id: { not: NIL_TENANT_UUID } },
+        select: { id: true },
+        orderBy: { id: "asc" },
+      });
       if (!tenantRow?.id) {
         throw new Error("Epic 15 rollback test requires at least one Tenant row.");
       }

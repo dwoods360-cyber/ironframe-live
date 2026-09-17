@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_MONTHLY_CARBON_BUDGET_THRESHOLD_CENTS } from "@/app/config/ironbloomCarbonBudget";
+import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { runCarbonBudgetReallocationAlertIfDue } from "@/app/services/ironbloom/carbonBudgetReallocationAlert";
 
 vi.mock("@/app/lib/ironbloom/productionCarbonLedger", () => ({
@@ -10,13 +11,17 @@ vi.mock("@/lib/auditLogLoose", () => ({
   auditLogCreateLoose: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  default: {
-    cronJobArtifact: {
-      findMany: vi.fn(async () => []),
-      create: vi.fn(async () => ({ id: "artifact-1" })),
-    },
-  },
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: async (_tenantId: string, run: (tx: { cronJobArtifact: { findMany: () => Promise<unknown[]> } }) => unknown) =>
+    run({
+      cronJobArtifact: {
+        findMany: async () => [],
+      },
+    }),
+}));
+
+vi.mock("@/app/lib/server/cronTenantScope", () => ({
+  recordCronJobArtifact: vi.fn(async () => ({ id: "artifact-1" })),
 }));
 
 import { aggregateMonthlyProductionMitigatedValueCents } from "@/app/lib/ironbloom/productionCarbonLedger";
@@ -24,6 +29,7 @@ import { aggregateMonthlyProductionMitigatedValueCents } from "@/app/lib/ironblo
 describe("carbon budget reallocation alert", () => {
   it("skips when not UTC day 1 without force", async () => {
     const result = await runCarbonBudgetReallocationAlertIfDue({
+      tenantId: TENANT_UUIDS.medshield,
       asOf: new Date("2026-05-15T09:00:00.000Z"),
     });
     expect(result.ok).toBe(true);
@@ -38,6 +44,7 @@ describe("carbon budget reallocation alert", () => {
     );
 
     const result = await runCarbonBudgetReallocationAlertIfDue({
+      tenantId: TENANT_UUIDS.medshield,
       force: true,
       asOf: new Date("2026-06-01T09:00:00.000Z"),
     });
@@ -53,6 +60,7 @@ describe("carbon budget reallocation alert", () => {
     vi.mocked(aggregateMonthlyProductionMitigatedValueCents).mockResolvedValue(1000n);
 
     const result = await runCarbonBudgetReallocationAlertIfDue({
+      tenantId: TENANT_UUIDS.medshield,
       force: true,
       asOf: new Date("2026-06-01T09:00:00.000Z"),
     });

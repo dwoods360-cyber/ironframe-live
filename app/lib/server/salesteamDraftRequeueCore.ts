@@ -17,7 +17,7 @@ import {
 } from "@/app/lib/server/salesteamIngressCore";
 import { resolveSalesTeamCrmScopeSlug } from "@/app/lib/server/operationsApiRedaction";
 import { resolveRequeueChannel } from "@/app/lib/server/salesteamDraftRequeueChannel";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 export type RequeueDraftResult = {
   ok: boolean;
@@ -50,7 +50,8 @@ async function findOpenPendingDraft(
   dealId: string,
   tenantId: string,
 ): Promise<{ id: string } | null> {
-  return prisma.ironboardCrmInteraction.findFirst({
+  return withIronguardTenant(tenantId, (tx) =>
+    tx.ironboardCrmInteraction.findFirst({
     where: {
       tenantId,
       dealId,
@@ -64,7 +65,8 @@ async function findOpenPendingDraft(
     },
     orderBy: { occurredAt: "desc" },
     select: { id: true },
-  });
+  }),
+  );
 }
 
 /**
@@ -133,10 +135,12 @@ export async function requeueSalesteamApprovalDrafts(options?: {
           industrySector: sector,
           lossExposureCents: prospect.valueCents,
         });
-        await prisma.ironboardCrmInteraction.update({
-          where: { id: existing.id },
+        await withIronguardTenant(tenantId, (tx) =>
+          tx.ironboardCrmInteraction.updateMany({
+          where: { id: existing.id, tenantId },
           data: { summary: summary.slice(0, 12_000), occurredAt: new Date() },
-        });
+        }),
+        );
         result.queued.push({
           company: prospect.company,
           dealId: prospect.dealId,

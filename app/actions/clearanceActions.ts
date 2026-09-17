@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { unstable_noStore as noStore } from "next/cache";
-import prisma from "@/lib/prisma";
-import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { ThreatState, DeAckReason, type Prisma } from "@prisma/client";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import type { DigitalReceiptThreatScalars } from "@/app/lib/grc/threatReceipt";
 import {
   buildDigitalReceiptDocument,
@@ -37,6 +37,7 @@ import { updateThreatWithIntegrity } from "@/src/services/threatStateService";
 import { cookies } from "next/headers";
 import { recordResilienceIntelStreamLine } from "@/app/actions/resilienceIntelStreamActions";
 import { USER_CLEARANCE_COOKIE_NAME, normalizeClearanceLevel } from "@/app/utils/clearanceLogic";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 const DMZ_PROMOTE_GRC_JUSTIFICATION = "Cleared and Promoted via DMZ Quarantine";
 
@@ -56,20 +57,24 @@ async function updateClearanceThreatRow(
   mode: "sim" | "prod",
   threatId: string,
   data: Prisma.ThreatEventUncheckedUpdateInput | Prisma.RiskEventUncheckedUpdateInput,
+  tenantUuid: string,
 ): Promise<void> {
-  if (mode === "sim") {
-    await prisma.riskEvent.updateMany({
-      where: { id: threatId },
-      data: data as Prisma.RiskEventUncheckedUpdateInput,
+  await withIronguardTenant(tenantUuid, async (tx) => {
+    if (mode === "sim") {
+      await tx.riskEvent.updateMany({
+        where: { id: threatId },
+        data: data as Prisma.RiskEventUncheckedUpdateInput,
+      });
+      return;
+    }
+    await updateThreatWithIntegrity({
+      threatId,
+      changes: data as Prisma.ThreatEventUpdateInput,
+      actorUserId: "clearance-operator",
+      eventType: "CLEARANCE_ROW_UPDATED",
+      select: { id: true },
+      tx,
     });
-    return;
-  }
-  await updateThreatWithIntegrity({
-    threatId,
-    changes: data as Prisma.ThreatEventUpdateInput,
-    actorUserId: "clearance-operator",
-    eventType: "CLEARANCE_ROW_UPDATED",
-    select: { id: true },
   });
 }
 
@@ -137,7 +142,7 @@ export async function runIrongateSanitization(
       ingestionDetails: merged,
       ...(status === "MALICIOUS" ? { status: ThreatState.MITIGATED } : {}),
     };
-    await updateClearanceThreatRow(mode, threatId, data);
+    await updateClearanceThreatRow(mode, threatId, data, tenantUuid);
     if (status === "MALICIOUS" && previousStatus !== ThreatState.MITIGATED) {
       void dispatchIronlockQuarantineAutoEscalation({
         threatId,
@@ -159,8 +164,9 @@ export async function runIrongateSanitization(
 
 export async function getPendingThreatActivityLogsForClearance() {
   try {
+    const tenantUuid = await getActiveTenantUuidFromCookies();
     const companyId = await getCompanyIdForActiveTenant();
-    if (companyId == null) {
+    if (!tenantUuid || companyId == null) {
       return { success: true as const, logs: [] };
     }
     const simPlane = await readSimulationPlaneEnabled();
@@ -184,9 +190,9 @@ export async function getPendingThreatActivityLogsForClearance() {
         receiptHash: true,
       },
     };
-    const logs = simPlane
-      ? await prisma.riskEvent.findMany(clearanceQuery)
-      : await prisma.threatEvent.findMany(clearanceQuery);
+    const logs = await withIronguardTenant(tenantUuid, (tx) =>
+      simPlane ? tx.riskEvent.findMany(clearanceQuery) : tx.threatEvent.findMany(clearanceQuery),
+    );
     return { success: true as const, logs };
   } catch (error) {
     console.error("[clearanceActions] getPendingThreatActivityLogsForClearance:", error);
@@ -201,7 +207,7 @@ export type PromoteThreatResult =
 export async function promoteThreatToSanctum(threatId: string): Promise<PromoteThreatResult> {
   try {
     const operatorId = await resolveDispositionOperatorId();
-    const { threat, mode } = await resolveClearanceThreatForActiveTenant(threatId);
+    const { threat, mode, tenantUuid } = await resolveClearanceThreatForActiveTenant(threatId);
     const irongate = parseIrongateScanFromIngestionDetails(threat.ingestionDetails ?? null);
     if (irongate?.status !== "CLEAN") {
       return {
@@ -261,7 +267,9 @@ export async function promoteThreatToSanctum(threatId: string): Promise<PromoteT
       },
     });
 
-    const tail = await loadAuditTailForDigitalReceipt(mode, threat.id);
+    const tail = await withIronguardTenant(tenantUuid, (tx) =>
+      loadAuditTailForDigitalReceipt(mode, threat.id, tx),
+    );
     const nextScalars = threatScalarsForHash(threat, {
       status: ThreatState.CONFIRMED,
       dispositionStatus: DISPOSITION_STATUS_PASSED,
@@ -284,7 +292,7 @@ export async function promoteThreatToSanctum(threatId: string): Promise<PromoteT
       isFalsePositive: false,
       deAckReason: null,
       receiptHash,
-    });
+    }, tenantUuid);
 
     const out = { success: true as const, auditId: promoted.id, threatId: threat.id };
 
@@ -308,7 +316,7 @@ export type DispositionResult = { success: true } | { success: false; error: str
 export async function rejectAndArchiveThreat(threatId: string): Promise<DispositionResult> {
   try {
     const operatorId = await resolveDispositionOperatorId();
-    const { threat, mode } = await resolveClearanceThreatForActiveTenant(threatId);
+    const { threat, mode, tenantUuid } = await resolveClearanceThreatForActiveTenant(threatId);
     const rejectedIngestionDetails =
       mode === "sim"
         ? mergeIngestionDetailsPatchJson(threat.ingestionDetails ?? null, {
@@ -319,13 +327,15 @@ export async function rejectAndArchiveThreat(threatId: string): Promise<Disposit
           });
 
     if (mode === "prod") {
-      await prisma.workNote.create({
-        data: {
-          text: DMZ_REJECT_WORK_NOTE,
-          operatorId,
-          threatId,
-        },
-      });
+      await withIronguardTenant(tenantUuid, (tx) =>
+        tx.workNote.create({
+          data: {
+            text: DMZ_REJECT_WORK_NOTE,
+            operatorId,
+            threatId,
+          },
+        }),
+      );
       await auditLogCreateLoose({
         data: {
           action: "CLEARANCE_FALSE_POSITIVE",
@@ -353,7 +363,9 @@ export async function rejectAndArchiveThreat(threatId: string): Promise<Disposit
       });
     }
 
-    const tail = await loadAuditTailForDigitalReceipt(mode, threat.id);
+    const tail = await withIronguardTenant(tenantUuid, (tx) =>
+      loadAuditTailForDigitalReceipt(mode, threat.id, tx),
+    );
     const nextScalars = threatScalarsForHash(threat, {
       status: ThreatState.RESOLVED,
       dispositionStatus: DISPOSITION_STATUS_FALSE_POSITIVE,
@@ -376,7 +388,7 @@ export async function rejectAndArchiveThreat(threatId: string): Promise<Disposit
       dispositionStatus: DISPOSITION_STATUS_FALSE_POSITIVE,
       isFalsePositive: true,
       receiptHash,
-    });
+    }, tenantUuid);
 
     revalidatePath("/admin/clearance");
     revalidatePath("/opsupport");
@@ -395,7 +407,7 @@ export async function rejectAndArchiveThreat(threatId: string): Promise<Disposit
 export async function escalateToSecOps(threatId: string): Promise<DispositionResult> {
   try {
     const operatorId = await resolveDispositionOperatorId();
-    const { threat, mode } = await resolveClearanceThreatForActiveTenant(threatId);
+    const { threat, mode, tenantUuid } = await resolveClearanceThreatForActiveTenant(threatId);
     const escalatedIngestionDetails =
       mode === "sim"
         ? mergeIngestionDetailsPatchJson(threat.ingestionDetails ?? null, {
@@ -406,13 +418,15 @@ export async function escalateToSecOps(threatId: string): Promise<DispositionRes
           });
 
     if (mode === "prod") {
-      await prisma.workNote.create({
-        data: {
-          text: DMZ_ESCALATE_WORK_NOTE,
-          operatorId,
-          threatId,
-        },
-      });
+      await withIronguardTenant(tenantUuid, (tx) =>
+        tx.workNote.create({
+          data: {
+            text: DMZ_ESCALATE_WORK_NOTE,
+            operatorId,
+            threatId,
+          },
+        }),
+      );
       await auditLogCreateLoose({
         data: {
           action: "CLEARANCE_ESCALATED",
@@ -437,7 +451,9 @@ export async function escalateToSecOps(threatId: string): Promise<DispositionRes
       });
     }
 
-    const tail = await loadAuditTailForDigitalReceipt(mode, threat.id);
+    const tail = await withIronguardTenant(tenantUuid, (tx) =>
+      loadAuditTailForDigitalReceipt(mode, threat.id, tx),
+    );
     const nextScalars = threatScalarsForHash(threat, {
       status: ThreatState.CONFIRMED,
       dispositionStatus: DISPOSITION_STATUS_ESCALATED,
@@ -456,7 +472,7 @@ export async function escalateToSecOps(threatId: string): Promise<DispositionRes
       ingestionDetails: escalatedIngestionDetails,
       dispositionStatus: DISPOSITION_STATUS_ESCALATED,
       receiptHash,
-    });
+    }, tenantUuid);
 
     revalidatePath("/admin/clearance");
     revalidatePath("/opsupport");
@@ -511,8 +527,10 @@ export async function getThreatDigitalReceiptAction(
 ): Promise<DigitalReceiptActionResult> {
   noStore();
   try {
-    const { mode, threat } = await resolveThreatForReceiptForActiveTenant(threatId);
-    const tail = await loadAuditTailForDigitalReceipt(mode, threat.id);
+    const { mode, threat, tenantUuid } = await resolveThreatForReceiptForActiveTenant(threatId);
+    const tail = await withIronguardTenant(tenantUuid, (tx) =>
+      loadAuditTailForDigitalReceipt(mode, threat.id, tx),
+    );
     const scalars = toReceiptThreatScalars(threat);
     const { receipt } = buildDigitalReceiptDocument({
       plane: mode === "sim" ? "shadow" : "production",
@@ -567,17 +585,24 @@ export async function submitClearanceElevationRequest(payload: {
       ? sessionUser.id.trim()
       : "shadow-operator";
 
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  if (!tenantUuid) {
+    return { ok: false, error: "No tenant context." };
+  }
+
   const rid = payload.riskEventId?.trim();
-  const created = await prisma.clearanceRequest.create({
-    data: {
-      userId,
-      riskEventId: rid && rid.length > 0 ? rid : null,
-      targetClearance: normalized,
-      status: "PENDING",
-      justification,
-    },
-    select: { id: true },
-  });
+  const created = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.clearanceRequest.create({
+      data: {
+        userId,
+        riskEventId: rid && rid.length > 0 ? rid : null,
+        targetClearance: normalized,
+        status: "PENDING",
+        justification,
+      },
+      select: { id: true },
+    }),
+  );
 
   return { ok: true, requestId: created.id };
 }
@@ -595,16 +620,21 @@ export async function processClearanceRequest(requestId: string): Promise<Proces
   const id = requestId.trim();
   if (!id) return { ok: false, error: "Missing request id." };
 
-  const row = await prisma.clearanceRequest.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      status: true,
-      userId: true,
-      targetClearance: true,
-      riskEventId: true,
-    },
-  });
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  if (!tenantUuid) return { ok: false, error: "No tenant context." };
+
+  const row = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.clearanceRequest.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        userId: true,
+        targetClearance: true,
+        riskEventId: true,
+      },
+    }),
+  );
   if (!row) return { ok: false, error: "Request not found." };
   if (row.status !== "PENDING") {
     return { ok: false, error: "Request is no longer pending." };
@@ -616,11 +646,13 @@ export async function processClearanceRequest(requestId: string): Promise<Proces
   const streamTie = row.riskEventId?.trim() || row.id;
 
   if (!approved) {
-    await prisma.clearanceRequest.update({
-      where: { id: row.id },
-      data: { status: "DENIED" },
-      select: { id: true },
-    });
+    await withIronguardTenant(tenantUuid, (tx) =>
+      tx.clearanceRequest.update({
+        where: { id: row.id },
+        data: { status: "DENIED" },
+        select: { id: true },
+      }),
+    );
     await recordResilienceIntelStreamLine(
       `🤖 [IRONLOCK] | Clearance elevation denied for User [${row.userId}] after identity verification check.`,
       streamTie,
@@ -628,11 +660,13 @@ export async function processClearanceRequest(requestId: string): Promise<Proces
     return { ok: true, approved: false };
   }
 
-  await prisma.clearanceRequest.update({
-    where: { id: row.id },
-    data: { status: "APPROVED" },
-    select: { id: true },
-  });
+  await withIronguardTenant(tenantUuid, (tx) =>
+    tx.clearanceRequest.update({
+      where: { id: row.id },
+      data: { status: "APPROVED" },
+      select: { id: true },
+    }),
+  );
 
   const level = normalizeClearanceLevel(row.targetClearance);
   await recordResilienceIntelStreamLine(

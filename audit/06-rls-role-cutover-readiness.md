@@ -2,7 +2,8 @@
 
 **Production baseline:** `944da05a`
 **Assessment date:** 2026-09-09
-**Verdict:** **BLOCKED — do not replace the production `DATABASE_URL` with a `NOBYPASSRLS` role yet.**
+**Preview smoke:** **PASSED** (2026-09-17) — `production-tenant-rls-verify` / `vgvuxqrejchhafqcquur`, `npm run smoke:rls:preview` 5/5
+**Verdict:** **PREVIEW GATE CLEARED — do not replace the production `DATABASE_URL` with a `NOBYPASSRLS` role until application code is deployed and production roles are provisioned under an explicit go.**
 
 ## Scope
 
@@ -94,17 +95,33 @@ authorization and audit logging.
 
 1. Run TypeScript, unit, integration, and authenticated Playwright suites.
 2. Deploy to the Supabase preview branch with an `ironframe_app` `NOBYPASSRLS` credential.
-3. Verify an unbound connection sees zero tenant rows and cannot write.
-4. Verify each bound tenant sees and mutates only its own rows.
-5. Execute cross-tenant negative tests for request paths, cron paths, ThreatEvent, CRM, audit logs,
+3. Run `npm run smoke:rls:preview` against that preview (`DATABASE_URL` = `ironframe_app`,
+   `PRIVILEGED_DATABASE_URL` set to a distinct role, `RLS_SMOKE_TENANT_A` / `RLS_SMOKE_TENANT_B`
+   seeded). Expect: unbound ledger counts are zero; bound tenant A cannot see tenant B;
+   `SystemConfig` remains readable without a tenant bind.
+4. Verify an unbound connection sees zero tenant rows and cannot write.
+5. Verify each bound tenant sees and mutates only its own rows.
+6. Execute cross-tenant negative tests for request paths, cron paths, ThreatEvent, CRM, audit logs,
    and checkpoints.
-6. Verify privileged operations are inaccessible from ordinary tenant request handlers.
-7. Deploy application code before rotating production `DATABASE_URL`.
-8. Monitor authorization failures and rollback without restoring shared privileged credentials to
+7. Verify privileged operations are inaccessible from ordinary tenant request handlers.
+8. Deploy application code before rotating production `DATABASE_URL`.
+9. Monitor authorization failures and rollback without restoring shared privileged credentials to
    tenant request paths.
 
 ## Decision
 
-Keep the current database-role cutover deferred. Continue with the request-path migration,
-special-table policies, privileged-client separation, and preview proof. No production database
-role, credential, or policy mutation is authorized by this assessment.
+Preview `NOBYPASSRLS` smoke is green. Keep **production** database-role cutover deferred until:
+
+1. This branch is merged and deployed (app code before credential rotation).
+2. Production provisions `ironframe_app` + `ironframe_privileged` with distinct passwords and
+   narrow grants (same shape as preview; never point `DATABASE_URL` at privileged).
+3. Vercel Production sets `DATABASE_URL` / `DIRECT_URL` to `ironframe_app.<projectRef>` and
+   `PRIVILEGED_DATABASE_URL` to `ironframe_privileged.<projectRef>`.
+4. An explicit production go authorizes the `DATABASE_URL` rotation and post-cutover monitoring.
+
+No production database role, credential, or policy mutation is authorized by this update alone.
+
+**Preview evidence (2026-09-17):** `ironframe_app` / `ironframe_privileged` both `LOGIN` and
+`rolbypassrls=false`; smoke 5/5 (unbound ledger zero, tenant bind isolation, SystemConfig global
+readable, privileged role distinct). Worktree `.env.local` holds preview pooler URLs only and
+must not be committed.

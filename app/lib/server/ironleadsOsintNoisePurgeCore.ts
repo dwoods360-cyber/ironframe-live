@@ -1,7 +1,7 @@
 import "server-only";
 
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 /**
  * Hard-delete a SUSPECT contact + its deals (title-noise / non-company harvest rows).
@@ -12,16 +12,18 @@ export async function discardIronleadsSuspectContact(contactId: string): Promise
   error?: string;
   status?: number;
 }> {
-  const contact = await prisma.ironboardCrmContact.findUnique({
-    where: { id: contactId },
-    select: {
-      id: true,
-      company: true,
-      primaryDeals: {
-        select: { id: true, stage: true },
+  const contact = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findFirst({
+      where: { id: contactId, tenantId },
+      select: {
+        id: true,
+        company: true,
+        primaryDeals: {
+          select: { id: true, stage: true },
+        },
       },
-    },
-  });
+    }),
+  );
   if (!contact) {
     return { ok: false, error: "Contact not found", status: 404 };
   }
@@ -40,18 +42,22 @@ export async function discardIronleadsSuspectContact(contactId: string): Promise
 }
 
 async function deleteSuspectContactGraph(contactId: string, dealIds: string[]): Promise<void> {
-  if (dealIds.length) {
-    await prisma.ironboardCrmInteraction.deleteMany({
-      where: { dealId: { in: dealIds } },
+  await withProspectPoolTenant(async (tx, tenantId) => {
+    if (dealIds.length) {
+      await tx.ironboardCrmInteraction.deleteMany({
+        where: { tenantId, dealId: { in: dealIds } },
+      });
+      await tx.ironboardCrmDeal.deleteMany({
+        where: { tenantId, id: { in: dealIds } },
+      });
+    }
+    await tx.ironboardCrmInteraction.deleteMany({
+      where: { tenantId, contactId },
     });
-    await prisma.ironboardCrmDeal.deleteMany({
-      where: { id: { in: dealIds } },
+    await tx.ironboardCrmContact.deleteMany({
+      where: { tenantId, id: contactId },
     });
-  }
-  await prisma.ironboardCrmInteraction.deleteMany({
-    where: { contactId },
   });
-  await prisma.ironboardCrmContact.delete({ where: { id: contactId } });
 }
 
 /**
@@ -59,17 +65,19 @@ async function deleteSuspectContactGraph(contactId: string, dealIds: string[]): 
  * (e.g. "BOD 26-04 Prioritizing Security").
  */
 export async function purgeOsintTitleNoiseSuspects(): Promise<{ removedContacts: number }> {
-  const suspects = await prisma.ironboardCrmContact.findMany({
-    where: { primaryDeals: { some: { stage: "SUSPECT" } } },
-    select: {
-      id: true,
-      company: true,
-      primaryDeals: {
-        where: { stage: "SUSPECT" },
-        select: { id: true },
+  const suspects = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findMany({
+      where: { tenantId, primaryDeals: { some: { stage: "SUSPECT" } } },
+      select: {
+        id: true,
+        company: true,
+        primaryDeals: {
+          where: { stage: "SUSPECT" },
+          select: { id: true },
+        },
       },
-    },
-  });
+    }),
+  );
 
   let removedContacts = 0;
   for (const row of suspects) {

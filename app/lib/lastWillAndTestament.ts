@@ -6,7 +6,9 @@ import { join } from "path";
 import prisma from "@/lib/prisma";
 import { encryptLastWillPayload, decryptLastWillPayload } from "@/lib/security/lwtCrypto";
 import { getTasFingerprintSnapshot } from "@/app/utils/tasFingerprint";
-import { auditLogCreateLoose } from "@/lib/auditLogLoose";
+import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 export const LWT_SENT_ACTION = "LWT_SENT";
 export const LWT_LINGER_MS_DEFAULT = 30_000;
@@ -50,30 +52,47 @@ async function collectLastWillPlaintext(
   const archiveId = randomUUID();
   const snap = getTasFingerprintSnapshot({ forceRefresh: true });
 
-  const auditWhere = triggerTenantId
-    ? {
-        OR: [
-          { tenantId: triggerTenantId },
-          { governance_tenant_uuid: triggerTenantId },
-        ],
-      }
-    : {};
-
   let auditEntries: LastWillPlaintext["auditEntries"] = [];
   try {
-    const rows = await prisma.auditLog.findMany({
-      where: auditWhere,
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: {
-        id: true,
-        action: true,
-        operatorId: true,
-        createdAt: true,
-        justification: true,
-      },
-    });
-    auditEntries = rows.map((r) => ({
+    const tenantIds = triggerTenantId?.trim()
+      ? [triggerTenantId.trim()]
+      : await listCatalogTenantIds();
+    const rows: Array<{
+      id: string;
+      action: string;
+      operatorId: string;
+      createdAt: Date;
+      justification: string | null;
+    }> = [];
+    for (const tenantId of tenantIds) {
+      const slice = await withIronguardTenant(tenantId, (tx) =>
+        tx.auditLog.findMany({
+          where: {
+            tenantId,
+            ...(triggerTenantId
+              ? {
+                  OR: [
+                    { tenantId: triggerTenantId },
+                    { governance_tenant_uuid: triggerTenantId },
+                  ],
+                }
+              : {}),
+          },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          select: {
+            id: true,
+            action: true,
+            operatorId: true,
+            createdAt: true,
+            justification: true,
+          },
+        }),
+      );
+      rows.push(...slice);
+    }
+    rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    auditEntries = rows.slice(0, 50).map((r) => ({
       id: r.id,
       action: r.action,
       operatorId: r.operatorId,
@@ -200,23 +219,30 @@ export async function sendLastWillAndTestament(
   const justificationPrefix = isSimulation ? `${LWT_SIMULATION_DATA_TAG} ` : "";
 
   try {
-    await auditLogCreateLoose({
-      data: {
-        action: LWT_SENT_ACTION,
-        justification: `${justificationPrefix}${JSON.stringify({
-          event: "LAST_WILL_AND_TESTAMENT",
-          archiveId: plaintext.archiveId,
-          postedOffSite,
-          payloadSha256,
-          triggerTenantId,
-          simulationDataTag: isSimulation ? LWT_SIMULATION_DATA_TAG : undefined,
-        })}`,
-        operatorId: "SYSTEM_DMS",
-        threatId: null,
-        isSimulation,
-        governance_tenant_uuid: triggerTenantId ?? undefined,
-      },
-    });
+    const tenantIds = triggerTenantId?.trim()
+      ? [triggerTenantId.trim()]
+      : await listCatalogTenantIds();
+    for (const tenantId of tenantIds) {
+      await withIronguardTenant(tenantId, (tx) =>
+        auditLogCreateLooseTx(tx, {
+          data: {
+            action: LWT_SENT_ACTION,
+            justification: `${justificationPrefix}${JSON.stringify({
+              event: "LAST_WILL_AND_TESTAMENT",
+              archiveId: plaintext.archiveId,
+              postedOffSite,
+              payloadSha256,
+              triggerTenantId,
+              simulationDataTag: isSimulation ? LWT_SIMULATION_DATA_TAG : undefined,
+            })}`,
+            operatorId: "SYSTEM_DMS",
+            threatId: null,
+            isSimulation,
+            governance_tenant_uuid: tenantId,
+          },
+        }),
+      );
+    }
   } catch (e) {
     console.error("[sendLastWillAndTestament] audit failed", e);
   }

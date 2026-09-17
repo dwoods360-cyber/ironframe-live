@@ -1,6 +1,8 @@
 import AdmZip from "adm-zip";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getRiskAcceptanceDecisions } from "@/app/api/audit/riskAcceptanceStore";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
+import { requireTenantAccess, TENANT_UUIDS, type TenantKey } from "@/app/utils/tenantIsolation";
 import { getOutboundMailLog } from "@/app/utils/mailHub";
 
 type ExportRequestBody = {
@@ -15,13 +17,34 @@ function makeMinimalPdf(content: string) {
   return `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n4 0 obj\n<< /Length ${content.length + 45} >>\nstream\nBT\n/F1 16 Tf\n72 720 Td\n(${content}) Tj\nET\nendstream\nendobj\n5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000010 00000 n \n0000000062 00000 n \n0000000125 00000 n \n0000000278 00000 n \n0000000412 00000 n \ntrailer\n<< /Root 1 0 R /Size 6 >>\nstartxref\n493\n%%EOF`;
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+
   const body = (await request.json()) as ExportRequestBody;
   const entityId = body?.entityId;
   const dateRange = body?.dateRange;
 
   if (!entityId || !dateRange?.from || !dateRange?.to) {
     return NextResponse.json({ ok: false, error: "entityId and dateRange.from/dateRange.to are required." }, { status: 400 });
+  }
+
+  const entityTenantUuid = TENANT_UUIDS[entityId as TenantKey];
+  if (!entityTenantUuid) {
+    return NextResponse.json({ ok: false, error: "Unknown entityId." }, { status: 400 });
+  }
+
+  try {
+    requireTenantAccess(guard.tenantUuid, entityTenantUuid);
+  } catch (err) {
+    const status =
+      err instanceof Error && "statusCode" in err && typeof (err as { statusCode: unknown }).statusCode === "number"
+        ? (err as { statusCode: number }).statusCode
+        : 403;
+    return NextResponse.json(
+      { ok: false, error: err instanceof Error ? err.message : "Tenant scope denied for export." },
+      { status },
+    );
   }
 
   const entityLabel = entityId.toUpperCase();

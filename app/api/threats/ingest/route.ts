@@ -8,12 +8,12 @@ import {
   buildWormAuditedBypassLabel,
 } from '@/app/lib/evidence/threatEventWormGuard';
 import { runAuditedThreatEventWormBypass } from '@/app/lib/prisma/threatEventWormBypass';
-import prisma from '@/lib/prisma';
 import { acknowledgeThreatAction } from '@/app/actions/threatActions';
 import { mergeIngestionDetailsPatch, mergeIngestionDetailsPatchJson, parseIngestionDetailsForMerge } from '@/app/utils/ingestionDetailsMerge';
 import { markOperationalDeficiencyReportPromotedToThreat } from '@/app/lib/opsupport/markDeficiencyPromoted';
 import { grcGatePass } from '@/app/utils/grcGate';
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { getActiveTenantUuidFromCookies, isValidTenantUuid } from '@/app/utils/serverTenantContext';
 import { isShadowPlaneActiveFromEnv } from '@/app/utils/shadowPlaneActive';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
@@ -172,9 +172,21 @@ export async function POST(request: NextRequest) {
 
     const threat = await (async () => {
       const useRisk = await ingressUsesRiskEventTable();
-      if (useRisk) {
-        return prisma.riskEvent.findFirst({
-          where: { id: threatId },
+      return withIronguardTenant(tenantId, async (tx) => {
+        if (useRisk) {
+          return tx.riskEvent.findFirst({
+            where: { id: threatId, tenantId },
+            select: {
+              financialRisk_cents: true,
+              status: true,
+              createdAt: true,
+              ingestionDetails: true,
+              targetEntity: true,
+            },
+          });
+        }
+        return tx.threatEvent.findFirst({
+          where: { id: threatId, tenantId },
           select: {
             financialRisk_cents: true,
             status: true,
@@ -183,16 +195,6 @@ export async function POST(request: NextRequest) {
             targetEntity: true,
           },
         });
-      }
-      return prisma.threatEvent.findUnique({
-        where: { id: threatId },
-        select: {
-          financialRisk_cents: true,
-          status: true,
-          createdAt: true,
-          ingestionDetails: true,
-          targetEntity: true,
-        },
       });
     })();
 
@@ -243,37 +245,42 @@ export async function POST(request: NextRequest) {
       const useRiskTable = await ingressUsesRiskEventTable();
       try {
         if (useRiskTable) {
-          const rowIngest = await prisma.riskEvent.findFirst({
-            where: { id: threatId },
-            select: { tenantId: true, ingestionDetails: true },
+          await withIronguardTenant(tenantId, async (tx) => {
+            const rowIngest = await tx.riskEvent.findFirst({
+              where: { id: threatId, tenantId },
+              select: { tenantId: true, ingestionDetails: true },
+            });
+            if (rowIngest?.tenantId) {
+              const mergedHold = mergeIngestionDetailsPatchJson(rowIngest.ingestionDetails ?? null, {
+                discoveryIngestHoldStartedAt: holdIso,
+                riskVelocityDiscoveryHold: true,
+              });
+              await tx.riskEvent.updateMany({
+                where: { id: threatId, tenantId: rowIngest.tenantId },
+                data: { ingestionDetails: mergedHold },
+              });
+            }
           });
-          if (rowIngest?.tenantId) {
-            const mergedHold = mergeIngestionDetailsPatchJson(rowIngest.ingestionDetails ?? null, {
+        } else {
+          await withIronguardTenant(tenantId, async (tx) => {
+            const te = await tx.threatEvent.findFirst({
+              where: { id: threatId, tenantId },
+              select: { ingestionDetails: true },
+            });
+            const mergedHold = mergeIngestionDetailsPatch(te?.ingestionDetails ?? null, {
               discoveryIngestHoldStartedAt: holdIso,
               riskVelocityDiscoveryHold: true,
             });
-            await prisma.riskEvent.updateMany({
-              where: { id: threatId, tenantId: rowIngest.tenantId },
-              data: { ingestionDetails: mergedHold },
-            });
-          }
-        } else {
-          const te = await prisma.threatEvent.findUnique({
-            where: { id: threatId },
-            select: { ingestionDetails: true },
+            await runAuditedThreatEventWormBypass(
+              buildWormAuditedBypassLabel(threatId, 'INGEST_DISCOVERY_HOLD_STAMP'),
+              (wormTx) =>
+                wormTx.threatEvent.updateMany({
+                  where: { id: threatId, tenantId },
+                  data: { ingestionDetails: mergedHold },
+                }),
+              tx,
+            );
           });
-          const mergedHold = mergeIngestionDetailsPatch(te?.ingestionDetails ?? null, {
-            discoveryIngestHoldStartedAt: holdIso,
-            riskVelocityDiscoveryHold: true,
-          });
-          await runAuditedThreatEventWormBypass(
-            buildWormAuditedBypassLabel(threatId, 'INGEST_DISCOVERY_HOLD_STAMP'),
-            (tx) =>
-              tx.threatEvent.updateMany({
-                where: { id: threatId },
-                data: { ingestionDetails: mergedHold },
-              }),
-          );
         }
       } catch (stampErr) {
         console.warn("[api/threats/ingest] discovery hold stamp failed", stampErr);
@@ -319,25 +326,28 @@ export async function POST(request: NextRequest) {
 
     try {
       if (promotedSignalId) {
-        const te = await prisma.threatEvent.findUnique({
-          where: { id: threatId },
-          select: { ingestionDetails: true },
+        await withIronguardTenant(tenantId, async (tx) => {
+          const te = await tx.threatEvent.findFirst({
+            where: { id: threatId, tenantId },
+            select: { ingestionDetails: true },
+          });
+          const merged = mergeIngestionDetailsPatch(te?.ingestionDetails ?? null, {
+            promotedFromSignalId: promotedSignalId,
+            signalVelocityLifecycle: 'promoted',
+            riskVelocitySignalStatus: 'promoted',
+            /** Product “Active Risk” — DB uses `ThreatState.CONFIRMED` / MITIGATED (ack path promotes IDENTIFIED → CONFIRMED). */
+            commandCenterLifecycle: 'ACTIVE_RISK',
+          });
+          await runAuditedThreatEventWormBypass(
+            buildWormAuditedBypassLabel(threatId, 'INGEST_SIGNAL_PROMOTION_STAMP'),
+            (wormTx) =>
+              wormTx.threatEvent.updateMany({
+                where: { id: threatId, tenantId },
+                data: { ingestionDetails: merged },
+              }),
+            tx,
+          );
         });
-        const merged = mergeIngestionDetailsPatch(te?.ingestionDetails ?? null, {
-          promotedFromSignalId: promotedSignalId,
-          signalVelocityLifecycle: 'promoted',
-          riskVelocitySignalStatus: 'promoted',
-          /** Product “Active Risk” — DB uses `ThreatState.CONFIRMED` / MITIGATED (ack path promotes IDENTIFIED → CONFIRMED). */
-          commandCenterLifecycle: 'ACTIVE_RISK',
-        });
-        await runAuditedThreatEventWormBypass(
-          buildWormAuditedBypassLabel(threatId, 'INGEST_SIGNAL_PROMOTION_STAMP'),
-          (tx) =>
-            tx.threatEvent.updateMany({
-              where: { id: threatId },
-              data: { ingestionDetails: merged },
-            }),
-        );
       }
       if (deficiencyReportId) {
         await markOperationalDeficiencyReportPromotedToThreat(tenantId, deficiencyReportId, threatId);
@@ -364,41 +374,45 @@ export async function POST(request: NextRequest) {
       } as const;
 
       if (useRiskForChaos) {
-        const rowIngest = await prisma.riskEvent.findFirst({
-          where: { id: threatId },
-          select: { tenantId: true, ingestionDetails: true },
+        const rowIngest = await withIronguardTenant(tenantId, async (tx) => {
+          const row = await tx.riskEvent.findFirst({
+            where: { id: threatId, tenantId },
+            select: { tenantId: true, ingestionDetails: true },
+          });
+          if (!row) return null;
+          const parsed = parseIngestionDetailsForMerge(row.ingestionDetails ?? null) as Record<string, unknown>;
+          if (!isChaosLikeIngestion(parsed, botIngest)) return null;
+          const mergedChaos = mergeIngestionDetailsPatchJson(row.ingestionDetails ?? null, {
+            ...chaosPatch,
+          });
+          await tx.riskEvent.updateMany({
+            where: { id: threatId, tenantId: row.tenantId },
+            data: { assigneeId: 'User_00', ingestionDetails: mergedChaos },
+          });
+          return row;
         });
-        if (rowIngest) {
-          const parsed = parseIngestionDetailsForMerge(rowIngest.ingestionDetails ?? null) as Record<string, unknown>;
-          if (isChaosLikeIngestion(parsed, botIngest)) {
-            const mergedChaos = mergeIngestionDetailsPatchJson(rowIngest.ingestionDetails ?? null, {
-              ...chaosPatch,
-            });
-            await prisma.riskEvent.updateMany({
-              where: { id: threatId, tenantId: rowIngest.tenantId },
-              data: { assigneeId: 'User_00', ingestionDetails: mergedChaos },
-            });
-          }
-        }
+        void rowIngest;
       } else {
-        const rowIngest = await prisma.threatEvent.findUnique({
-          where: { id: threatId },
-          select: { ingestionDetails: true },
-        });
-        const parsed = parseIngestionDetailsForMerge(rowIngest?.ingestionDetails ?? null) as Record<string, unknown>;
-        if (isChaosLikeIngestion(parsed, botIngest)) {
+        await withIronguardTenant(tenantId, async (tx) => {
+          const rowIngest = await tx.threatEvent.findFirst({
+            where: { id: threatId, tenantId },
+            select: { ingestionDetails: true },
+          });
+          const parsed = parseIngestionDetailsForMerge(rowIngest?.ingestionDetails ?? null) as Record<string, unknown>;
+          if (!isChaosLikeIngestion(parsed, botIngest)) return;
           const mergedChaos = mergeIngestionDetailsPatch(rowIngest?.ingestionDetails ?? null, {
             ...chaosPatch,
           });
           await runAuditedThreatEventWormBypass(
             buildWormAuditedBypassLabel(threatId, 'INGEST_CHAOS_ASSIGNEE_STAMP'),
-            (tx) =>
-              tx.threatEvent.updateMany({
-                where: { id: threatId },
+            (wormTx) =>
+              wormTx.threatEvent.updateMany({
+                where: { id: threatId, tenantId },
                 data: { assigneeId: 'User_00', ingestionDetails: mergedChaos },
               }),
+            tx,
           );
-        }
+        });
       }
     } catch (chaosStampErr) {
       console.warn('[api/threats/ingest] chaos User_00 stamp failed', chaosStampErr);
@@ -470,31 +484,35 @@ export async function POST(request: NextRequest) {
           };
           const useRiskTable = await ingressUsesRiskEventTable();
           if (useRiskTable) {
-            const row = await prisma.riskEvent.findFirst({
-              where: { id: threatId },
-              select: { tenantId: true, ingestionDetails: true },
-            });
-            if (row?.tenantId) {
+            await withIronguardTenant(tenantId, async (tx) => {
+              const row = await tx.riskEvent.findFirst({
+                where: { id: threatId, tenantId },
+                select: { tenantId: true, ingestionDetails: true },
+              });
+              if (!row?.tenantId) return;
               const merged = mergeIngestionDetailsPatchJson(row.ingestionDetails ?? null, busPatch);
-              await prisma.riskEvent.updateMany({
+              await tx.riskEvent.updateMany({
                 where: { id: threatId, tenantId: row.tenantId },
                 data: { ingestionDetails: merged },
               });
-            }
-          } else {
-            const te = await prisma.threatEvent.findUnique({
-              where: { id: threatId },
-              select: { ingestionDetails: true },
             });
-            const merged = mergeIngestionDetailsPatch(te?.ingestionDetails ?? null, busPatch);
-            await runAuditedThreatEventWormBypass(
-              buildWormAuditedBypassLabel(threatId, 'INGEST_ORCHESTRATION_BUS_STAMP'),
-              (tx) =>
-                tx.threatEvent.updateMany({
-                  where: { id: threatId },
-                  data: { ingestionDetails: merged },
-                }),
-            );
+          } else {
+            await withIronguardTenant(tenantId, async (tx) => {
+              const te = await tx.threatEvent.findFirst({
+                where: { id: threatId, tenantId },
+                select: { ingestionDetails: true },
+              });
+              const merged = mergeIngestionDetailsPatch(te?.ingestionDetails ?? null, busPatch);
+              await runAuditedThreatEventWormBypass(
+                buildWormAuditedBypassLabel(threatId, 'INGEST_ORCHESTRATION_BUS_STAMP'),
+                (wormTx) =>
+                  wormTx.threatEvent.updateMany({
+                    where: { id: threatId, tenantId },
+                    data: { ingestionDetails: merged },
+                  }),
+                tx,
+              );
+            });
           }
         } catch (busStampErr) {
           console.warn('[api/threats/ingest] orchestration bus ingestion stamp failed', busStampErr);

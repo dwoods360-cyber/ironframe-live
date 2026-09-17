@@ -3,6 +3,7 @@ import "server-only";
 import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { clearAgentCacheForTenant } from "@/app/lib/agentCache";
@@ -64,30 +65,34 @@ async function brickActiveThreatsForTenant(tenantId: string): Promise<{
   });
   const companyIds = companyRows.map((c) => c.id);
 
-  const shadow = await prisma.riskEvent.deleteMany({
-    where: {
-      tenantId,
-      status: { in: ACTIVE_THREAT_STATES },
-    },
-  });
-
-  let prod = { count: 0 };
-  if (companyIds.length > 0) {
-    prod = await runAuditedThreatEventWormBypass({
-      threatId: `tenant:${tenantId}`,
-      eventType: "ADMIN_SCORCH_PROTOCOL_EXECUTION",
-      actorUserId: "SYSTEM_DMS",
-      execute: (tx) =>
-        tx.threatEvent.deleteMany({
-          where: {
-            tenantCompanyId: { in: companyIds },
-            status: { in: ACTIVE_THREAT_STATES },
-          },
-        }),
+  return withIronguardTenant(tenantId, async (tx) => {
+    const shadow = await tx.riskEvent.deleteMany({
+      where: {
+        tenantId,
+        status: { in: ACTIVE_THREAT_STATES },
+      },
     });
-  }
 
-  return { shadowCleared: shadow.count, prodCleared: prod.count };
+    let prod = { count: 0 };
+    if (companyIds.length > 0) {
+      prod = await runAuditedThreatEventWormBypass({
+        threatId: `tenant:${tenantId}`,
+        eventType: "ADMIN_SCORCH_PROTOCOL_EXECUTION",
+        actorUserId: "SYSTEM_DMS",
+        existingTx: tx,
+        execute: (innerTx) =>
+          innerTx.threatEvent.deleteMany({
+            where: {
+              tenantId,
+              tenantCompanyId: { in: companyIds },
+              status: { in: ACTIVE_THREAT_STATES },
+            },
+          }),
+      });
+    }
+
+    return { shadowCleared: shadow.count, prodCleared: prod.count };
+  });
 }
 
 export type HardWipeResult = {

@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
-import prisma from "@/lib/prisma";
 import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import type { OpSupportSimAuditRow } from "@/app/lib/opsupportDashTypes";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
@@ -41,65 +41,68 @@ export async function GET(request: NextRequest) {
   if (!guard.ok) return guard.response;
   const tenantUuid = guard.tenantUuid;
 
-  const companies = await prisma.company.findMany({
-    where: { tenantId: tenantUuid },
-    select: { id: true },
+  const { auditRows, diagRows } = await withIronguardTenant(tenantUuid, async (tx) => {
+    const companies = await tx.company.findMany({
+      where: { tenantId: tenantUuid },
+      select: { id: true },
+    });
+    const companyIds = companies.map((c) => c.id);
+
+    const threatScope =
+      companyIds.length > 0
+        ? ([{ threatId: null }, { threat: { tenantCompanyId: { in: companyIds } } }] as const)
+        : ([{ threatId: null }] as const);
+
+    const [boundAuditRows, boundDiagRows] = await Promise.all([
+      tx.auditLog.findMany({
+        where: {
+          AND: [
+            {
+              OR: [
+                { isSimulation: true },
+                { operatorId: { equals: "GRCBOT", mode: "insensitive" } },
+                { operatorId: { equals: "KIMBOT", mode: "insensitive" } },
+                { action: { contains: "SIMULATION", mode: "insensitive" } },
+                {
+                  AND: [{ action: "THREAT_RESOLVED" }, { isSimulation: true }],
+                },
+              ],
+            },
+            { OR: [...threatScope] },
+            ...(untilValid ? [{ createdAt: { lte: untilValid } }] : []),
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 150,
+        select: {
+          id: true,
+          createdAt: true,
+          action: true,
+          operatorId: true,
+          isSimulation: true,
+          threatId: true,
+          justification: true,
+        },
+      }),
+      tx.simulationDiagnosticLog.findMany({
+        where: {
+          tenantUuid,
+          ...(untilValid ? { createdAt: { lte: untilValid } } : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        take: 150,
+        select: {
+          id: true,
+          createdAt: true,
+          action: true,
+          operatorId: true,
+          simThreatId: true,
+          payload: true,
+        },
+      }),
+    ]);
+    return { auditRows: boundAuditRows, diagRows: boundDiagRows };
   });
-  const companyIds = companies.map((c) => c.id);
-
-  const threatScope =
-    companyIds.length > 0
-      ? ([{ threatId: null }, { threat: { tenantCompanyId: { in: companyIds } } }] as const)
-      : ([{ threatId: null }] as const);
-
-  const [auditRows, diagRows] = await Promise.all([
-    prisma.auditLog.findMany({
-      where: {
-        AND: [
-          {
-            OR: [
-              { isSimulation: true },
-              { operatorId: { equals: "GRCBOT", mode: "insensitive" } },
-              { operatorId: { equals: "KIMBOT", mode: "insensitive" } },
-              { action: { contains: "SIMULATION", mode: "insensitive" } },
-              {
-                AND: [{ action: "THREAT_RESOLVED" }, { isSimulation: true }],
-              },
-            ],
-          },
-          { OR: [...threatScope] },
-          ...(untilValid ? [{ createdAt: { lte: untilValid } }] : []),
-        ],
-      },
-      orderBy: { createdAt: "desc" },
-      take: 150,
-      select: {
-        id: true,
-        createdAt: true,
-        action: true,
-        operatorId: true,
-        isSimulation: true,
-        threatId: true,
-        justification: true,
-      },
-    }),
-    prisma.simulationDiagnosticLog.findMany({
-      where: {
-        tenantUuid,
-        ...(untilValid ? { createdAt: { lte: untilValid } } : {}),
-      },
-      orderBy: { createdAt: "desc" },
-      take: 150,
-      select: {
-        id: true,
-        createdAt: true,
-        action: true,
-        operatorId: true,
-        simThreatId: true,
-        payload: true,
-      },
-    }),
-  ]);
 
   const fromAudit: OpSupportSimAuditRow[] = auditRows.map((r) => {
     const j = (r.justification ?? "").trim();

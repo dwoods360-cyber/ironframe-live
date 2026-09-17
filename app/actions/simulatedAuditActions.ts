@@ -22,7 +22,7 @@ export async function runSimulatedAuditAction(
     return { ok: false, error: "Generate a TAS amendment before running simulated audit." };
   }
 
-  const drift = await readComplianceDriftState();
+  const drift = await readComplianceDriftState(tenantId);
   const alert = drift.alerts.find((a) => a.id === alertId);
   if (!alert) return { ok: false, error: "Drift alert not found." };
 

@@ -9,6 +9,7 @@ import {
   tenantBillingHoldJsonResponse,
 } from '@/app/lib/billing/tenantBillingEntitlement';
 import { grcGatePass } from '@/app/utils/grcGate';
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import {
   ingressSanitizerFailureResponse,
@@ -108,20 +109,52 @@ export async function POST(request: NextRequest) {
     }
 
     const mapped = mapEndpointComplianceToThreatEvent(validated);
-    const existing = await prisma.threatEvent.findUnique({
-      where: { ingestion_fingerprint: mapped.ingestion_fingerprint },
-      select: {
-        id: true,
-        title: true,
-        sourceAgent: true,
-        targetEntity: true,
-        financialRisk_cents: true,
-        status: true,
-        ingestionDetails: true,
-      },
+    const company = await prisma.company.findFirst({
+      where: { tenantId: tenantId! },
+      select: { id: true },
     });
 
-    if (existing) {
+    const existingOrCreated = await withIronguardTenant(tenantId!, async (tx) => {
+      const existing = await tx.threatEvent.findFirst({
+        where: {
+          tenantId: tenantId!,
+          ingestion_fingerprint: mapped.ingestion_fingerprint,
+        },
+        select: {
+          id: true,
+          title: true,
+          sourceAgent: true,
+          targetEntity: true,
+          financialRisk_cents: true,
+          status: true,
+          ingestionDetails: true,
+        },
+      });
+      if (existing) {
+        return { kind: "existing" as const, row: existing };
+      }
+      const created = await tx.threatEvent.create({
+        data: sanitizeThreatIngressPayload({
+          ...mapped,
+          tenantCompanyId: company?.id,
+          tenantId: tenantId!,
+        }),
+        select: {
+          id: true,
+          title: true,
+          sourceAgent: true,
+          targetEntity: true,
+          financialRisk_cents: true,
+          score: true,
+          status: true,
+          ingestionDetails: true,
+        },
+      });
+      return { kind: "created" as const, row: created };
+    });
+
+    if (existingOrCreated.kind === "existing") {
+      const existing = existingOrCreated.row;
       return NextResponse.json(
         {
           id: existing.id,
@@ -138,28 +171,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const company = await prisma.company.findFirst({
-      where: { tenantId: tenantId! },
-      select: { id: true },
-    });
-
-    const created = await prisma.threatEvent.create({
-      data: sanitizeThreatIngressPayload({
-        ...mapped,
-        tenantCompanyId: company?.id,
-        tenantId: tenantId!,
-      }),
-      select: {
-        id: true,
-        title: true,
-        sourceAgent: true,
-        targetEntity: true,
-        financialRisk_cents: true,
-        score: true,
-        status: true,
-        ingestionDetails: true,
-      },
-    });
+    const created = existingOrCreated.row;
 
     const busBody = rawBody as Record<string, unknown>;
     let orchestrationBus: Awaited<ReturnType<typeof invokeIngestOrchestrationBus>> | undefined;

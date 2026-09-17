@@ -1,7 +1,7 @@
 import "server-only";
 
-import prisma from "@/lib/prisma";
-import type { ThreatState } from "@prisma/client";
+import type { Prisma, ThreatState } from "@prisma/client";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import {
   buildBoardFinancialDisplay,
   type BoardFinancialDisplay,
@@ -130,11 +130,21 @@ function resolveExposureFromAggregate(
   return activeThreatExposure > 0n ? activeThreatExposure : tenantBaseline;
 }
 
-async function sumActiveThreatExposureCents(companyIds: bigint[]): Promise<bigint> {
+type BoardTenantDb = Pick<
+  Prisma.TransactionClient,
+  "threatEvent" | "tenant" | "company" | "sustainabilityMetric" | "governanceFrameTriadSnapshot"
+>;
+
+async function sumActiveThreatExposureCents(
+  companyIds: bigint[],
+  db: BoardTenantDb,
+  tenantId: string,
+): Promise<bigint> {
   if (companyIds.length === 0) return 0n;
 
-  const aggregate = await prisma.threatEvent.aggregate({
+  const aggregate = await db.threatEvent.aggregate({
     where: {
+      tenantId,
       tenantCompanyId: { in: companyIds },
       status: { notIn: TERMINAL_THREAT_STATES },
     },
@@ -145,24 +155,26 @@ async function sumActiveThreatExposureCents(companyIds: bigint[]): Promise<bigin
 }
 
 async function resolveTenantExposureCents(tenantId: string): Promise<bigint> {
-  const [tenantRow, companies] = await Promise.all([
-    prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { ale_baseline: true },
-    }),
-    prisma.company.findMany({
-      where: { tenantId },
-      select: { id: true },
-    }),
-  ]);
-  const companyIds = companies.map((row) => row.id);
-  const tenantBaseline = tenantRow?.ale_baseline ?? 0n;
-  if (companyIds.length === 0) {
-    return tenantBaseline;
-  }
+  return withIronguardTenant(tenantId, async (tx) => {
+    const [tenantRow, companies] = await Promise.all([
+      tx.tenant.findUnique({
+        where: { id: tenantId },
+        select: { ale_baseline: true },
+      }),
+      tx.company.findMany({
+        where: { tenantId },
+        select: { id: true },
+      }),
+    ]);
+    const companyIds = companies.map((row) => row.id);
+    const tenantBaseline = tenantRow?.ale_baseline ?? 0n;
+    if (companyIds.length === 0) {
+      return tenantBaseline;
+    }
 
-  const activeThreatExposure = await sumActiveThreatExposureCents(companyIds);
-  return resolveExposureFromAggregate(activeThreatExposure, tenantBaseline);
+    const activeThreatExposure = await sumActiveThreatExposureCents(companyIds, tx, tenantId);
+    return resolveExposureFromAggregate(activeThreatExposure, tenantBaseline);
+  });
 }
 
 function parseIngestionPayload(raw: string | null): Record<string, unknown> {
@@ -236,59 +248,68 @@ export async function getSharedBoardContextForTenant(
     throw new Error("UNAUTHORIZED_ACCESS: Tenant isolation boundary breached or context missing.");
   }
 
-  const companies = await prisma.company.findMany({
-    where: { tenantId },
-    select: { id: true },
-  });
-  const companyIds = companies.map((row) => row.id);
-
-  const [tenantRow, threatRows, activeThreatExposure, readinessRows, sustainabilityAgg, narrativeSnapshot] =
-    await Promise.all([
-    prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { ale_baseline: true, slug: true, name: true },
-    }),
-    companyIds.length > 0
-      ? prisma.threatEvent.findMany({
-          where: {
-            tenantCompanyId: { in: companyIds },
-            status: { notIn: TERMINAL_THREAT_STATES },
-          },
-          select: {
-            id: true,
-            title: true,
-            score: true,
-            financialRisk_cents: true,
-            ingestionDetails: true,
-          },
-          orderBy: { updatedAt: "desc" },
-          take: 10,
-        })
-      : Promise.resolve([]),
-    companyIds.length > 0
-      ? sumActiveThreatExposureCents(companyIds)
-      : Promise.resolve(0n),
+  const [readinessRows, bound] = await Promise.all([
     compileFrameworkReadiness(tenantId).catch(() => []),
-    companyIds.length > 0
-      ? prisma.sustainabilityMetric.aggregate({
-          where: {
-            threat: { tenantCompanyId: { in: companyIds } },
-          },
-          _sum: { kwhAverted: true, coolingWaterLiters: true },
-        })
-      : Promise.resolve({ _sum: { kwhAverted: null, coolingWaterLiters: null } }),
-    prisma.governanceFrameTriadSnapshot.findFirst({
-      where: { tenantId },
-      orderBy: { operationalDate: "desc" },
-      select: {
-        operationalDate: true,
-        exposureVector: true,
-        impactSummary: true,
-        remediation: true,
-        narrativeMarkdown: true,
-      },
+    withIronguardTenant(tenantId, async (tx) => {
+      const companies = await tx.company.findMany({
+        where: { tenantId },
+        select: { id: true },
+      });
+      const companyIds = companies.map((row) => row.id);
+      const emptySustainability = {
+        _sum: { kwhAverted: null as bigint | null, coolingWaterLiters: null as number | null },
+      };
+      const [tenantRow, threatRows, activeThreatExposure, sustainabilityAgg, narrativeSnapshot] =
+        await Promise.all([
+          tx.tenant.findUnique({
+            where: { id: tenantId },
+            select: { ale_baseline: true, slug: true, name: true },
+          }),
+          companyIds.length > 0
+            ? tx.threatEvent.findMany({
+                where: {
+                  tenantId,
+                  tenantCompanyId: { in: companyIds },
+                  status: { notIn: TERMINAL_THREAT_STATES },
+                },
+                select: {
+                  id: true,
+                  title: true,
+                  score: true,
+                  financialRisk_cents: true,
+                  ingestionDetails: true,
+                },
+                orderBy: { updatedAt: "desc" },
+                take: 10,
+              })
+            : Promise.resolve([]),
+          companyIds.length > 0
+            ? sumActiveThreatExposureCents(companyIds, tx, tenantId)
+            : Promise.resolve(0n),
+          companyIds.length > 0
+            ? tx.sustainabilityMetric.aggregate({
+                where: {
+                  threat: { tenantId, tenantCompanyId: { in: companyIds } },
+                },
+                _sum: { kwhAverted: true, coolingWaterLiters: true },
+              })
+            : Promise.resolve(emptySustainability),
+          tx.governanceFrameTriadSnapshot.findFirst({
+            where: { tenantId },
+            orderBy: { operationalDate: "desc" },
+            select: {
+              operationalDate: true,
+              exposureVector: true,
+              impactSummary: true,
+              remediation: true,
+              narrativeMarkdown: true,
+            },
+          }),
+        ]);
+      return { tenantRow, threatRows, activeThreatExposure, sustainabilityAgg, narrativeSnapshot };
     }),
   ]);
+  const { tenantRow, threatRows, activeThreatExposure, sustainabilityAgg, narrativeSnapshot } = bound;
 
   const tenantBaseline = tenantRow?.ale_baseline ?? 0n;
   const currentExposureCents = resolveExposureFromAggregate(

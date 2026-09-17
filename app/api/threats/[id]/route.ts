@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { unstable_noStore as noStore } from 'next/cache';
-import prisma from '@/lib/prisma';
 import { getCompanyIdForTenantUuid } from '@/app/lib/grc/clearanceThreatResolve';
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 export const dynamic = 'force-dynamic';
@@ -96,45 +96,33 @@ export async function GET(
   noStore();
   try {
     const tenantCompanyId = await getCompanyIdForTenantUuid(guard.tenantUuid);
+    if (tenantCompanyId == null) {
+      return NextResponse.json({ error: 'Threat not found' }, { status: 404 });
+    }
 
-    let threatRow: ApiThreatDetail | null = null;
-    let isSimulation = false;
-
-    if (tenantCompanyId != null) {
-      const prod = await prisma.threatEvent.findFirst({
-        where: { id, tenantCompanyId },
-        select: threatDetailSelect,
-      });
-      if (prod) {
-        threatRow = prod;
-      } else {
-        const sim = await prisma.riskEvent.findFirst({
+    const { threatRow, isSimulation } = await withIronguardTenant(
+      guard.tenantUuid,
+      async (tx) => {
+        const prod = await tx.threatEvent.findFirst({
+          where: { id, tenantCompanyId },
+          select: threatDetailSelect,
+        });
+        if (prod) {
+          return { threatRow: prod as ApiThreatDetail, isSimulation: false };
+        }
+        const sim = await tx.riskEvent.findFirst({
           where: { id, tenantCompanyId },
           select: simThreatDetailSelect,
         });
         if (sim) {
-          isSimulation = true;
-          threatRow = { ...sim, notes: [], auditTrail: [], agentReasonings: [] };
+          return {
+            threatRow: { ...sim, notes: [], auditTrail: [], agentReasonings: [] } as ApiThreatDetail,
+            isSimulation: true,
+          };
         }
-      }
-    } else {
-      const prod = await prisma.threatEvent.findUnique({
-        where: { id },
-        select: threatDetailSelect,
-      });
-      if (prod) {
-        threatRow = prod;
-      } else {
-        const sim = await prisma.riskEvent.findFirst({
-          where: { id },
-          select: simThreatDetailSelect,
-        });
-        if (sim) {
-          isSimulation = true;
-          threatRow = { ...sim, notes: [], auditTrail: [], agentReasonings: [] };
-        }
-      }
-    }
+        return { threatRow: null, isSimulation: false };
+      },
+    );
 
     if (!threatRow) {
       return NextResponse.json({ error: 'Threat not found' }, { status: 404 });

@@ -1,6 +1,7 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
 
 /** Sum sealed physical kWh from production sustainability metrics for a tenant. */
@@ -38,15 +39,18 @@ export async function findLatestThreatPhysicalTelemetry(tenantUuid: string): Pro
   });
   if (!companies.length) return null;
 
-  const row = await prisma.threatEvent.findFirst({
-    where: {
-      tenantCompanyId: { in: companies.map((c) => c.id) },
-      ingestionDetails: { not: null },
-      status: "RESOLVED",
-    },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, ingestionDetails: true },
-  });
+  const row = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.threatEvent.findFirst({
+      where: {
+        tenantId: tenantUuid,
+        tenantCompanyId: { in: companies.map((c) => c.id) },
+        ingestionDetails: { not: null },
+        status: "RESOLVED",
+      },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, ingestionDetails: true },
+    }),
+  );
   if (!row) return null;
   return { threatId: row.id, ingestionDetails: row.ingestionDetails };
 }

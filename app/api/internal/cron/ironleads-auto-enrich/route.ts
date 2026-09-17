@@ -6,7 +6,7 @@ import {
 } from "@/app/api/internal/cron/cronAuth";
 import { serializeCronJsonPayload } from "@/app/api/internal/cron/cronRouteShell";
 import { runIronleadsAutoEnrichBatch } from "@/app/lib/server/ironleadsAutoEnrichCore";
-import prisma from "@/lib/prisma";
+import { recordCronJobArtifact } from "@/app/lib/server/cronTenantScope";
 
 /**
  * Ironleads auto-enrich — fills `@ironleads.local` placeholders via Prospeo → Apollo
@@ -42,20 +42,16 @@ async function handleCron(request: Request) {
       0,
     );
 
-    const prismaAny = prisma as any;
-    const artifact = await prismaAny.cronJobArtifact.create({
-      data: {
-        tenantId,
-        agentName: "ironleads-auto-enrich",
-        payloadJson: serializeCronJsonPayload({
-          batch,
-          source: "cron-ironleads-auto-enrich",
-          degraded: false,
-        }),
-        metricValue: BigInt(applied),
-        metricUnit: "count",
-      },
-      select: { id: true },
+    const artifact = await recordCronJobArtifact({
+      tenantId,
+      agentName: "ironleads-auto-enrich",
+      payloadJson: serializeCronJsonPayload({
+        batch,
+        source: "cron-ironleads-auto-enrich",
+        degraded: false,
+      }),
+      metricValue: BigInt(applied),
+      metricUnit: "count",
     });
 
     return NextResponse.json({
@@ -73,19 +69,16 @@ async function handleCron(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     try {
-      const prismaAny = prisma as any;
-      await prismaAny.cronJobArtifact.create({
-        data: {
-          tenantId,
-          agentName: "ironleads-auto-enrich",
-          payloadJson: {
-            degraded: true,
-            error: "IRONLEADS_AUTO_ENRICH_CRASH",
-            details: message,
-            source: "cron-ironleads-auto-enrich",
-          },
-          metricUnit: "count",
+      await recordCronJobArtifact({
+        tenantId,
+        agentName: "ironleads-auto-enrich",
+        payloadJson: {
+          degraded: true,
+          error: "IRONLEADS_AUTO_ENRICH_CRASH",
+          details: message,
+          source: "cron-ironleads-auto-enrich",
         },
+        metricUnit: "count",
       });
     } catch {
       // Best-effort telemetry.

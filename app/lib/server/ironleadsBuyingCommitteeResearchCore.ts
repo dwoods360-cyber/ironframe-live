@@ -39,7 +39,7 @@ import {
   websiteUrlFromDomainOrUrl,
 } from "@/app/lib/server/ironleadsSuspectLocation";
 import { probeCompanyWebsite } from "@/app/lib/server/ironleadsWebsiteProbeCore";
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 export type BuyingCommitteeEmail = {
   email: string;
@@ -469,8 +469,9 @@ async function attachMailboxHygiene(
 export async function researchBuyingCommitteeForContact(
   contactId: string,
 ): Promise<BuyingCommitteeResearchResult | null> {
-  const contact = await prisma.ironboardCrmContact.findUnique({
-    where: { id: contactId },
+  const contact = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findFirst({
+    where: { id: contactId, tenantId },
     select: {
       id: true,
       fullName: true,
@@ -487,7 +488,8 @@ export async function researchBuyingCommitteeForContact(
         select: { id: true, accountDomain: true, notes: true, stage: true },
       },
     },
-  });
+    }),
+  );
   if (!contact) return null;
   return researchAndPersist(contact);
 }
@@ -880,8 +882,9 @@ async function persistResearch(
 
   if (result.skipped && result.members.length === 0) {
     const prior = asRecord(contact.metadata) ?? {};
-    await prisma.ironboardCrmContact.update({
-      where: { id: contact.id },
+    await withProspectPoolTenant((tx, tenantId) =>
+      tx.ironboardCrmContact.updateMany({
+      where: { id: contact.id, tenantId },
       data: {
         metadata: {
           ...prior,
@@ -896,7 +899,8 @@ async function persistResearch(
           accountResearchBrief: brief,
         } as Prisma.InputJsonValue,
       },
-    });
+    }),
+    );
     return;
   }
 
@@ -999,49 +1003,50 @@ async function persistResearch(
 
   const nextPhone = contact.phone?.trim() || switchboard;
 
-  await prisma.ironboardCrmContact.update({
-    where: { id: contact.id },
-    data: {
-      phone: nextPhone,
-      metadata: metadata as Prisma.InputJsonValue,
-      ...(ciso?.fullName && isPlausiblePersonName(ciso.fullName)
-        ? {
-            fullName: ciso.fullName,
-            title: "Chief Information Security Officer",
-          }
-        : // Wipe contact label when prior research wrote product/UI junk as "fullName".
-          contact.fullName && !isPlausiblePersonName(contact.fullName)
-          ? {
-              fullName: `${contact.company} — buyer TBD`,
-              title: "",
-            }
-          : {}),
-    },
-  });
-
-  const deal = contact.primaryDeals[0];
-  if (deal) {
-    const derivedDomain =
-      normalizeAccountDomain(deal.accountDomain) ||
-      normalizeAccountDomain(result.websiteUrl) ||
-      normalizeAccountDomain(
-        typeof metadata.websiteUrl === "string" ? metadata.websiteUrl : null,
-      );
-    await prisma.ironboardCrmDeal.update({
-      where: { id: deal.id },
+  await withProspectPoolTenant(async (tx, tenantId) => {
+    await tx.ironboardCrmContact.updateMany({
+      where: { id: contact.id, tenantId },
       data: {
-        ...(derivedDomain && !deal.accountDomain
-          ? { accountDomain: derivedDomain }
-          : {}),
-        notes: [
-          deal.notes?.trim() || "",
-          `Buying-committee research ${result.researchedAt}: members=${result.members.map((m) => m.role).join(",") || "none"}; pages=${result.pagesFetched}`,
-        ]
-          .filter(Boolean)
-          .join("\n"),
+        phone: nextPhone,
+        metadata: metadata as Prisma.InputJsonValue,
+        ...(ciso?.fullName && isPlausiblePersonName(ciso.fullName)
+          ? {
+              fullName: ciso.fullName,
+              title: "Chief Information Security Officer",
+            }
+          : contact.fullName && !isPlausiblePersonName(contact.fullName)
+            ? {
+                fullName: `${contact.company} — buyer TBD`,
+                title: "",
+              }
+            : {}),
       },
     });
-  }
+
+    const deal = contact.primaryDeals[0];
+    if (deal) {
+      const derivedDomain =
+        normalizeAccountDomain(deal.accountDomain) ||
+        normalizeAccountDomain(result.websiteUrl) ||
+        normalizeAccountDomain(
+          typeof metadata.websiteUrl === "string" ? metadata.websiteUrl : null,
+        );
+      await tx.ironboardCrmDeal.updateMany({
+        where: { id: deal.id, tenantId },
+        data: {
+          ...(derivedDomain && !deal.accountDomain
+            ? { accountDomain: derivedDomain }
+            : {}),
+          notes: [
+            deal.notes?.trim() || "",
+            `Buying-committee research ${result.researchedAt}: members=${result.members.map((m) => m.role).join(",") || "none"}; pages=${result.pagesFetched}`,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        },
+      });
+    }
+  });
 }
 
 /** Portal Research-only batch size — keeps each Vercel invoke under maxDuration 120s. */
@@ -1183,8 +1188,9 @@ export async function researchBuyingCommitteeForAllSuspects(options?: {
   hasMore: boolean;
   results: BuyingCommitteeResearchResult[];
 }> {
-  const suspectsRaw = await prisma.ironboardCrmContact.findMany({
-    where: { primaryDeals: { some: { stage: "SUSPECT" } } },
+  const suspectsRaw = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findMany({
+    where: { tenantId, primaryDeals: { some: { stage: "SUSPECT" } } },
     orderBy: [{ createdAt: "desc" }, { priorityScore: "desc" }],
     take: 80,
     select: {
@@ -1203,7 +1209,8 @@ export async function researchBuyingCommitteeForAllSuspects(options?: {
         select: { id: true, accountDomain: true, notes: true, stage: true },
       },
     },
-  });
+  }),
+  );
 
   // Active only — prefer thinnest dossiers so Research fills gaps (queue UI sorts richest first).
   const activeSuspects = suspectsRaw

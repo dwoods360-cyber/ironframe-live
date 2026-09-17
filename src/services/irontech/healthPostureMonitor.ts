@@ -45,7 +45,7 @@ export async function ensureTriageThreadCheckpoint(
 ): Promise<void> {
   const cp = await getPostgresCheckpointer();
   const readConfig = {
-    configurable: { thread_id: threadId.trim(), checkpoint_ns: "" },
+    configurable: { thread_id: threadId.trim(), checkpoint_ns: "", tenant_id: tenantId.trim() },
   };
   const existing = await cp.getTuple(readConfig);
   if (existing?.checkpoint) return;

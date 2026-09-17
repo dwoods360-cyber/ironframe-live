@@ -24,7 +24,14 @@ describe("privileged database boundary", () => {
     expect(imports).toEqual([
       "app/actions/auditActions.ts",
       "app/actions/telemetryActions.ts",
+      "app/lib/security/ingressGateway.ts",
+      "app/lib/security/quarantineTenantTargeting.ts",
+      "lib/auditLogLoose.ts",
+      "src/services/ironcast/stateFreezeCisoEscalation.ts",
       "src/services/ironlock/freezeEngine.ts",
+      "src/services/ironscribe/auditSynthesizer.ts",
+      "src/services/ironwatch/apiHeartbeat.ts",
+      "src/services/ironwatch/securityMonitor.ts",
     ]);
     expect(fs.existsSync(path.join(repository, "lib/prismaAdmin.ts"))).toBe(false);
   });
@@ -38,6 +45,8 @@ describe("privileged database boundary", () => {
     expect(rollout).toContain("CREATE ROLE ironframe_privileged");
     expect(rollout).toContain("ALTER ROLE ironframe_privileged");
     expect(rollout).toContain("rolbypassrls");
+    expect(rollout).toContain('GRANT SELECT ON TABLE public."ThreatEvent" TO ironframe_privileged');
+    expect(rollout).toContain('GRANT SELECT ON TABLE public."SimThreatEvent" TO ironframe_privileged');
     expect(rollout).toContain(
       'ALTER POLICY "tenant_isolation_BotAuditLog" ON public."BotAuditLog"',
     );

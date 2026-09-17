@@ -5,8 +5,12 @@ import {
   checkCronBearerAuth,
   cronBearerUnauthorizedResponse,
 } from "@/app/api/internal/cron/cronAuth";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
-import prisma from "@/lib/prisma";
+import { flattenCronTenantRuns } from "@/app/api/internal/cron/cronRouteShell";
+import {
+  readExplicitCronTenantId,
+  recordCronJobArtifact,
+  resolveCronTenantIds,
+} from "@/app/lib/server/cronTenantScope";
 
 /**
  * Industry Scout + Ironscribe Drive sync — SEC / NIST CSRC / Colorado + Governance/Regulations folder.
@@ -18,19 +22,18 @@ async function handleCron(request: Request) {
   }
   console.info("[CRON_ACTIVATION_TRACE] Industry scout execution initiated successfully.");
 
-  const url = new URL(request.url);
-  const tenantId =
-    request.headers.get("x-tenant-id")?.trim() ||
-    url.searchParams.get("tenantId")?.trim() ||
-    process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
-    TENANT_UUIDS.medshield;
+  const explicitTenantId = readExplicitCronTenantId(request);
+  let artifactTenantId = explicitTenantId;
 
   try {
-    const scout = await runIndustryScoutWorker({ tenantId });
+    const tenantIds = await resolveCronTenantIds(explicitTenantId);
+    artifactTenantId = tenantIds[0] ?? artifactTenantId;
     const drive = await runIronscribeDriveSync();
-    const prismaAny = prisma as any;
-    const artifact = await prismaAny.cronJobArtifact.create({
-      data: {
+    const runs: Array<Record<string, unknown>> = [];
+
+    for (const tenantId of tenantIds) {
+      const scout = await runIndustryScoutWorker({ tenantId });
+      const artifact = await recordCronJobArtifact({
         tenantId,
         agentName: "industry-scout",
         payloadJson: {
@@ -41,26 +44,24 @@ async function handleCron(request: Request) {
         },
         metricValue: BigInt(scout.newlyIngested),
         metricUnit: "count",
-      },
-      select: {
-        id: true,
-      },
-    });
+      });
+      runs.push({
+        ok: true,
+        degraded: false,
+        tenantId,
+        scout,
+        drive,
+        artifactId: artifact.id,
+      });
+    }
 
-    return NextResponse.json({
-      ok: true,
-      degraded: false,
-      scout,
-      drive,
-      artifactId: artifact.id,
-    });
+    return NextResponse.json({ ok: true, degraded: false, ...flattenCronTenantRuns(runs) });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    try {
-      const prismaAny = prisma as any;
-      await prismaAny.cronJobArtifact.create({
-        data: {
-          tenantId,
+    if (artifactTenantId) {
+      try {
+        await recordCronJobArtifact({
+          tenantId: artifactTenantId,
           agentName: "industry-scout",
           payloadJson: {
             degraded: true,
@@ -69,10 +70,10 @@ async function handleCron(request: Request) {
             source: "cron-industry-scout",
           },
           metricUnit: "count",
-        },
-      });
-    } catch {
-      // Best-effort telemetry write; never block the cron response.
+        });
+      } catch {
+        // Best-effort telemetry write; never block the cron response.
+      }
     }
 
     return NextResponse.json(

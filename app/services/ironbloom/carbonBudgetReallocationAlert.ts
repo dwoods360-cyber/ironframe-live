@@ -6,9 +6,9 @@ import { resolveMonthlyCarbonBudgetThresholdCents } from "@/app/config/ironbloom
 import { CFO_SUSTAINABILITY_ROI_METADATA } from "@/app/config/cfoSustainabilityMetadata";
 import { aggregateMonthlyProductionMitigatedValueCents } from "@/app/lib/ironbloom/productionCarbonLedger";
 import { formatCentsToAccountingUSD } from "@/app/utils/formatCentsToUSD";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import { recordCronJobArtifact } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { IroncastService } from "@/services/ironcast.service";
-import prisma from "@/lib/prisma";
 
 export const CARBON_BUDGET_REALLOCATION_ALERT_NAME = "Monthly Carbon Budget Reallocation Alert";
 
@@ -44,6 +44,7 @@ export type RunCarbonBudgetReallocationAlertOutcome =
   | { ok: false; error: string };
 
 export type RunCarbonBudgetReallocationAlertOptions = {
+  tenantId: string;
   /** Bypass Day-1 gate (manual / test). */
   force?: boolean;
   /** ISO timestamp anchor for month window (defaults to now). */
@@ -55,8 +56,9 @@ export type RunCarbonBudgetReallocationAlertOptions = {
  * configured threshold, dispatch a CFO Budget Reallocation alert (deduped per `YYYY-MM`).
  */
 export async function runCarbonBudgetReallocationAlertIfDue(
-  options: RunCarbonBudgetReallocationAlertOptions = {},
+  options: RunCarbonBudgetReallocationAlertOptions,
 ): Promise<RunCarbonBudgetReallocationAlertOutcome> {
+  const tenantId = options.tenantId.trim();
   const now = options.asOf ?? new Date();
   const monthKey = utcMonthKey(now);
 
@@ -76,20 +78,21 @@ export async function runCarbonBudgetReallocationAlertIfDue(
     const mitigatedValueCents = await aggregateMonthlyProductionMitigatedValueCents({ since });
     const thresholdCents = resolveMonthlyCarbonBudgetThresholdCents();
 
-    const prismaAny = prisma as any;
-    const recentDispatches = await prismaAny.cronJobArtifact.findMany({
-      where: {
-        tenantId: TENANT_UUIDS.medshield,
-        agentName: "carbon-budget-reallocation-dispatch",
-      },
-      orderBy: {
-        runTimestamp: "desc",
-      },
-      take: 24,
-      select: {
-        payloadJson: true,
-      },
-    });
+    const recentDispatches = await withIronguardTenant(tenantId, (tx) =>
+      tx.cronJobArtifact.findMany({
+        where: {
+          tenantId,
+          agentName: "carbon-budget-reallocation-dispatch",
+        },
+        orderBy: {
+          runTimestamp: "desc",
+        },
+        take: 24,
+        select: {
+          payloadJson: true,
+        },
+      }),
+    );
     const wasAlreadyDispatched =
       !options.force &&
       recentDispatches.some((row: { payloadJson?: unknown }) => {
@@ -152,6 +155,8 @@ export async function runCarbonBudgetReallocationAlertIfDue(
           operatorId: "IRONBLOOM_AGENT_18",
           threatId: null,
           isSimulation: false,
+          tenantId,
+          governance_tenant_uuid: tenantId,
         },
       });
     } catch {
@@ -165,7 +170,7 @@ export async function runCarbonBudgetReallocationAlertIfDue(
     if (notifyEmail && process.env.RESEND_API_KEY) {
       try {
         await IroncastService.dispatch({
-          tenant_id: TENANT_UUIDS.medshield,
+          tenant_id: tenantId,
           sanitization_status: "VERIFIED_SYSTEM_GENERATED",
           irongate_trace_id: randomUUID(),
           recipient: { email: notifyEmail, role: "PRODUCT_OWNER" },
@@ -181,20 +186,18 @@ export async function runCarbonBudgetReallocationAlertIfDue(
       }
     }
 
-    await prismaAny.cronJobArtifact.create({
-      data: {
-        tenantId: TENANT_UUIDS.medshield,
-        agentName: "carbon-budget-reallocation-dispatch",
-        payloadJson: {
-          monthKey,
-          alertId,
-          mitigatedValueCents: mitigatedValueCents.toString(),
-          thresholdCents: thresholdCents.toString(),
-          sustainabilityUnit: "kWh",
-        },
-        metricValue: mitigatedValueCents,
-        metricUnit: "kWh",
+    await recordCronJobArtifact({
+      tenantId,
+      agentName: "carbon-budget-reallocation-dispatch",
+      payloadJson: {
+        monthKey,
+        alertId,
+        mitigatedValueCents: mitigatedValueCents.toString(),
+        thresholdCents: thresholdCents.toString(),
+        sustainabilityUnit: "kWh",
       },
+      metricValue: mitigatedValueCents,
+      metricUnit: "kWh",
     });
 
     return {

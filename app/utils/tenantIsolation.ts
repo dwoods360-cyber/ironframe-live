@@ -10,6 +10,22 @@ export const TENANT_UUIDS: Record<TenantKey, string> = {
   defense: DEFENSE_LOGISTICS_TENANT_UUID,
 };
 
+export class UnauthorizedError extends Error {
+  readonly statusCode = 401;
+  constructor(message = "Unauthorized") {
+    super(message);
+    this.name = "UnauthorizedError";
+  }
+}
+
+export class TenantAccessViolationError extends Error {
+  readonly statusCode = 403;
+  constructor(message = "Tenant access denied") {
+    super(message);
+    this.name = "TenantAccessViolationError";
+  }
+}
+
 export function detectTenantFromPath(pathname: string): TenantKey | null {
   if (pathname === "/medshield" || pathname.startsWith("/medshield/")) return "medshield";
   if (pathname === "/vaultbank" || pathname.startsWith("/vaultbank/")) return "vaultbank";
@@ -18,12 +34,34 @@ export function detectTenantFromPath(pathname: string): TenantKey | null {
   return null;
 }
 
-export function assertTenantAccess(activeTenantUuid: string | null, targetTenantUuid: string) {
-  if (!activeTenantUuid) {
-    return true;
-  }
+/**
+ * Fail-closed tenant boundary check for boolean gates (middleware / client).
+ * Missing active or target tenant is denied — never treated as access granted.
+ */
+export function assertTenantAccess(
+  activeTenantUuid: string | null,
+  targetTenantUuid: string,
+): boolean {
+  const active = activeTenantUuid?.trim() ?? "";
+  const target = targetTenantUuid.trim();
+  if (!active || !target) return false;
+  return active === target;
+}
 
-  return activeTenantUuid === targetTenantUuid;
+/** Throwing variant for API routes and server actions. */
+export function requireTenantAccess(
+  activeTenantUuid: string | null,
+  targetTenantUuid: string,
+): true {
+  const active = activeTenantUuid?.trim() ?? "";
+  const target = targetTenantUuid.trim();
+  if (!active) {
+    throw new UnauthorizedError("Active tenant scope is required.");
+  }
+  if (!target || active !== target) {
+    throw new TenantAccessViolationError("Active tenant does not match target resource tenant.");
+  }
+  return true;
 }
 
 export function tenantKeyFromUuid(uuid: string | null): TenantKey | null {

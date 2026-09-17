@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import { ThreatState } from "@prisma/client";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
 
 export type TeleportThreatResult =
@@ -32,7 +33,9 @@ export async function teleportThreatToProduction(simId: string): Promise<Telepor
   });
   const companyIds = new Set(companies.map((c) => c.id));
 
-  const row = await prisma.riskEvent.findFirst({ where: { id } });
+  const row = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.findFirst({ where: { id, tenantId: tenantUuid } }),
+  );
   if (!row) {
     return { ok: false, error: "Shadow threat not found." };
   }
@@ -45,7 +48,7 @@ export async function teleportThreatToProduction(simId: string): Promise<Telepor
   }
 
   try {
-    const productionId = await prisma.$transaction(async (tx) => {
+    const productionId = await withIronguardTenant(tenantUuid, async (tx) => {
       const created = await tx.threatEvent.create({
         data: {
           title: row.title,
@@ -119,7 +122,7 @@ export async function clearShadowPlaneLogs(): Promise<ClearShadowLogsResult> {
     const companyIds = companies.map((c) => c.id);
 
     const { deletedSimThreats, deletedAuditLogs, deletedSimulationDiagnosticLogs } =
-      await prisma.$transaction(async (tx) => {
+      await withIronguardTenant(tenantUuid, async (tx) => {
         const diag = await tx.simulationDiagnosticLog.deleteMany({
           where: { tenantUuid },
         });
@@ -127,7 +130,7 @@ export async function clearShadowPlaneLogs(): Promise<ClearShadowLogsResult> {
           return { deletedSimThreats: 0, deletedAuditLogs: 0, deletedSimulationDiagnosticLogs: diag.count };
         }
         const sim = await tx.riskEvent.deleteMany({
-          where: { tenantCompanyId: { in: companyIds } },
+          where: { tenantId: tenantUuid, tenantCompanyId: { in: companyIds } },
         });
         const audit = await tx.auditLog.deleteMany({
           where: {

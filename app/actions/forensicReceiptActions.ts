@@ -1,8 +1,9 @@
 "use server";
 
 import { createHash } from "crypto";
-import prisma from "@/lib/prisma";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { computePlatformForensicSealHash } from "@/lib/crypto";
 import { getForensicReasoningPlayback, type FlemmingForensicReasoningLogV1 } from "@/app/actions/sentinelActions";
 import {
@@ -85,10 +86,13 @@ export async function generateForensicReceipt(riskId: string): Promise<GenerateF
   const companyId = await getCompanyIdForActiveTenant();
   if (companyId == null) return { ok: false, error: "Missing company context." };
 
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: tid, tenantCompanyId: companyId },
-    select: { id: true, title: true, governanceHash: true, forensicSeal: true },
-  });
+  const tenantId = await getActiveTenantUuidFromCookies();
+  const row = await withIronguardTenant(tenantId, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: tid, tenantId, tenantCompanyId: companyId },
+      select: { id: true, title: true, governanceHash: true, forensicSeal: true },
+    }),
+  );
   if (!row) return { ok: false, error: "Risk event not found for this tenant." };
 
   const bundle = await getForensicReasoningPlayback(tid);

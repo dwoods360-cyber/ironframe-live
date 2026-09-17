@@ -6,9 +6,14 @@ import { getLatestComparisonWithDiffs } from "@/app/services/regulatoryPipeline"
 import { readRegulatoryIngestionState } from "@/app/lib/regulatoryIngestionState";
 import { generateTasAmendmentAction } from "@/app/actions/complianceDriftActions";
 import { buildGovernanceComparisonMatrix } from "@/app/services/regulatoryIngestion";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 export async function runIndustryScoutAction() {
-  const scout = await runIndustryScoutWorker();
+  const tenantId = await getActiveTenantUuidFromCookies();
+  if (!tenantId) {
+    throw new Error("IRONGUARD_SESSION_TENANT_UUID_REQUIRED");
+  }
+  const scout = await runIndustryScoutWorker({ tenantId });
   const drive = await runIronscribeDriveSync();
   return { scout, drive };
 }

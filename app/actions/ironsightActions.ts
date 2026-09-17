@@ -5,7 +5,6 @@ import { generateObject } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import prisma from '@/lib/prisma';
 import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import {
   mergeIngestionDetailsPatch,
@@ -13,6 +12,8 @@ import {
   parseIngestionDetailsForMerge,
 } from '@/app/utils/ingestionDetailsMerge';
 import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { updateThreatWithIntegrity } from '@/src/services/threatStateService';
 
 const IRONSIGHT_TRACE_MODEL = resolveGeminiFlashModel(process.env.GEMINI_IRONSIGHT_MODEL);
@@ -170,12 +171,18 @@ async function persistIronsightIngestionDetails(
   plane: 'prod' | 'sim',
   nextIngestion: string | Prisma.InputJsonValue,
 ): Promise<void> {
-  if (plane === 'sim') {
-    await prisma.riskEvent.updateMany({
-      where: { id },
-      data: { ingestionDetails: nextIngestion },
-    });
-  } else {
+  const tenantId = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantId) {
+    throw new Error('IRONGUARD_SESSION_TENANT_UUID_REQUIRED');
+  }
+  await withIronguardTenant(tenantId, async (tx) => {
+    if (plane === 'sim') {
+      await tx.riskEvent.updateMany({
+        where: { id, tenantId },
+        data: { ingestionDetails: nextIngestion },
+      });
+      return;
+    }
     const detailsStr =
       typeof nextIngestion === 'string' ? nextIngestion : JSON.stringify(nextIngestion);
     await updateThreatWithIntegrity({
@@ -183,25 +190,30 @@ async function persistIronsightIngestionDetails(
       changes: { ingestionDetails: detailsStr },
       actorUserId: 'ironsight-agent',
       eventType: 'IRONSIGHT_INGESTION_PATCHED',
+      tx,
     });
-  }
+  });
 }
 
 async function resolveThreatRowForIronsight(id: string): Promise<{
   row: IronsightTraceRow;
   plane: 'prod' | 'sim';
 } | null> {
-  const prod = await prisma.threatEvent.findUnique({
-    where: { id },
-    select: traceRowSelect,
+  const tenantId = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantId) return null;
+  return withIronguardTenant(tenantId, async (tx) => {
+    const prod = await tx.threatEvent.findFirst({
+      where: { id, tenantId },
+      select: traceRowSelect,
+    });
+    if (prod) return { row: prod, plane: 'prod' as const };
+    const sim = await tx.riskEvent.findFirst({
+      where: { id, tenantId },
+      select: traceRowSelect,
+    });
+    if (sim) return { row: sim, plane: 'sim' as const };
+    return null;
   });
-  if (prod) return { row: prod, plane: 'prod' };
-  const sim = await prisma.riskEvent.findFirst({
-    where: { id },
-    select: traceRowSelect,
-  });
-  if (sim) return { row: sim, plane: 'sim' };
-  return null;
 }
 
 function readChaosScenarioFromIngestion(
@@ -378,15 +390,19 @@ export async function executeTraceAction(
   const label = sanitizeActionLabelForNote(actionLabel?.trim() || aid);
 
   try {
-    await prisma.$transaction(async (tx) => {
-      const prodRow = await tx.threatEvent.findUnique({
-        where: { id },
+    const tenantId = (await getActiveTenantUuidFromCookies()).trim();
+    if (!tenantId) {
+      return { success: false, error: 'Missing tenant context.' };
+    }
+    await withIronguardTenant(tenantId, async (tx) => {
+      const prodRow = await tx.threatEvent.findFirst({
+        where: { id, tenantId },
         select: { id: true, financialRisk_cents: true },
       });
       const simRow =
         prodRow == null
           ? await tx.riskEvent.findFirst({
-              where: { id },
+              where: { id, tenantId },
               select: { id: true, financialRisk_cents: true },
             })
           : null;
@@ -402,7 +418,7 @@ export async function executeTraceAction(
 
       if (isSim) {
         await tx.riskEvent.updateMany({
-          where: { id },
+          where: { id, tenantId },
           data: { financialRisk_cents: residualRiskCents },
         });
       } else {
@@ -444,6 +460,8 @@ export async function executeTraceAction(
           operatorId: op,
           threatId: isSim ? null : id,
           isSimulation: isSim,
+          tenantId,
+          governance_tenant_uuid: tenantId,
         },
       });
     });

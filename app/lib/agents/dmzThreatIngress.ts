@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
 import { scanPayload } from "@/app/lib/agents/ironlock";
 import { generateIronqueryInsight } from "@/app/lib/agents/ironquery";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { dispatchIronlockQuarantineAutoEscalation } from "@/app/utils/ironlockQuarantineAutoEscalation";
 import {
   INGEST_SALT_PEPPER_MISSING,
@@ -100,21 +101,23 @@ export async function writeDmzThreatActivityWithIronlock(params: {
   });
   const ironqueryInsight = await generateIronqueryInsight(payloadString);
 
-  const created = await prisma.threatEvent.create({
-    data: {
-      title: `Irongate: ${params.threatId}`,
-      sourceAgent: built.action,
-      score: 9,
-      targetEntity: "Irongate",
-      financialRisk_cents: 0n,
-      tenantCompanyId: company.id,
-      tenantId: params.tenantId,
-      status: built.quarantined ? ThreatState.MITIGATED : ThreatState.IDENTIFIED,
-      ingestionDetails: sanitizeDmzDetailsOrThrow(built.details),
-      aiReport: ironqueryInsight,
-    },
-    select: { id: true },
-  });
+  const created = await withIronguardTenant(params.tenantId, (tx) =>
+    tx.threatEvent.create({
+      data: {
+        title: `Irongate: ${params.threatId}`,
+        sourceAgent: built.action,
+        score: 9,
+        targetEntity: "Irongate",
+        financialRisk_cents: 0n,
+        tenantCompanyId: company.id,
+        tenantId: params.tenantId,
+        status: built.quarantined ? ThreatState.MITIGATED : ThreatState.IDENTIFIED,
+        ingestionDetails: sanitizeDmzDetailsOrThrow(built.details),
+        aiReport: ironqueryInsight,
+      },
+      select: { id: true },
+    }),
+  );
 
   console.info(
     "[EPIC12_WORM_LEDGER] ThreatEvent append-only ingest",

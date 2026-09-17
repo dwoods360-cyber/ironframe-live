@@ -1,9 +1,10 @@
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { loadIncidentReportPayload } from "@/app/utils/incidentReportData";
 import { appendLessonsLearnedReasoningAndStrategicBlock } from "@/app/utils/lessonsLearnedGate";
 import { buildPostMortemPdfBytes } from "@/app/utils/generateIncidentReport";
 import { generateDueDiligenceReport } from "@/app/utils/generateDueDiligenceReport";
 import { persistPostMortemReportPdf } from "@/app/utils/postMortemReportStorage";
+import { getScopedTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 /**
  * Gate 7 finality: lessons-learned ReasoningLog rows, post-mortem PDF (NIST-oriented), persist, attach path.
@@ -11,22 +12,24 @@ import { persistPostMortemReportPdf } from "@/app/utils/postMortemReportStorage"
 export async function generateAndAttachPostMortemReport(
   threatId: string,
   reportType: "STANDARD" | "DUE_DILIGENCE_NEGATIVE" = "STANDARD",
+  tenantId?: string,
 ): Promise<void> {
-  const sim = await prisma.riskEvent.findFirst({
-    where: { id: threatId },
-    select: { id: true, tenantCompanyId: true },
-  });
-  if (!sim?.tenantCompanyId) return;
-
-  const company = await prisma.company.findFirst({
-    where: { id: sim.tenantCompanyId },
-    select: { tenantId: true },
-  });
-  const tenantUuid = company?.tenantId?.trim();
+  const tenantUuid = tenantId?.trim() || (await getScopedTenantUuidFromCookies())?.trim();
   if (!tenantUuid) return;
 
-  const strategicRecommendations = await appendLessonsLearnedReasoningAndStrategicBlock(threatId);
-  const payload = await loadIncidentReportPayload(threatId);
+  const sim = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: threatId, tenantId: tenantUuid },
+      select: { id: true, tenantCompanyId: true },
+    }),
+  );
+  if (!sim?.tenantCompanyId) return;
+
+  const strategicRecommendations = await appendLessonsLearnedReasoningAndStrategicBlock(
+    threatId,
+    tenantUuid,
+  );
+  const payload = await loadIncidentReportPayload(threatId, tenantUuid);
   if (!payload) return;
 
   const bytes =
@@ -45,8 +48,10 @@ export async function generateAndAttachPostMortemReport(
     bytes,
   });
 
-  await prisma.riskEvent.updateMany({
-    where: { id: threatId },
-    data: { postMortemReportPath: storedPath },
-  });
+  await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.updateMany({
+      where: { id: threatId, tenantId: tenantUuid },
+      data: { postMortemReportPath: storedPath },
+    }),
+  );
 }

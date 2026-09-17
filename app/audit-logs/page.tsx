@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import prisma from '@/lib/prisma';
+import { withIronguardTenant } from '@/app/lib/server/ironguardSessionTenant';
+import { getActiveTenantUuidFromCookies } from '@/app/utils/serverTenantContext';
 import ExportCSVButton from '@/components/ExportCSVButton';
 import AuditLogsTable from './AuditLogsTable';
 
@@ -7,10 +8,16 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function AuditLogsPage() {
-  const logs = await prisma.auditLog.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 500,
-  });
+  const tenantId = await getActiveTenantUuidFromCookies();
+  const logs = tenantId
+    ? await withIronguardTenant(tenantId, (tx) =>
+        tx.auditLog.findMany({
+          where: { tenantId },
+          orderBy: { createdAt: 'desc' },
+          take: 500,
+        }),
+      )
+    : [];
 
   const serializedLogs = logs.map((row) => ({
     id: row.id,
@@ -38,10 +45,12 @@ export default async function AuditLogsPage() {
           <ExportCSVButton logs={serializedLogs} />
         </div>
       </div>
-
-      <div className="mx-auto max-w-6xl px-4 py-6">
-        <AuditLogsTable logs={serializedLogs} />
-      </div>
+      {!tenantId ? (
+        <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-slate-400">
+          Active tenant scope is required to load the audit ledger.
+        </div>
+      ) : null}
+      <AuditLogsTable logs={serializedLogs} />
     </div>
   );
 }

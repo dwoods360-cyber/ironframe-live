@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import { ThreatState } from "@prisma/client";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { isControlStressTestIngestion } from "@/app/utils/controlStressTestIngestion";
 import {
   simActiveThreatBoardSelect,
@@ -24,23 +24,60 @@ function isControlStressRiskRow(row: {
   return title.includes("Control Stress Test") || target.includes("Control Stress Test");
 }
 
-export async function listControlStressRiskEventsForTenant(
+type RiskEventReader = {
+  riskEvent: {
+    findMany: (
+      args: {
+        where: Prisma.RiskEventWhereInput;
+        select: Prisma.RiskEventSelect;
+        orderBy: Prisma.RiskEventOrderByWithRelationInput;
+      },
+    ) => Promise<unknown[]>;
+  };
+};
+
+async function queryControlStressRiskEvents<T>(
   tenantUuid: string,
   statuses: ThreatState[],
-): Promise<SimActiveThreatEventRow[]> {
+  select: Prisma.RiskEventSelect,
+  db: RiskEventReader | undefined,
+): Promise<T[]> {
   const tid = tenantUuid.trim();
   if (!tid || statuses.length === 0) return [];
 
-  const rows = await prisma.riskEvent.findMany({
-    where: {
-      tenantId: tid,
-      status: { in: statuses.filter((s) => !TERMINAL.includes(s)) },
-    },
-    select: simActiveThreatBoardSelect,
-    orderBy: { updatedAt: "desc" },
-  });
+  const where = {
+    tenantId: tid,
+    status: { in: statuses.filter((s) => !TERMINAL.includes(s)) },
+  };
 
-  return rows.filter((row) => isControlStressRiskRow(row));
+  const rows = db
+    ? await db.riskEvent.findMany({
+        where,
+        select,
+        orderBy: { updatedAt: "desc" },
+      })
+    : await withIronguardTenant(tid, (tx) =>
+        tx.riskEvent.findMany({
+          where,
+          select,
+          orderBy: { updatedAt: "desc" },
+        }),
+      );
+
+  return (rows as T[]).filter((row) => isControlStressRiskRow(row as never));
+}
+
+export async function listControlStressRiskEventsForTenant(
+  tenantUuid: string,
+  statuses: ThreatState[],
+  db?: RiskEventReader,
+): Promise<SimActiveThreatEventRow[]> {
+  return queryControlStressRiskEvents<SimActiveThreatEventRow>(
+    tenantUuid,
+    statuses,
+    simActiveThreatBoardSelect,
+    db,
+  );
 }
 
 export function mergeBoardRowsById<A extends { id: string }, B extends { id: string }>(
@@ -81,18 +118,12 @@ export type PipelineControlStressBridgeRow = Prisma.RiskEventGetPayload<{
 export async function listControlStressRiskEventsForPipeline(
   tenantUuid: string,
   statuses: ThreatState[],
+  db?: RiskEventReader,
 ): Promise<PipelineControlStressBridgeRow[]> {
-  const tid = tenantUuid.trim();
-  if (!tid || statuses.length === 0) return [];
-
-  const rows = await prisma.riskEvent.findMany({
-    where: {
-      tenantId: tid,
-      status: { in: statuses.filter((s) => !TERMINAL.includes(s)) },
-    },
-    select: pipelineControlStressBridgeSelect,
-    orderBy: { updatedAt: "desc" },
-  });
-
-  return rows.filter((row) => isControlStressRiskRow(row));
+  return queryControlStressRiskEvents<PipelineControlStressBridgeRow>(
+    tenantUuid,
+    statuses,
+    pipelineControlStressBridgeSelect,
+    db,
+  );
 }

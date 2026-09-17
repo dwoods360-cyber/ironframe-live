@@ -2,6 +2,8 @@ import "server-only";
 
 import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { CORE_WORKFORCE_AGENTS } from "@/app/config/agents";
 import { getExpertAssigneeKey } from "@/app/config/expertAgentPersona";
 import type { IntegrityVaultSnapshot, WorkforceLkgStatus } from "@/app/types/integrityVault";
@@ -36,25 +38,24 @@ async function agentHasRecordedActions(agentCanon: string): Promise<boolean> {
 
 async function agentConsideredWorkloadActive(agentCanon: string): Promise<boolean> {
   const assigneeKey = getExpertAssigneeKey(agentCanon);
-  const prod = await prisma.threatEvent.count({
-    where: {
-      status: { in: ACTIVE_THREAT_STATUSES },
-      OR: [
-        { assigneeId: assigneeKey },
-        { sourceAgent: { equals: agentCanon, mode: "insensitive" } },
-      ],
-    },
-  });
-  const sim = await prisma.riskEvent.count({
-    where: {
-      status: { in: ACTIVE_THREAT_STATUSES },
-      OR: [
-        { assigneeId: assigneeKey },
-        { sourceAgent: { equals: agentCanon, mode: "insensitive" } },
-      ],
-    },
-  });
-  return prod + sim > 0;
+  const workloadWhere = {
+    status: { in: ACTIVE_THREAT_STATUSES },
+    OR: [
+      { assigneeId: assigneeKey },
+      { sourceAgent: { equals: agentCanon, mode: "insensitive" } },
+    ],
+  };
+  for (const tenantId of await listCatalogTenantIds()) {
+    const { prod, sim } = await withIronguardTenant(tenantId, async (tx) => {
+      const [prodCount, simCount] = await Promise.all([
+        tx.threatEvent.count({ where: { tenantId, ...workloadWhere } }),
+        tx.riskEvent.count({ where: { tenantId, ...workloadWhere } }),
+      ]);
+      return { prod: prodCount, sim: simCount };
+    });
+    if (prod + sim > 0) return true;
+  }
+  return false;
 }
 
 /** Map persisted registry string → Integrity Hub workforce pill union. */

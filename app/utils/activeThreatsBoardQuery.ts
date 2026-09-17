@@ -1,7 +1,7 @@
 /**
  * Shared Prisma query for the Active board — used by Server Actions and GET /api/threats/active.
  */
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { THREAT_ASSIGNEE_AUDIT_ACTIONS } from "@/app/utils/assignmentChainOfCustody";
 import {
   ingressUsesRiskEventTable,
@@ -469,48 +469,53 @@ export async function findActiveThreatEventRowsForBoard(
     (tenantUuidOverride?.trim() || (await getActiveTenantUuidFromCookies())) ?? "";
   const tenantUuid = tenantUuidRaw.trim();
   if (!tenantUuid) return [];
-  if (useRiskEventTable) {
-    const rows = await prisma.riskEvent.findMany({
+
+  return withIronguardTenant(tenantUuid, async (tx) => {
+    if (useRiskEventTable) {
+      const rows = await tx.riskEvent.findMany({
+        where: {
+          AND: [
+            { tenantId: tenantUuid },
+            excludeTerminalRiskEvent,
+            getRiskEventWhereForActiveBoard(shadowReadScope),
+            riskEventVerifiedIngestionProvenanceWhere(),
+          ],
+        },
+        select: simActiveThreatBoardSelect,
+        orderBy: { updatedAt: "desc" },
+      });
+      const stressBridge = await listControlStressRiskEventsForTenant(
+        tenantUuid,
+        [ThreatState.CONFIRMED, ThreatState.MITIGATED],
+        tx,
+      );
+      return mergeBoardRowsById(rows, stressBridge) as ActiveBoardUnionRow[];
+    }
+    const companies = await tx.company.findMany({
+      where: { tenantId: tenantUuid },
+      select: { id: true },
+    });
+    const companyIds = companies.map((c) => c.id);
+    if (companyIds.length === 0) return [];
+    const rows = await tx.threatEvent.findMany({
       where: {
         AND: [
-          { tenantId: tenantUuid },
-          excludeTerminalRiskEvent,
-          getRiskEventWhereForActiveBoard(shadowReadScope),
-          riskEventVerifiedIngestionProvenanceWhere(),
+          { tenantCompanyId: { in: companyIds } },
+          excludeTerminalThreatEvent,
+          getThreatEventWhereForActiveBoard(shadowReadScope),
+          threatEventVerifiedIngestionProvenanceWhere(),
         ],
       },
-      select: simActiveThreatBoardSelect,
+      select: activeThreatBoardSelect,
       orderBy: { updatedAt: "desc" },
     });
-    const stressBridge = await listControlStressRiskEventsForTenant(tenantUuid, [
-      ThreatState.CONFIRMED,
-      ThreatState.MITIGATED,
-    ]);
+    const stressBridge = await listControlStressRiskEventsForTenant(
+      tenantUuid,
+      [ThreatState.CONFIRMED, ThreatState.MITIGATED],
+      tx,
+    );
     return mergeBoardRowsById(rows, stressBridge) as ActiveBoardUnionRow[];
-  }
-  const companies = await prisma.company.findMany({
-    where: { tenantId: tenantUuid },
-    select: { id: true },
   });
-  const companyIds = companies.map((c) => c.id);
-  if (companyIds.length === 0) return [];
-  const rows = await prisma.threatEvent.findMany({
-    where: {
-      AND: [
-        { tenantCompanyId: { in: companyIds } },
-        excludeTerminalThreatEvent,
-        getThreatEventWhereForActiveBoard(shadowReadScope),
-        threatEventVerifiedIngestionProvenanceWhere(),
-      ],
-    },
-    select: activeThreatBoardSelect,
-    orderBy: { updatedAt: "desc" },
-  });
-  const stressBridge = await listControlStressRiskEventsForTenant(tenantUuid, [
-    ThreatState.CONFIRMED,
-    ThreatState.MITIGATED,
-  ]);
-  return mergeBoardRowsById(rows, stressBridge) as ActiveBoardUnionRow[];
 }
 
 /** Map Prisma rows (ThreatEvent with relations, or SimThreatEvent scalars) → `PipelineThreatFromDb`. */

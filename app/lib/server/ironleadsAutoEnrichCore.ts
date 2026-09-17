@@ -7,12 +7,7 @@ import { enrichIronleadsSuspectWithProspeo } from "@/app/lib/server/ironleadsPro
 import { isHunterConfigured } from "@/app/lib/server/hunterEnrichmentClient";
 import { isProspeoConfigured } from "@/app/lib/server/prospeoEnrichmentClient";
 import { isSalesDispatchHoldCompany } from "@/app/lib/approvalDispatchValidation";
-import prisma from "@/lib/prisma";
-
-/** Prospect-pool tenant used by Ironleads Path B SUSPECT queue. */
-const PROSPECT_POOL_TENANT_ID =
-  process.env.IRONFRAME_PROSPECT_POOL_TENANT_UUID?.trim() ||
-  "11111111-1111-4111-8111-111111111111";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 const DEFAULT_LIMIT = 8;
 const DEFAULT_GAP_MS = 1_200;
@@ -116,9 +111,10 @@ export async function runIronleadsAutoEnrichBatch(options?: {
     };
   }
 
-  const suspects = await prisma.ironboardCrmContact.findMany({
+  const suspects = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findMany({
     where: {
-      tenantId: PROSPECT_POOL_TENANT_ID,
+      tenantId,
       primaryDeals: { some: { stage: "SUSPECT" } },
     },
     select: {
@@ -130,7 +126,8 @@ export async function runIronleadsAutoEnrichBatch(options?: {
       updatedAt: true,
     },
     take: 2_000,
-  });
+  }),
+  );
 
   type Ranked = {
     id: string;
@@ -205,10 +202,12 @@ export async function runIronleadsAutoEnrichBatch(options?: {
     }
 
     // Refresh email — skip later finders if Prospeo already cleared placeholder.
-    const afterProspeo = await prisma.ironboardCrmContact.findUnique({
-      where: { id: row.id },
+    const afterProspeo = await withProspectPoolTenant((tx, tenantId) =>
+      tx.ironboardCrmContact.findFirst({
+      where: { id: row.id, tenantId },
       select: { email: true },
-    });
+    }),
+    );
     const stillPlaceholder = isPlaceholderEmail(afterProspeo?.email);
 
     if (apolloOn && stillPlaceholder) {
@@ -223,10 +222,12 @@ export async function runIronleadsAutoEnrichBatch(options?: {
     }
 
     const afterApollo = stillPlaceholder
-      ? await prisma.ironboardCrmContact.findUnique({
-          where: { id: row.id },
+      ? await withProspectPoolTenant((tx, tenantId) =>
+          tx.ironboardCrmContact.findFirst({
+          where: { id: row.id, tenantId },
           select: { email: true },
-        })
+        }),
+        )
       : afterProspeo;
     const stillNeedsHunter = isPlaceholderEmail(afterApollo?.email);
 

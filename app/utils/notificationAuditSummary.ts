@@ -1,4 +1,5 @@
-import prisma from "@/lib/prisma";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 /** AuditLog.action values that count as notification / webhook configuration changes (Board Report prep). */
 export const NOTIFICATION_CONFIG_AUDIT_ACTIONS = [
@@ -20,25 +21,40 @@ export type NotificationAuditSummary = {
  */
 export async function getNotificationAuditSummary(): Promise<NotificationAuditSummary> {
   const actions = [...NOTIFICATION_CONFIG_AUDIT_ACTIONS];
-  const where = { action: { in: actions } };
+  const tenantIds = await listCatalogTenantIds();
+  let totalChanges = 0;
+  let latestAt: Date | null = null;
+  const operators = new Set<string>();
 
-  const [totalChanges, latest, operatorGroups] = await Promise.all([
-    prisma.auditLog.count({ where }),
-    prisma.auditLog.findFirst({
-      where,
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true },
-    }),
-    prisma.auditLog.groupBy({
-      by: ["operatorId"],
-      where,
-    }),
-  ]);
+  for (const tenantId of tenantIds) {
+    const where = { tenantId, action: { in: actions } };
+    const [count, latest, operatorGroups] = await withIronguardTenant(tenantId, (tx) =>
+      Promise.all([
+        tx.auditLog.count({ where }),
+        tx.auditLog.findFirst({
+          where,
+          orderBy: { createdAt: "desc" },
+          select: { createdAt: true },
+        }),
+        tx.auditLog.groupBy({
+          by: ["operatorId"],
+          where,
+        }),
+      ]),
+    );
+    totalChanges += count;
+    if (latest && (!latestAt || latest.createdAt > latestAt)) {
+      latestAt = latest.createdAt;
+    }
+    for (const group of operatorGroups) {
+      operators.add(group.operatorId);
+    }
+  }
 
   return {
     totalChanges,
-    lastModified: latest?.createdAt.toISOString() ?? null,
-    authorizedOperators: operatorGroups.map((g) => g.operatorId).sort(),
+    lastModified: latestAt?.toISOString() ?? null,
+    authorizedOperators: [...operators].sort(),
   };
 }
 
@@ -52,24 +68,36 @@ export type NotificationConfigAuditRow = {
 
 export async function getRecentNotificationConfigEdits(limit = 3): Promise<NotificationConfigAuditRow[]> {
   const actions = [...NOTIFICATION_CONFIG_AUDIT_ACTIONS];
-  const rows = await prisma.auditLog.findMany({
-    where: { action: { in: actions } },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-    select: {
-      id: true,
-      action: true,
-      justification: true,
-      operatorId: true,
-      createdAt: true,
-    },
-  });
+  const tenantIds = await listCatalogTenantIds();
+  const rows: NotificationConfigAuditRow[] = [];
 
-  return rows.map((r) => ({
-    id: r.id,
-    action: r.action,
-    justification: r.justification,
-    operatorId: r.operatorId,
-    createdAt: r.createdAt.toISOString(),
-  }));
+  for (const tenantId of tenantIds) {
+    const slice = await withIronguardTenant(tenantId, (tx) =>
+      tx.auditLog.findMany({
+        where: { tenantId, action: { in: actions } },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        select: {
+          id: true,
+          action: true,
+          justification: true,
+          operatorId: true,
+          createdAt: true,
+        },
+      }),
+    );
+    rows.push(
+      ...slice.map((r) => ({
+        id: r.id,
+        action: r.action,
+        justification: r.justification,
+        operatorId: r.operatorId,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    );
+  }
+
+  return rows
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, limit);
 }

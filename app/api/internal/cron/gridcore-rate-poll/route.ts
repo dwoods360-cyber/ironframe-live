@@ -2,14 +2,22 @@ import { NextResponse } from "next/server";
 import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { executeGridcoreRatePoll } from "@/src/services/ironbloom/gridcoreRatePoll";
 import { runGridcoreUtilityRatePoll } from "@/app/services/ironbloom/rateEngine";
-import { auditLogCreateLoose } from "@/lib/auditLogLoose";
-import { TENANT_UUIDS, tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
+import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
+import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
 import {
   checkCronBearerAuth,
   cronBearerUnauthorizedResponse,
 } from "@/app/api/internal/cron/cronAuth";
-import { serializeCronJsonPayload } from "@/app/api/internal/cron/cronRouteShell";
-import prisma from "@/lib/prisma";
+import {
+  flattenCronTenantRuns,
+  serializeCronJsonPayload,
+} from "@/app/api/internal/cron/cronRouteShell";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import {
+  readExplicitCronTenantId,
+  recordCronJobArtifact,
+  resolveCronTenantIds,
+} from "@/app/lib/server/cronTenantScope";
 
 /**
  * Host-level trigger for Ironbloom regional telemetry (Epic 9.3 carbon ledger) and optional
@@ -22,32 +30,23 @@ async function handleCron(request: Request) {
   }
   console.info("[CRON_ACTIVATION_TRACE] Gridcore rate poll execution initiated successfully.");
 
+  const explicitTenantId = readExplicitCronTenantId(request);
+  let artifactTenantId = explicitTenantId;
+
   try {
     await parseCronRequestBody(request);
     const url = new URL(request.url);
     const force = url.searchParams.get("force") === "1";
     const runUtility = url.searchParams.get("utility") === "1";
-    const explicitTenantId =
-      request.headers.get("x-tenant-id")?.trim() || url.searchParams.get("tenantId")?.trim();
-    const tenantId = explicitTenantId || TENANT_UUIDS.gridcore;
     const zipOverride = url.searchParams.get("zip")?.trim() || undefined;
     const tenantKeyScope = explicitTenantId ? tenantKeyFromUuid(explicitTenantId) : null;
     if (explicitTenantId && !tenantKeyScope) {
       throw new Error(`[GRIDCORE_INVALID_TENANT_SCOPE] Unknown tenantId "${explicitTenantId}".`);
     }
 
+    const tenantIds = await resolveCronTenantIds(explicitTenantId);
+    artifactTenantId = tenantIds[0] ?? artifactTenantId;
     const outcome = await executeGridcoreRatePoll();
-
-    await auditLogCreateLoose({
-      data: {
-        action: "SUSTAINABILITY_GRIDCORE_POLL_EXECUTED",
-        operatorId: "CRON_ORCHESTRATOR_AGENT_18",
-        tenantId: TENANT_UUIDS.gridcore,
-        governance_tenant_uuid: TENANT_UUIDS.gridcore,
-        justification: `Automated physical metric ledger update successful. Ingested ${outcome.recordsIngested} regional zones. Status: ${outcome.status}.`,
-        isSimulation: false,
-      },
-    });
 
     const utility = runUtility
       ? await runGridcoreUtilityRatePoll({
@@ -56,9 +55,23 @@ async function handleCron(request: Request) {
           zipOverride,
         })
       : undefined;
-    const prismaAny = prisma as any;
-    const artifact = await prismaAny.cronJobArtifact.create({
-      data: {
+
+    const runs: Array<Record<string, unknown>> = [];
+    for (const tenantId of tenantIds) {
+      await withIronguardTenant(tenantId, (tx) =>
+        auditLogCreateLooseTx(tx, {
+          data: {
+            action: "SUSTAINABILITY_GRIDCORE_POLL_EXECUTED",
+            operatorId: "CRON_ORCHESTRATOR_AGENT_18",
+            tenantId,
+            governance_tenant_uuid: tenantId,
+            justification: `Automated physical metric ledger update successful. Ingested ${outcome.recordsIngested} regional zones. Status: ${outcome.status}.`,
+            isSimulation: false,
+          },
+        }),
+      );
+
+      const artifact = await recordCronJobArtifact({
         tenantId,
         agentName: "gridcore-rate-poll",
         payloadJson: serializeCronJsonPayload({
@@ -70,32 +83,28 @@ async function handleCron(request: Request) {
         }),
         metricValue: BigInt(outcome.recordsIngested ?? 0),
         metricUnit: "count",
-      },
-      select: { id: true },
-    });
+      });
 
-    return NextResponse.json(
-      {
+      runs.push({
         success: true,
         degraded: false,
+        tenantId,
         outcome,
         ...(utility ? { utility } : {}),
         artifactId: artifact.id,
-      },
+      });
+    }
+
+    return NextResponse.json(
+      { success: true, degraded: false, ...flattenCronTenantRuns(runs) },
       { status: 200, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    try {
-      const url = new URL(request.url);
-      const tenantId =
-        request.headers.get("x-tenant-id")?.trim() ||
-        url.searchParams.get("tenantId")?.trim() ||
-        TENANT_UUIDS.gridcore;
-      const prismaAny = prisma as any;
-      await prismaAny.cronJobArtifact.create({
-        data: {
-          tenantId,
+    if (artifactTenantId) {
+      try {
+        await recordCronJobArtifact({
+          tenantId: artifactTenantId,
           agentName: "gridcore-rate-poll",
           payloadJson: {
             success: true,
@@ -104,10 +113,10 @@ async function handleCron(request: Request) {
             details: message,
             source: "cron-gridcore-rate-poll",
           },
-        },
-      });
-    } catch {
-      // Best-effort only.
+        });
+      } catch {
+        // Best-effort only.
+      }
     }
 
     return NextResponse.json(

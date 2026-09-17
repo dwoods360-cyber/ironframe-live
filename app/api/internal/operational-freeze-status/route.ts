@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { getIrontechFreezeEngineSnapshot } from "@/src/services/irontech/freezeEngine";
 
 export const dynamic = "force-dynamic";
@@ -19,15 +18,8 @@ export async function GET(req: NextRequest) {
   if (!gatesAuthorized(req)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  const [snap, cfg] = await Promise.all([
-    getIrontechFreezeEngineSnapshot(),
-    prisma.systemConfig.findUnique({
-      where: { id: "global" },
-      select: { stateFreezeActive: true },
-    }),
-  ]);
-  const globalStateFreeze =
-    snap.globalSecurityFreezeActive || cfg?.stateFreezeActive === true;
+  const snap = await getIrontechFreezeEngineSnapshot();
+  const globalStateFreeze = snap.globalSecurityFreezeActive;
   const staleLockdown = snap.isSystemFrozen;
   return NextResponse.json(
     {

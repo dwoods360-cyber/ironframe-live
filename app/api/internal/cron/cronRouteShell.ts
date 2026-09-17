@@ -5,6 +5,13 @@ export function serializeCronJsonPayload(value: unknown): unknown {
   );
 }
 
+export function flattenCronTenantRuns<T extends Record<string, unknown>>(
+  runs: T[],
+): Record<string, unknown> {
+  if (runs.length === 1) return runs[0]!;
+  return { tenantCount: runs.length, tenants: runs };
+}
+
 /** Coerce metric cents to BigInt without floating-point conversion. */
 export function coerceBigIntCents(value: unknown): bigint | null {
   if (typeof value === "bigint") return value;

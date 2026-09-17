@@ -3,9 +3,10 @@
 import { ThreatState } from "@prisma/client";
 import { logThreatActivity } from "@/app/actions/auditActions";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { loadIncidentReportPayload } from "@/app/utils/incidentReportData";
 import { mergeIngestionDetailsPatchJson } from "@/app/utils/ingestionDetailsMerge";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { revalidatePath } from "next/cache";
 import { contributeAnonymizedLessonsAction } from "@/app/actions/exportActions";
 
@@ -22,14 +23,17 @@ export async function getIncidentReportPreviewAction(threatId: string): Promise<
 > {
   const tid = threatId?.trim();
   if (!tid) return { ok: false, error: "Missing case id." };
+  const tenantUuid = await getActiveTenantUuidFromCookies();
   const companyId = await getCompanyIdForActiveTenant();
-  if (companyId == null) return { ok: false, error: "No tenant context." };
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: tid, tenantCompanyId: companyId },
-    select: { postMortemReportPath: true },
-  });
+  if (!tenantUuid || companyId == null) return { ok: false, error: "No tenant context." };
+  const row = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: tid, tenantCompanyId: companyId },
+      select: { postMortemReportPath: true },
+    }),
+  );
   if (!row?.postMortemReportPath) return { ok: false, error: "Report not available for this case." };
-  const payload = await loadIncidentReportPayload(tid);
+  const payload = await loadIncidentReportPayload(tid, tenantUuid);
   if (!payload) return { ok: false, error: "Case not found." };
   return {
     ok: true,
@@ -54,12 +58,15 @@ export async function logPostMortemReportDownloadAction(
   }
   const tid = threatId?.trim();
   if (!tid) return { ok: false, error: "Missing case id." };
+  const tenantUuid = await getActiveTenantUuidFromCookies();
   const companyId = await getCompanyIdForActiveTenant();
-  if (companyId == null) return { ok: false, error: "No tenant context." };
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: tid, tenantCompanyId: companyId },
-    select: { postMortemReportPath: true, ingestionDetails: true },
-  });
+  if (!tenantUuid || companyId == null) return { ok: false, error: "No tenant context." };
+  const row = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: tid, tenantCompanyId: companyId },
+      select: { postMortemReportPath: true, ingestionDetails: true },
+    }),
+  );
   if (!row?.postMortemReportPath) return { ok: false, error: "Report not available." };
 
   await logThreatActivity(null, "REPORT_FINALIZED", `🤖 [REPORT_FINALIZED] | Post-mortem generated for Case ID ${tid}. Awaiting authority signature.`, {
@@ -74,13 +81,15 @@ export async function logPostMortemReportDownloadAction(
     grcForensicPostMortemSigned: true,
   });
 
-  await prisma.riskEvent.updateMany({
-    where: { id: tid, tenantCompanyId: companyId },
-    data: {
-      status: ThreatState.CLOSED_ARCHIVED,
-      ingestionDetails: mergedIngestion,
-    },
-  });
+  await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.updateMany({
+      where: { id: tid, tenantCompanyId: companyId },
+      data: {
+        status: ThreatState.CLOSED_ARCHIVED,
+        ingestionDetails: mergedIngestion,
+      },
+    }),
+  );
 
   if (contributeCommunity) {
     const contribute = await contributeAnonymizedLessonsAction(tid);

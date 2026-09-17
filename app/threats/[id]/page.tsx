@@ -1,6 +1,7 @@
-import { notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import prisma from '@/lib/prisma';
+import { withIronguardTenant } from '@/app/lib/server/ironguardSessionTenant';
+import { getActiveTenantUuidFromCookies } from '@/app/utils/serverTenantContext';
 import ThreatDetailClient from './ThreatDetailClient';
 import ThreatRemoteInterventionPanel from './ThreatRemoteInterventionPanel';
 import ThreatDetailEscalatedRecovery from './ThreatDetailEscalatedRecovery';
@@ -35,37 +36,43 @@ export default async function ThreatDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  if (!tenantUuid) {
+    redirect('/login');
+  }
 
-  const threat = await prisma.threatEvent.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      title: true,
-      status: true,
-      remoteTechId: true,
-      isRemoteAccessAuthorized: true,
-      financialRisk_cents: true,
-      targetEntity: true,
-      sourceAgent: true,
-      score: true,
-      aiReport: true,
-      ingestionDetails: true,
-      notes: {
-        orderBy: { createdAt: 'desc' },
-        select: { id: true, text: true, operatorId: true, createdAt: true },
-      },
-      auditTrail: {
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          action: true,
-          operatorId: true,
-          createdAt: true,
-          justification: true,
+  const threat = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.threatEvent.findFirst({
+      where: { id, tenantId: tenantUuid },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        remoteTechId: true,
+        isRemoteAccessAuthorized: true,
+        financialRisk_cents: true,
+        targetEntity: true,
+        sourceAgent: true,
+        score: true,
+        aiReport: true,
+        ingestionDetails: true,
+        notes: {
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, text: true, operatorId: true, createdAt: true },
+        },
+        auditTrail: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            action: true,
+            operatorId: true,
+            createdAt: true,
+            justification: true,
+          },
         },
       },
-    },
-  });
+    }),
+  );
 
   if (!threat) {
     return (

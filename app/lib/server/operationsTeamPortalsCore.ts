@@ -32,7 +32,7 @@ import {
 } from "@/app/lib/server/successTeamIngressCore";
 import type { SupportTeamTicketWire } from "@/app/lib/server/supportTeamIngressCore";
 import { listSupportTeamIntakeQueue } from "@/app/lib/server/supportTeamIngressCore";
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 function workerBaseUrl(envKey: string, fallbackPort: number): string {
   const raw = process.env[envKey]?.trim();
@@ -138,8 +138,9 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
   // Directive / article titles must never sit in the SUSPECT queue.
   await purgeOsintTitleNoiseSuspects();
 
-  const suspectsRaw = await prisma.ironboardCrmContact.findMany({
-    where: { primaryDeals: { some: { stage: "SUSPECT" } } },
+  const suspectsRaw = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findMany({
+    where: { tenantId, primaryDeals: { some: { stage: "SUSPECT" } } },
     orderBy: [{ createdAt: "desc" }, { priorityScore: "desc" }],
     take: 500,
     select: {
@@ -156,7 +157,8 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
         select: { accountDomain: true },
       },
     },
-  });
+  }),
+  );
 
   const collapsed = collapseSuspectRowsByCompany(suspectsRaw).filter(
     (row) => !looksLikeOsintTitleNoise(row.company),

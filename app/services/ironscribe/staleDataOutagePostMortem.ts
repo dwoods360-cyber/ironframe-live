@@ -15,8 +15,9 @@ import {
   GOVERNANCE_LIABILITY_RATIO,
 } from "@/app/utils/financialRisk";
 import { formatCentsToAccountingUSD } from "@/app/utils/formatCentsToUSD";
-import { auditLogCreateLoose } from "@/lib/auditLogLoose";
+import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
 import { Ironmap, IRONMAP_THROTTLE_LOG_TOKEN } from "@/src/services/ironmap/blastRadius";
 import { ELECTRICITY_MAPS_PROVIDER } from "@/src/services/ironmap/dependencyRegistry";
@@ -109,16 +110,18 @@ async function resolveFirstOutageHeartbeat(
 }
 
 async function loadForensicTimeline(tenantId: string, tStart: Date, tEnd: Date) {
-  return prisma.auditLog.findMany({
-    where: {
-      tenantId,
-      createdAt: { gte: tStart, lte: tEnd },
-      action: { in: [...TIMELINE_ACTIONS] },
-    },
-    orderBy: { createdAt: "asc" },
-    take: 80,
-    select: { action: true, createdAt: true, operatorId: true },
-  });
+  return withIronguardTenant(tenantId, (tx) =>
+    tx.auditLog.findMany({
+      where: {
+        tenantId,
+        createdAt: { gte: tStart, lte: tEnd },
+        action: { in: [...TIMELINE_ACTIONS] },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 80,
+      select: { action: true, createdAt: true, operatorId: true },
+    }),
+  );
 }
 
 async function ironcastPostMortemReady(adminEmail: string, tenantId: string): Promise<void> {
@@ -363,34 +366,37 @@ export async function runIronscribeStaleDataOutagePostMortem(
       });
     });
 
-    await auditLogCreateLoose({
-      data: {
-        action: "IRONSCRIBE_POST_MORTEM_STALE_DATA_OUTAGE",
-        justification: JSON.stringify({
-          agent: "IRONSCRIBE_AGENT_5",
-          relativePath,
-          documentSha256,
-          witnessSha256: input.witnessSha256,
-          preventativeDirectiveSuggested,
-          chronicFailureEpisodes30d: chronic.failureEpisodes,
-          chronicProviderWindowDays: chronic.windowDays,
-          isChronicallyUnstable: chronic.isChronicallyUnstable,
-          avoidableAttestationGapDisplay: avoidableRiskDisplay,
-          avoidableAttestationGapUsdApprox: avoidableRiskUsd,
-          ironmapOutageId,
-          ironmapDelayDebtHours: blast.delayDebtTotalHours,
-          ironmapDependencyVolatilityScore: blast.dependencyVolatilityScore,
-          ironmapWorkforceImpactedPct: blast.workforceImpactedPct,
-          ironmapIdleDebtHours: blast.idleDebtTotalHours,
-          ironmapDecouplingDividendPct: blast.decouplingDividendPct,
-          ironscribeClerkSummary:
-            "Ironscribe (Agent 5) + Ironmap (Agent 9): POST_MORTEM markdown drafted after tripartite stale-data waiver; WORM mirror written; IntegrityEvent sealed; blast radius and preventative directive metadata attached.",
-        }),
-        operatorId: "IRONSCRIBE_AGENT_5",
-        threatId: null,
-        isSimulation: false,
-      },
-    });
+    await withIronguardTenant(input.tenantId, (tx) =>
+      auditLogCreateLooseTx(tx, {
+        data: {
+          action: "IRONSCRIBE_POST_MORTEM_STALE_DATA_OUTAGE",
+          justification: JSON.stringify({
+            agent: "IRONSCRIBE_AGENT_5",
+            relativePath,
+            documentSha256,
+            witnessSha256: input.witnessSha256,
+            preventativeDirectiveSuggested,
+            chronicFailureEpisodes30d: chronic.failureEpisodes,
+            chronicProviderWindowDays: chronic.windowDays,
+            isChronicallyUnstable: chronic.isChronicallyUnstable,
+            avoidableAttestationGapDisplay: avoidableRiskDisplay,
+            avoidableAttestationGapUsdApprox: avoidableRiskUsd,
+            ironmapOutageId,
+            ironmapDelayDebtHours: blast.delayDebtTotalHours,
+            ironmapDependencyVolatilityScore: blast.dependencyVolatilityScore,
+            ironmapWorkforceImpactedPct: blast.workforceImpactedPct,
+            ironmapIdleDebtHours: blast.idleDebtTotalHours,
+            ironmapDecouplingDividendPct: blast.decouplingDividendPct,
+            ironscribeClerkSummary:
+              "Ironscribe (Agent 5) + Ironmap (Agent 9): POST_MORTEM markdown drafted after tripartite stale-data waiver; WORM mirror written; IntegrityEvent sealed; blast radius and preventative directive metadata attached.",
+          }),
+          operatorId: "IRONSCRIBE_AGENT_5",
+          threatId: null,
+          isSimulation: false,
+          governance_tenant_uuid: input.tenantId,
+        },
+      }),
+    );
 
     const adminRow = await prisma.systemConfig.findUnique({
       where: { id: "global" },

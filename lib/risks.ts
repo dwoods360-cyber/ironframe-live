@@ -1,5 +1,6 @@
-import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { dispatchIronlockQuarantineAutoEscalation } from "@/app/utils/ironlockQuarantineAutoEscalation";
 import { transitionThreatStatus } from "@/src/services/threatStateService";
 
@@ -17,10 +18,26 @@ export async function updateRiskStatus(
     throw new Error(`Unsupported risk status for updateRiskStatus: ${nextStatus}`);
   }
 
-  const existing = await prisma.threatEvent.findUnique({
-    where: { id: riskId },
-    select: { status: true, tenantCompanyId: true },
-  });
+  const id = riskId.trim();
+  let existing: {
+    status: ThreatState;
+    tenantCompanyId: bigint | null;
+    tenantId: string;
+  } | null = null;
+
+  for (const tenantId of await listCatalogTenantIds()) {
+    const row = await withIronguardTenant(tenantId, (tx) =>
+      tx.threatEvent.findFirst({
+        where: { id, tenantId },
+        select: { status: true, tenantCompanyId: true, tenantId: true },
+      }),
+    );
+    if (row) {
+      existing = row;
+      break;
+    }
+  }
+
   if (!existing) {
     throw new Error(`Risk not found: ${riskId}`);
   }
@@ -28,27 +45,22 @@ export async function updateRiskStatus(
     throw new Error(`Risk missing tenant company boundary: ${riskId}`);
   }
 
-  const company = await prisma.company.findUnique({
-    where: { id: existing.tenantCompanyId },
-    select: { tenantId: true },
-  });
-  if (!company) {
-    throw new Error(`Company not found for risk: ${riskId}`);
-  }
-
   const previousStatus = existing.status;
 
-  await transitionThreatStatus({
-    threatId: riskId,
-    newStatus: ThreatState.MITIGATED,
-    actorUserId: "system-risk-update",
-    eventType: "RISK_STATUS_UPDATED",
+  await withIronguardTenant(existing.tenantId, async (tx) => {
+    await transitionThreatStatus({
+      threatId: riskId,
+      newStatus: ThreatState.MITIGATED,
+      actorUserId: "system-risk-update",
+      eventType: "RISK_STATUS_UPDATED",
+      tx,
+    });
   });
 
   if (previousStatus !== ThreatState.MITIGATED) {
     await dispatchIronlockQuarantineAutoEscalation({
       threatId: riskId,
-      tenantUuid: company.tenantId,
+      tenantUuid: existing.tenantId,
       previousStatus,
     });
   }

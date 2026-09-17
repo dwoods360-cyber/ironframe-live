@@ -4,6 +4,7 @@ import { UserRole } from "@prisma/client";
 
 import { isPlatformAdministratorIdentity } from "@/app/lib/auth/platformAdminAccess";
 import { normalizeProvisionedTenantSlug } from "@/app/lib/tenantSlugRegistry";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import prisma from "@/lib/prisma";
@@ -96,17 +97,19 @@ export async function getSecureAuditLogs(tenantSlugRaw: string): Promise<Seriali
     }
   }
 
-  const logs = await prisma.auditLog.findMany({
-    where: { tenantId: tenant.id },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: {
-      id: true,
-      action: true,
-      justification: true,
-      createdAt: true,
-    },
-  });
+  const logs = await withIronguardTenant(tenant.id, (tx) =>
+    tx.auditLog.findMany({
+      where: { tenantId: tenant.id },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        action: true,
+        justification: true,
+        createdAt: true,
+      },
+    }),
+  );
 
   return logs.map((log) => ({
     id: log.id,

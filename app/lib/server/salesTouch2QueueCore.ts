@@ -1,6 +1,6 @@
 import "server-only";
 
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 import {
   isIronleadsLocalEmail,
   isOperatorDryRunEmail,
@@ -69,8 +69,10 @@ export async function fetchSalesTouch2Queue(options?: {
 }): Promise<Touch2QueuePayload> {
   const now = options?.now ?? new Date();
 
-  const rows = await prisma.ironboardCrmInteraction.findMany({
+  const rows = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmInteraction.findMany({
     where: {
+      tenantId,
       summary: { contains: DISPATCHED_SALES_DRAFT_TAG },
       contactId: { not: null },
     },
@@ -89,7 +91,8 @@ export async function fetchSalesTouch2Queue(options?: {
         },
       },
     },
-  });
+  }),
+  );
 
   type Acc = {
     interactionId: string;

@@ -1,7 +1,8 @@
 import "server-only";
 
-import prisma from "@/lib/prisma";
 import type { PublishedBriefing as PublishedBriefingRecord } from "@prisma/client";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getScopedTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 import {
   BRIEFING_QUEUE_DIR,
@@ -55,25 +56,46 @@ export function mapPublishedBriefingRecord(record: PublishedBriefingRecord): Gov
  * Governance Frame reader — authoritative published ledger in PostgreSQL.
  * Queue drafts remain file-quarantined via `enforceBriefingQuarantine`.
  */
-export async function fetchPublishedBriefings(): Promise<GovernanceBriefing[]> {
+export async function fetchPublishedBriefings(tenantId: string): Promise<GovernanceBriefing[]> {
   enforceBriefingQuarantine(resolveDocsRoot());
 
-  const records = await prisma.publishedBriefing.findMany({
-    orderBy: { createdAt: "asc" },
-  });
+  const records = await withIronguardTenant(tenantId, (tx) =>
+    tx.publishedBriefing.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "asc" },
+    }),
+  );
 
   return records.map(mapPublishedBriefingRecord);
 }
 
-export async function fetchBriefingBySlug(slug: string): Promise<GovernanceBriefing | null> {
+export async function fetchBriefingBySlug(
+  slug: string,
+  tenantId: string,
+): Promise<GovernanceBriefing | null> {
   const normalized = resolvePublishedBriefingSlug(slug);
   if (!normalized || normalized.includes("..") || normalized.includes("/")) return null;
 
-  const record = await prisma.publishedBriefing.findUnique({
-    where: { slug: normalized },
-  });
+  const record = await withIronguardTenant(tenantId, (tx) =>
+    tx.publishedBriefing.findFirst({
+      where: { slug: normalized, tenantId },
+    }),
+  );
 
   return record ? mapPublishedBriefingRecord(record) : null;
+}
+
+/** Request-scoped ledger read. Missing tenant returns no rows (fail-closed). */
+export async function fetchPublishedBriefingsForRequest(): Promise<GovernanceBriefing[]> {
+  const tenantId = await getScopedTenantUuidFromCookies();
+  if (!tenantId) return [];
+  return fetchPublishedBriefings(tenantId);
+}
+
+export async function fetchBriefingBySlugForRequest(slug: string): Promise<GovernanceBriefing | null> {
+  const tenantId = await getScopedTenantUuidFromCookies();
+  if (!tenantId) return null;
+  return fetchBriefingBySlug(slug, tenantId);
 }
 
 /** @deprecated Filesystem mirror — Ironcast newsletter worker only; prefer `fetchPublishedBriefings`. */

@@ -4,7 +4,8 @@ import {
   normalizeAccountDomain,
   normalizeSuspectCompanyKey,
 } from "@/app/lib/ingress/ironleadsSuspectIdentity";
-import prisma from "@/lib/prisma";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 export type SuspectDisplayRow = {
   id: string;
@@ -98,34 +99,30 @@ export async function purgeDuplicateSuspectContacts(): Promise<{
   keptGroups: number;
   removedContacts: number;
 }> {
-  const suspects = await prisma.ironboardCrmContact.findMany({
-    where: { primaryDeals: { some: { stage: "SUSPECT" } } },
-    select: {
-      id: true,
-      tenantId: true,
-      company: true,
-      priorityScore: true,
-      updatedAt: true,
-      createdAt: true,
-      primaryDeals: {
-        where: { stage: "SUSPECT" },
-        select: { id: true, accountDomain: true },
-      },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  const byTenant = new Map<string, typeof suspects>();
-  for (const row of suspects) {
-    const list = byTenant.get(row.tenantId) ?? [];
-    list.push(row);
-    byTenant.set(row.tenantId, list);
-  }
-
+  const tenantIds = await listCatalogTenantIds();
   let removedContacts = 0;
   let keptGroups = 0;
 
-  for (const [, tenantRows] of byTenant) {
+  for (const tenantId of tenantIds) {
+    const tenantRows = await withIronguardTenant(tenantId, (tx) =>
+      tx.ironboardCrmContact.findMany({
+        where: { tenantId, primaryDeals: { some: { stage: "SUSPECT" } } },
+        select: {
+          id: true,
+          tenantId: true,
+          company: true,
+          priorityScore: true,
+          updatedAt: true,
+          createdAt: true,
+          primaryDeals: {
+            where: { stage: "SUSPECT" },
+            select: { id: true, accountDomain: true },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+      }),
+    );
+
     const parent = new Map<string, string>();
     for (const row of tenantRows) parent.set(row.id, row.id);
 
@@ -175,18 +172,22 @@ export async function purgeDuplicateSuspectContacts(): Promise<{
 
       for (const dupe of dupes) {
         const dealIds = dupe.primaryDeals.map((d) => d.id);
-        if (dealIds.length) {
-          await prisma.ironboardCrmInteraction.deleteMany({
-            where: { dealId: { in: dealIds } },
+        await withIronguardTenant(tenantId, async (tx) => {
+          if (dealIds.length) {
+            await tx.ironboardCrmInteraction.deleteMany({
+              where: { tenantId, dealId: { in: dealIds } },
+            });
+            await tx.ironboardCrmDeal.deleteMany({
+              where: { tenantId, id: { in: dealIds } },
+            });
+          }
+          await tx.ironboardCrmInteraction.deleteMany({
+            where: { tenantId, contactId: dupe.id },
           });
-          await prisma.ironboardCrmDeal.deleteMany({
-            where: { id: { in: dealIds } },
+          await tx.ironboardCrmContact.deleteMany({
+            where: { tenantId, id: dupe.id },
           });
-        }
-        await prisma.ironboardCrmInteraction.deleteMany({
-          where: { contactId: dupe.id },
         });
-        await prisma.ironboardCrmContact.delete({ where: { id: dupe.id } });
         removedContacts += 1;
       }
     }

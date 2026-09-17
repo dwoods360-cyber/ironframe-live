@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { SENTINEL_INSTRUCTION_MAX_LENGTH } from "@/app/utils/sentinelInstructionGate";
 import {
   containsIngressShellEscapeVector,
@@ -62,23 +63,28 @@ export async function runSentinelSweepReadinessAction(
 
   const tenantId = company.tenantId;
 
-  const [openProdThreats, openSimThreats, evidenceCount] = await Promise.all([
-    prisma.threatEvent.count({
-      where: {
-        tenantCompanyId: companyId,
-        status: { not: ThreatState.RESOLVED },
-      },
-    }),
-    prisma.riskEvent.count({
-      where: {
-        tenantId,
-        status: { not: ThreatState.RESOLVED },
-      },
-    }),
-    prisma.evidenceAttachment.count({
-      where: { tenantId },
-    }),
-  ]);
+  const [openProdThreats, openSimThreats, evidenceCount] = await withIronguardTenant(
+    tenantId,
+    async (tx) =>
+      Promise.all([
+        tx.threatEvent.count({
+          where: {
+            tenantId,
+            tenantCompanyId: companyId,
+            status: { not: ThreatState.RESOLVED },
+          },
+        }),
+        tx.riskEvent.count({
+          where: {
+            tenantId,
+            status: { not: ThreatState.RESOLVED },
+          },
+        }),
+        tx.evidenceAttachment.count({
+          where: { tenantId },
+        }),
+      ]),
+  );
 
   const openThreats = openProdThreats + openSimThreats;
   const instructionPreview =

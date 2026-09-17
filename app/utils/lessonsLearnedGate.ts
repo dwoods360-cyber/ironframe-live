@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 /**
  * Gate 7 finality: Ironscribe + Irontally append lessons-learned ReasoningLog rows and return
@@ -7,19 +7,23 @@ import prisma from "@/lib/prisma";
  */
 export async function appendLessonsLearnedReasoningAndStrategicBlock(
   threatId: string,
+  tenantId: string,
 ): Promise<string> {
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: threatId },
-    include: { reasoningLogs: { orderBy: { createdAt: "asc" } } },
+  const { row, auditTail } = await withIronguardTenant(tenantId, async (tx) => {
+    const boundRow = await tx.riskEvent.findFirst({
+      where: { id: threatId, tenantId },
+      include: { reasoningLogs: { orderBy: { createdAt: "asc" } } },
+    });
+    if (!boundRow) return { row: null, auditTail: [] as never[] };
+    const boundAudit = await tx.auditLog.findMany({
+      where: { simThreatId: threatId, tenantId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: { action: true, justification: true, operatorId: true },
+    });
+    return { row: boundRow, auditTail: boundAudit };
   });
   if (!row) return "";
-
-  const auditTail = await prisma.auditLog.findMany({
-    where: { simThreatId: threatId },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-    select: { action: true, justification: true, operatorId: true },
-  });
 
   const haystack = `${row.title} ${row.sourceAgent} ${row.ingestionDetails != null ? JSON.stringify(row.ingestionDetails) : ""}`.toUpperCase();
   const ingestion =
@@ -109,30 +113,34 @@ export async function appendLessonsLearnedReasoningAndStrategicBlock(
     recentGateActions: auditTail.slice(0, 8).map((a) => `${a.action}:${a.operatorId}`),
   };
 
-  await prisma.reasoningLog.create({
-    data: {
-      threatId,
-      agentName: "Ironscribe",
-      escalationLogic: "LESSONS_LEARNED | Sm=(V×P)+B_radius constitutional synthesis",
-      plan: ironscribePlan,
-      reasoning: `Gate 7 strategic closure (Ironscribe). Recommendations:\n${strategicBlock}`,
-      confidence: 0.94,
-      isCorrection: false,
-      operationalMode: "AUTONOMOUS",
-    },
-  });
+  await withIronguardTenant(tenantId, async (tx) => {
+    await tx.reasoningLog.create({
+      data: {
+        threatId,
+        threatTenantId: tenantId,
+        agentName: "Ironscribe",
+        escalationLogic: "LESSONS_LEARNED | Sm=(V×P)+B_radius constitutional synthesis",
+        plan: ironscribePlan,
+        reasoning: `Gate 7 strategic closure (Ironscribe). Recommendations:\n${strategicBlock}`,
+        confidence: 0.94,
+        isCorrection: false,
+        operationalMode: "AUTONOMOUS",
+      },
+    });
 
-  await prisma.reasoningLog.create({
-    data: {
-      threatId,
-      agentName: "Irontally",
-      escalationLogic: "LESSONS_LEARNED | audit export & tally reconciliation",
-      plan: tallyPlan,
-      reasoning: `Irontally: sampled ${auditTail.length} recent AuditLog gates for export completeness; retain artifacts per SOC 2 CC7.2 / ISO 27001 A.12.`,
-      confidence: 0.91,
-      isCorrection: false,
-      operationalMode: "AUTONOMOUS",
-    },
+    await tx.reasoningLog.create({
+      data: {
+        threatId,
+        threatTenantId: tenantId,
+        agentName: "Irontally",
+        escalationLogic: "LESSONS_LEARNED | audit export & tally reconciliation",
+        plan: tallyPlan,
+        reasoning: `Irontally: sampled ${auditTail.length} recent AuditLog gates for export completeness; retain artifacts per SOC 2 CC7.2 / ISO 27001 A.12.`,
+        confidence: 0.91,
+        isCorrection: false,
+        operationalMode: "AUTONOMOUS",
+      },
+    });
   });
 
   return strategicBlock;

@@ -20,6 +20,8 @@ import { appendPublicBriefingCitationsToMarkdown } from "@/app/lib/governanceFra
 import { writeBriefingQueueDraftFromNarrate } from "@/app/lib/governanceFrame/briefingQueueDraftWriter";
 import { dispatchInternalExposureAlert } from "@/app/lib/governanceFrame/dispatchInternalExposureAlert";
 import prisma from "@/lib/prisma";
+import { recordCronJobArtifact } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
 
 const NARRATE_MODEL = resolveGeminiFlashModel(
@@ -119,45 +121,44 @@ export async function runNightlyGovernanceNarrate(
   const narrativeMarkdown = await synthesizeTriadNarrative(payload);
   const operationalDate = utcCalendarDate();
 
-  const snapshot = await prisma.governanceFrameTriadSnapshot.upsert({
-    where: {
-      tenantId_operationalDate: {
+  const snapshot = await withIronguardTenant(tenantId, (tx) =>
+    tx.governanceFrameTriadSnapshot.upsert({
+      where: {
+        tenantId_operationalDate: {
+          tenantId,
+          operationalDate,
+        },
+      },
+      create: {
         tenantId,
         operationalDate,
+        exposureVector: triadRows[0]?.summary ?? "",
+        impactSummary: triadRows[1]?.summary ?? "",
+        remediation: triadRows[2]?.summary ?? "",
+        narrativeMarkdown,
+        sourceTelemetryJson: JSON.parse(serializeBoardContextPayload(payload)),
       },
-    },
-    create: {
-      tenantId,
-      operationalDate,
-      exposureVector: triadRows[0]?.summary ?? "",
-      impactSummary: triadRows[1]?.summary ?? "",
-      remediation: triadRows[2]?.summary ?? "",
-      narrativeMarkdown,
-      sourceTelemetryJson: JSON.parse(serializeBoardContextPayload(payload)),
-    },
-    update: {
-      exposureVector: triadRows[0]?.summary ?? "",
-      impactSummary: triadRows[1]?.summary ?? "",
-      remediation: triadRows[2]?.summary ?? "",
-      narrativeMarkdown,
-      sourceTelemetryJson: JSON.parse(serializeBoardContextPayload(payload)),
-    },
-    select: { id: true },
-  });
+      update: {
+        exposureVector: triadRows[0]?.summary ?? "",
+        impactSummary: triadRows[1]?.summary ?? "",
+        remediation: triadRows[2]?.summary ?? "",
+        narrativeMarkdown,
+        sourceTelemetryJson: JSON.parse(serializeBoardContextPayload(payload)),
+      },
+      select: { id: true },
+    }),
+  );
 
-  const artifact = await prisma.cronJobArtifact.create({
-    data: {
-      tenantId,
-      agentName: "governance-frame-narrate",
-      payloadJson: {
-        snapshotId: snapshot.id,
-        operationalDate: operationalDate.toISOString().slice(0, 10),
-        systemStatus: payload.systemStatus,
-        narrativeChars: narrativeMarkdown.length,
-        source: "api-cron-narrate",
-      },
+  const artifact = await recordCronJobArtifact({
+    tenantId,
+    agentName: "governance-frame-narrate",
+    payloadJson: {
+      snapshotId: snapshot.id,
+      operationalDate: operationalDate.toISOString().slice(0, 10),
+      systemStatus: payload.systemStatus,
+      narrativeChars: narrativeMarkdown.length,
+      source: "api-cron-narrate",
     },
-    select: { id: true },
   });
 
   const operationalDateLabel = operationalDate.toISOString().slice(0, 10);

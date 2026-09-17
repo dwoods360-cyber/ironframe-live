@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { ThreatState } from "@prisma/client";
-import prisma from "@/lib/prisma";
 import {
   normalizeIngestionDetailsToString,
   parseIngestionDetailsForMerge,
@@ -20,6 +19,8 @@ import {
   finalizeRemoteSupportTechResolution,
   patchRemoteSupportDrillIngestion,
 } from "@/app/utils/irontechResilience";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 type Tier3ThreatCtx = {
   plane: "prod" | "shadow";
@@ -32,31 +33,36 @@ async function resolveTier3ThreatContext(threatId: string): Promise<Tier3ThreatC
   const id = threatId.trim();
   if (!id) return null;
 
-  const simRow = await prisma.riskEvent.findFirst({
-    where: { id },
-    select: { status: true, ingestionDetails: true, tenantCompanyId: true },
-  });
-  if (simRow) {
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantUuid) return null;
+
+  return withIronguardTenant(tenantUuid, async (tx) => {
+    const simRow = await tx.riskEvent.findFirst({
+      where: { id, tenantId: tenantUuid },
+      select: { status: true, ingestionDetails: true, tenantCompanyId: true },
+    });
+    if (simRow) {
+      return {
+        plane: "shadow" as const,
+        tenantCompanyId: simRow.tenantCompanyId,
+        status: simRow.status,
+        ingestionRaw: normalizeIngestionDetailsToString(simRow.ingestionDetails) ?? "{}",
+      };
+    }
+
+    const prodRow = await tx.threatEvent.findFirst({
+      where: { id, tenantId: tenantUuid },
+      select: { status: true, ingestionDetails: true, tenantCompanyId: true },
+    });
+    if (!prodRow) return null;
+
     return {
-      plane: "shadow",
-      tenantCompanyId: simRow.tenantCompanyId,
-      status: simRow.status,
-      ingestionRaw: normalizeIngestionDetailsToString(simRow.ingestionDetails) ?? "{}",
+      plane: "prod" as const,
+      tenantCompanyId: prodRow.tenantCompanyId,
+      status: prodRow.status,
+      ingestionRaw: prodRow.ingestionDetails ?? "{}",
     };
-  }
-
-  const prodRow = await prisma.threatEvent.findUnique({
-    where: { id },
-    select: { status: true, ingestionDetails: true, tenantCompanyId: true },
   });
-  if (!prodRow) return null;
-
-  return {
-    plane: "prod",
-    tenantCompanyId: prodRow.tenantCompanyId,
-    status: prodRow.status,
-    ingestionRaw: prodRow.ingestionDetails ?? "{}",
-  };
 }
 
 function mergeIrontechLiveAttempt4(ingestionRaw: string): Record<string, Prisma.InputJsonValue> {

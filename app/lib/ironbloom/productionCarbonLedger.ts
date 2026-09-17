@@ -1,6 +1,7 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { isElectricityMapsApiConfigured } from "@/app/services/ironbloom/rateEngine";
 import { computeSustainabilityAle, fetchLiveCarbonIntensityForTenant } from "@/app/services/ironbloom/scoring";
 import { TENANT_UUIDS, tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
@@ -40,11 +41,16 @@ export async function aggregateProductionMitigatedValueCents(
   });
   if (!companies.length) return 0n;
 
-  const threats = await prisma.threatEvent.findMany({
-    where: { tenantCompanyId: { in: companies.map((c) => c.id) } },
-    select: { id: true, sourceAgent: true, ingestionDetails: true },
-    take: 2000,
-  });
+  const threats = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.threatEvent.findMany({
+      where: {
+        tenantId: tenantUuid,
+        tenantCompanyId: { in: companies.map((c) => c.id) },
+      },
+      select: { id: true, sourceAgent: true, ingestionDetails: true },
+      take: 2000,
+    }),
+  );
 
   const productionIds = threats
     .filter((t) => !isSimulationThreatForCsrdExport(t))

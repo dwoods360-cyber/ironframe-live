@@ -1,7 +1,10 @@
 import "server-only";
 
-import { auditLogCreateLoose } from "@/lib/auditLogLoose";
+import type { Prisma } from "@prisma/client";
+import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import prisma from "@/lib/prisma";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { computeIronethicMaturityBonus } from "@/app/services/ironethic/maturityEthicsBonus";
 import { computeForensicAttestationScore } from "@/app/utils/grcLexicon";
 import { TAS_CONSTITUTION_WEB_PATH } from "@/app/utils/tasConstitutionDeepLink";
@@ -38,25 +41,53 @@ const STATE_FREEZE_VOICE_MATURITY_DRIFT = 0.35;
 const IRONTECH_AUTONOMY_BONUS_PER_EVENT = 0.3;
 const IRONTECH_AUTONOMY_BONUS_CAP = 1.5;
 
+async function resolveMaturityTenantIds(tenantId?: string): Promise<string[]> {
+  const id = tenantId?.trim();
+  if (id) return [id];
+  return listCatalogTenantIds();
+}
+
+async function appendBoundAuditForTenants(
+  tenantIds: string[],
+  data: Record<string, unknown>,
+): Promise<void> {
+  for (const tenantId of tenantIds) {
+    await withIronguardTenant(tenantId, (tx) =>
+      auditLogCreateLooseTx(tx, {
+        data: {
+          ...data,
+          governance_tenant_uuid: tenantId,
+        },
+      }),
+    );
+  }
+}
+
 async function readIrontechAutonomyMaturityBonus(): Promise<number> {
   const since = new Date(Date.now() - GOVERNANCE_MATURITY_TREND_DAYS * 86_400_000);
   try {
-    const rows = await prisma.auditLog.findMany({
-      where: {
-        action: "SELF_HEALING_INTERVENTION",
-        createdAt: { gte: since },
-      },
-      select: { justification: true },
-      take: 400,
-    });
+    const tenantIds = await listCatalogTenantIds();
     let eligible = 0;
-    for (const r of rows) {
-      try {
-        const j = JSON.parse(r.justification ?? "{}") as { manualIntervention?: boolean };
-        if (j.manualIntervention === true) continue;
-        eligible += 1;
-      } catch {
-        eligible += 1;
+    for (const tenantId of tenantIds) {
+      const rows = await withIronguardTenant(tenantId, (tx: Prisma.TransactionClient) =>
+        tx.auditLog.findMany({
+          where: {
+            tenantId,
+            action: "SELF_HEALING_INTERVENTION",
+            createdAt: { gte: since },
+          },
+          select: { justification: true },
+          take: 400,
+        }),
+      );
+      for (const r of rows) {
+        try {
+          const j = JSON.parse(r.justification ?? "{}") as { manualIntervention?: boolean };
+          if (j.manualIntervention === true) continue;
+          eligible += 1;
+        } catch {
+          eligible += 1;
+        }
       }
     }
     return Math.min(IRONTECH_AUTONOMY_BONUS_CAP, eligible * IRONTECH_AUTONOMY_BONUS_PER_EVENT);
@@ -204,33 +235,34 @@ export async function computeAttestationQualityScore(tenantId?: string): Promise
   score: number;
   sampled: number;
 }> {
-  const where = tenantId
-    ? {
-        OR: [
-          { tenantId },
-          { governance_tenant_uuid: tenantId },
-        ],
-      }
-    : {};
+  const tenantIds = await resolveMaturityTenantIds(tenantId);
+  const auditRows: Array<{ justification: string | null }> = [];
+  const simRows: Array<{ ingestionDetails: unknown }> = [];
 
-  const auditRows = await prisma.auditLog.findMany({
-    where: {
-      ...where,
-      action: { in: ["THREAT_RESOLVED", "STATUS_UPDATED", "NEUTRALIZE", "THREAT_NEUTRALIZED"] },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: { justification: true },
-  });
-
-  let simRows: Array<{ ingestionDetails: unknown }> = [];
-  if (tenantId) {
-    simRows = await prisma.riskEvent.findMany({
-      where: { tenantId, status: "RESOLVED" },
-      orderBy: { updatedAt: "desc" },
-      take: 50,
-      select: { ingestionDetails: true },
+  for (const id of tenantIds) {
+    const slice = await withIronguardTenant(id, async (tx: Prisma.TransactionClient) => {
+      const logs = await tx.auditLog.findMany({
+        where: {
+          tenantId: id,
+          OR: [{ tenantId: id }, { governance_tenant_uuid: id }],
+          action: { in: ["THREAT_RESOLVED", "STATUS_UPDATED", "NEUTRALIZE", "THREAT_NEUTRALIZED"] },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: { justification: true },
+      });
+      const sims = tenantId
+        ? await tx.riskEvent.findMany({
+            where: { tenantId: id, status: "RESOLVED" },
+            orderBy: { updatedAt: "desc" },
+            take: 50,
+            select: { ingestionDetails: true },
+          })
+        : [];
+      return { logs, sims };
     });
+    auditRows.push(...slice.logs);
+    simRows.push(...slice.sims);
   }
 
   const texts = [
@@ -301,23 +333,24 @@ export function computeDirectivityScore(
 }
 
 async function collectResolutionTexts(tenantId?: string): Promise<string[]> {
-  const where = tenantId
-    ? {
-        OR: [{ tenantId }, { governance_tenant_uuid: tenantId }],
-      }
-    : {};
-
-  const auditRows = await prisma.auditLog.findMany({
-    where: {
-      ...where,
-      action: { in: ["THREAT_RESOLVED", "NEUTRALIZE", "THREAT_NEUTRALIZED", "STATUS_UPDATED"] },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: { justification: true },
-  });
-
-  return auditRows.map((r) => r.justification ?? "").filter((t) => t.trim().length > 0);
+  const tenantIds = await resolveMaturityTenantIds(tenantId);
+  const texts: string[] = [];
+  for (const id of tenantIds) {
+    const rows = await withIronguardTenant(id, (tx: Prisma.TransactionClient) =>
+      tx.auditLog.findMany({
+        where: {
+          tenantId: id,
+          OR: [{ tenantId: id }, { governance_tenant_uuid: id }],
+          action: { in: ["THREAT_RESOLVED", "NEUTRALIZE", "THREAT_NEUTRALIZED", "STATUS_UPDATED"] },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: { justification: true },
+      }),
+    );
+    texts.push(...rows.map((r) => r.justification ?? "").filter((t) => t.trim().length > 0));
+  }
+  return texts.slice(0, 50);
 }
 
 export async function calculateSystemMaturityScore(tenantId?: string): Promise<GovernanceMaturitySnapshot> {
@@ -344,7 +377,9 @@ export async function calculateSystemMaturityScore(tenantId?: string): Promise<G
     const { getActiveComplianceDriftMaturityPenalty } = await import(
       "@/app/services/complianceDriftMaturityPenalty"
     );
-    const driftPenalty = await getActiveComplianceDriftMaturityPenalty();
+    const driftPenalty = tenantId
+      ? await getActiveComplianceDriftMaturityPenalty(tenantId)
+      : { penaltyPoints: 0, activeUrgentDrifts: 0, reasons: [] as string[] };
     if (driftPenalty.penaltyPoints > 0) {
       score = weighted - driftPenalty.penaltyPoints;
     }
@@ -454,7 +489,9 @@ export async function calculateSystemMaturityScore(tenantId?: string): Promise<G
     const { getActiveComplianceDriftMaturityPenalty } = await import(
       "@/app/services/complianceDriftMaturityPenalty"
     );
-    const driftPenalty = await getActiveComplianceDriftMaturityPenalty();
+    const driftPenalty = tenantId
+      ? await getActiveComplianceDriftMaturityPenalty(tenantId)
+      : { penaltyPoints: 0, activeUrgentDrifts: 0, reasons: [] as string[] };
     if (driftPenalty.penaltyPoints > 0) {
       notes.push(
         `Compliance drift penalty −${driftPenalty.penaltyPoints.toFixed(1)} (${driftPenalty.activeUrgentDrifts} active drift(s) under 30 days).`,
@@ -551,23 +588,22 @@ async function emitGovernanceDegradationIfNeeded(
   if (prev.current.governanceDegradationActive) return;
 
   try {
-    await auditLogCreateLoose({
-      data: {
-        action: GOVERNANCE_DEGRADATION_ACTION,
-        justification: JSON.stringify({
-          event: "GOVERNANCE_DEGRADATION",
-          score: next.score,
-          threshold: GOVERNANCE_DEGRADATION_THRESHOLD,
-          neutralizeMinChars: next.neutralizeMinChars,
-          components: next.components,
-          message:
-            "[GOVERNANCE_DEGRADATION] System Maturity below 5.0 — Ironlock raised Neutralize attestation minimum to 75 characters.",
-        }),
-        operatorId: "SYSTEM_IRONLOCK",
-        threatId: null,
-        isSimulation: false,
-        governance_tenant_uuid: tenantId,
-      },
+    const tenantIds = await resolveMaturityTenantIds(tenantId);
+    if (tenantIds.length === 0) return;
+    await appendBoundAuditForTenants(tenantIds, {
+      action: GOVERNANCE_DEGRADATION_ACTION,
+      justification: JSON.stringify({
+        event: "GOVERNANCE_DEGRADATION",
+        score: next.score,
+        threshold: GOVERNANCE_DEGRADATION_THRESHOLD,
+        neutralizeMinChars: next.neutralizeMinChars,
+        components: next.components,
+        message:
+          "[GOVERNANCE_DEGRADATION] System Maturity below 5.0 — Ironlock raised Neutralize attestation minimum to 75 characters.",
+      }),
+      operatorId: "SYSTEM_IRONLOCK",
+      threatId: null,
+      isSimulation: false,
     });
   } catch (e) {
     console.error("[governanceScoring] GOVERNANCE_DEGRADATION audit failed", e);
@@ -604,15 +640,12 @@ export async function recalculateSystemMaturityScore(params?: {
     (prevTargeted === 0 || Math.abs(nextTargeted - prevTargeted) > 0.01)
   ) {
     try {
-      await auditLogCreateLoose({
-        data: {
-          action: "MATURITY_SCORE_DEGRADED_BY_THREAT",
-          justification: `[MATURITY_SCORE_DEGRADED_BY_THREAT] tenant_uuid=${tenantId} penalty_points=${nextTargeted.toFixed(2)} resulting_maturity_score=${current.score.toFixed(2)}`,
-          operatorId: "IRONTRUST_AGENT_3",
-          threatId: null,
-          isSimulation: false,
-          governance_tenant_uuid: tenantId,
-        },
+      await appendBoundAuditForTenants([tenantId], {
+        action: "MATURITY_SCORE_DEGRADED_BY_THREAT",
+        justification: `[MATURITY_SCORE_DEGRADED_BY_THREAT] tenant_uuid=${tenantId} penalty_points=${nextTargeted.toFixed(2)} resulting_maturity_score=${current.score.toFixed(2)}`,
+        operatorId: "IRONTRUST_AGENT_3",
+        threatId: null,
+        isSimulation: false,
       });
     } catch {
       /* best-effort */
@@ -621,8 +654,9 @@ export async function recalculateSystemMaturityScore(params?: {
 
   if (params?.trigger) {
     try {
-      await auditLogCreateLoose({
-        data: {
+      const tenantIds = await resolveMaturityTenantIds(tenantId);
+      if (tenantIds.length > 0) {
+        await appendBoundAuditForTenants(tenantIds, {
           action: "SYSTEM_MATURITY_RECALCULATED",
           justification: JSON.stringify({
             trigger: params.trigger,
@@ -632,9 +666,8 @@ export async function recalculateSystemMaturityScore(params?: {
           operatorId: "IRONTECH_AGENT_11",
           threatId: null,
           isSimulation: Boolean(tenantId),
-          governance_tenant_uuid: tenantId,
-        },
-      });
+        });
+      }
     } catch {
       /* best-effort */
     }

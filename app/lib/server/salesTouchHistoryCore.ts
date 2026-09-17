@@ -1,6 +1,6 @@
 import "server-only";
 
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 import { DISPATCHED_SALES_DRAFT_TAG } from "@/app/lib/server/approvalQueueCore";
 import {
   MAX_TRACKED_TOUCH_ORDINAL,
@@ -44,15 +44,18 @@ export async function fetchSalesTouchHistory(input: {
   contactId: string;
   excludeInteractionId?: string | null;
 }): Promise<SalesTouchHistory> {
-  const rows = await prisma.ironboardCrmInteraction.findMany({
+  const rows = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmInteraction.findMany({
     where: {
+      tenantId,
       contactId: input.contactId,
       summary: { contains: DISPATCHED_SALES_DRAFT_TAG },
       ...(input.excludeInteractionId ? { id: { not: input.excludeInteractionId } } : {}),
     },
     orderBy: { occurredAt: "asc" },
     select: { occurredAt: true },
-  });
+  }),
+  );
 
   const priorSendCount = rows.length;
   const nextTouchOrdinal = nextTouchOrdinalFromPriorSends(priorSendCount);

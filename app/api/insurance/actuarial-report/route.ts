@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { generateBudgetReport } from "@/app/utils/generateBudgetReport";
 import { normalizeCarrierKey } from "@/app/utils/carrierTemplates";
 import { fetchInsuranceModelForTenant } from "@/app/utils/insuranceTenantModel";
@@ -33,19 +33,21 @@ export async function GET(request: NextRequest) {
 
   const carrierKey = normalizeCarrierKey(request.nextUrl.searchParams.get("carrierKey"));
 
-  const model = await fetchInsuranceModelForTenant(activeTenantUuid);
   const isSimulation = await readSimulationPlaneEnabled();
-
-  const auditReceiptRows = await prisma.auditReceipt.findMany({
-    where: { tenantId: activeTenantUuid },
-    orderBy: { shreddedAt: "desc" },
-    take: 10,
-    select: {
-      shreddedAt: true,
-      titleSnapshot: true,
-      sectorSnapshot: true,
-      receiptHashSha256: true,
-    },
+  const { model, auditReceiptRows } = await withIronguardTenant(activeTenantUuid, async (tx) => {
+    const boundModel = await fetchInsuranceModelForTenant(activeTenantUuid, tx);
+    const boundReceipts = await tx.auditReceipt.findMany({
+      where: { tenantId: activeTenantUuid },
+      orderBy: { shreddedAt: "desc" },
+      take: 10,
+      select: {
+        shreddedAt: true,
+        titleSnapshot: true,
+        sectorSnapshot: true,
+        receiptHashSha256: true,
+      },
+    });
+    return { model: boundModel, auditReceiptRows: boundReceipts };
   });
   const shreddingLogRows = auditReceiptRows.map((r) => ({
     timestampIso: r.shreddedAt.toISOString(),

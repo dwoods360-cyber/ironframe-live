@@ -1,13 +1,14 @@
 "use server";
 
-import prisma from "@/lib/prisma";
 import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { computeSustainabilityAleForTenantUuid } from "@/app/services/ironbloom/scoring";
 import { computeTotalSocietalValueCents } from "@/app/services/ironbloom/tsvCalculator";
 import { lockCarbonScore } from "@/src/services/ironbloom/artifactLock";
 import { runDirtyGridMonitorForTenant } from "@/src/services/agents/ironlock/dirtyGridMonitor";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { ThreatState } from "@prisma/client";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 /** High tier: 1–10 severity 8–10, or 0–100 scale ≥80. */
 function isHighSeverity(score: number): boolean {
@@ -32,16 +33,23 @@ export async function recordSustainabilityImpact(
   | { ok: false; error: string; code?: string }
 > {
   try {
-    const threat = await prisma.threatEvent.findUnique({
-      where: { id: threatId },
-      select: {
-        id: true,
-        score: true,
-        status: true,
-        targetEntity: true,
-        tenantCompanyId: true,
-      },
-    });
+    const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+    if (!tenantUuid) {
+      return { ok: false, error: "Threat has no tenant scope for sustainability scoring." };
+    }
+
+    const threat = await withIronguardTenant(tenantUuid, (tx) =>
+      tx.threatEvent.findFirst({
+        where: { id: threatId, tenantId: tenantUuid },
+        select: {
+          id: true,
+          score: true,
+          status: true,
+          targetEntity: true,
+          tenantCompanyId: true,
+        },
+      }),
+    );
     if (!threat) {
       return { ok: true, recorded: false, reason: "not_found" };
     }
@@ -54,17 +62,6 @@ export async function recordSustainabilityImpact(
     const carbonOffsetGrams = high ? 1500n : 300n;
     const coolingWaterLiters = kwhAverted * 1.8;
     const assetId = threat.targetEntity?.trim() || threat.id;
-
-    const company = threat.tenantCompanyId
-      ? await prisma.company.findUnique({
-          where: { id: threat.tenantCompanyId },
-          select: { tenantId: true },
-        })
-      : null;
-    const tenantUuid = company?.tenantId;
-    if (!tenantUuid) {
-      return { ok: false, error: "Threat has no tenant scope for sustainability scoring." };
-    }
 
     const ale = await computeSustainabilityAleForTenantUuid({
       tenantUuid,
@@ -95,7 +92,7 @@ export async function recordSustainabilityImpact(
       mitigatedValueCents: ale.mitigatedValueCents,
     });
 
-    await prisma.$transaction(async (tx) => {
+    await withIronguardTenant(tenantUuid, async (tx) => {
       await tx.sustainabilityMetric.upsert({
         where: { threatId },
         create: {

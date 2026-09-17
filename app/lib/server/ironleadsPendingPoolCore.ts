@@ -9,7 +9,7 @@ import {
   OPERATOR_HOLD_META_KEY,
   resolveOperatorHold,
 } from "@/app/lib/server/ironleadsOperatorHoldCore";
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 /** Active SUSPECT review batch size for Path B directory work. */
 export const IRONLEADS_ACTIVE_BATCH_SIZE = 20;
@@ -24,12 +24,14 @@ export function isPendingBatchHold(metadata: unknown): boolean {
 }
 
 async function loadSuspectContacts(take: number) {
-  return prisma.ironboardCrmContact.findMany({
-    where: { primaryDeals: { some: { stage: "SUSPECT" } } },
-    orderBy: [{ createdAt: "desc" }, { priorityScore: "desc" }],
-    take,
-    select: { id: true, createdAt: true, metadata: true },
-  });
+  return withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findMany({
+      where: { tenantId, primaryDeals: { some: { stage: "SUSPECT" } } },
+      orderBy: [{ createdAt: "desc" }, { priorityScore: "desc" }],
+      take,
+      select: { id: true, createdAt: true, metadata: true },
+    }),
+  );
 }
 
 /** How many SUSPECTs are in the active review queue (not HOLD / pending). */
@@ -58,10 +60,12 @@ export async function parkImportedOverflow(contactIds: string[]): Promise<{
 
   const activeCount = await countActiveSuspects();
   // Count only non-held among the imported set that are already active.
-  const imported = await prisma.ironboardCrmContact.findMany({
-    where: { id: { in: uniqueIds } },
+  const imported = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findMany({
+    where: { tenantId, id: { in: uniqueIds } },
     select: { id: true, createdAt: true, metadata: true },
-  });
+  }),
+  );
   const importedActive = imported.filter((row) => !resolveOperatorHold(row.metadata));
   // Slots already consumed by other actives (not in this import).
   const otherActive = Math.max(0, activeCount - importedActive.length);
@@ -86,10 +90,12 @@ export async function parkImportedOverflow(contactIds: string[]): Promise<{
       continue;
     }
     const nextMeta = applyOperatorHoldToMetadata(asRecord(row.metadata), hold);
-    await prisma.ironboardCrmContact.update({
-      where: { id: row.id },
-      data: { metadata: nextMeta as Prisma.InputJsonValue },
-    });
+    await withProspectPoolTenant((tx, tenantId) =>
+      tx.ironboardCrmContact.updateMany({
+        where: { id: row.id, tenantId },
+        data: { metadata: nextMeta as Prisma.InputJsonValue },
+      }),
+    );
     parkedPending += 1;
   }
 
@@ -121,10 +127,12 @@ export async function parkExcessActiveToPending(): Promise<{
 
   for (const row of park) {
     const nextMeta = applyOperatorHoldToMetadata(asRecord(row.metadata), hold);
-    await prisma.ironboardCrmContact.update({
-      where: { id: row.id },
-      data: { metadata: nextMeta as Prisma.InputJsonValue },
-    });
+    await withProspectPoolTenant((tx, tenantId) =>
+      tx.ironboardCrmContact.updateMany({
+        where: { id: row.id, tenantId },
+        data: { metadata: nextMeta as Prisma.InputJsonValue },
+      }),
+    );
   }
 
   return {
@@ -177,10 +185,12 @@ export async function pullPendingSuspectBatch(
   for (const row of pending) {
     const cleared = clearOperatorHoldFromMetadata(asRecord(row.metadata));
     delete cleared[OPERATOR_HOLD_META_KEY];
-    await prisma.ironboardCrmContact.update({
-      where: { id: row.id },
+    await withProspectPoolTenant((tx, tenantId) =>
+      tx.ironboardCrmContact.updateMany({
+      where: { id: row.id, tenantId },
       data: { metadata: cleared as Prisma.InputJsonValue },
-    });
+    }),
+    );
     contactIds.push(row.id);
   }
 

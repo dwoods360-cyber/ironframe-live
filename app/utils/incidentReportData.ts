@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { computeMheHumanHours, parseLaborTracker } from "@/app/utils/sentinelLaborTracker";
 
 export type IncidentReportPayload = {
@@ -101,28 +101,34 @@ export function extractForensicCalibrationFromReasoningLogs(
   return { driftMs: null, calibrationMathSummary: null };
 }
 
-export async function loadIncidentReportPayload(threatId: string): Promise<IncidentReportPayload | null> {
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: threatId },
-    include: {
-      reasoningLogs: {
-        orderBy: { createdAt: "asc" },
+export async function loadIncidentReportPayload(
+  threatId: string,
+  tenantId: string,
+): Promise<IncidentReportPayload | null> {
+  const { row, auditLogs } = await withIronguardTenant(tenantId, async (tx) => {
+    const boundRow = await tx.riskEvent.findFirst({
+      where: { id: threatId, tenantId },
+      include: {
+        reasoningLogs: {
+          orderBy: { createdAt: "asc" },
+        },
       },
-    },
+    });
+    if (!boundRow) return { row: null, auditLogs: [] as never[] };
+    const boundAuditLogs = await tx.auditLog.findMany({
+      where: { simThreatId: threatId, tenantId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        action: true,
+        justification: true,
+        operatorId: true,
+        createdAt: true,
+      },
+    });
+    return { row: boundRow, auditLogs: boundAuditLogs };
   });
   if (!row) return null;
-
-  const auditLogs = await prisma.auditLog.findMany({
-    where: { simThreatId: threatId },
-    orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      action: true,
-      justification: true,
-      operatorId: true,
-      createdAt: true,
-    },
-  });
 
   const { driftMs, calibrationMathSummary } = extractForensicCalibrationFromReasoningLogs(row.reasoningLogs);
   const ingestion =

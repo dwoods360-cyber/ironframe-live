@@ -7,10 +7,14 @@ import {
 } from "@/app/api/internal/cron/cronAuth";
 import {
   coerceBigIntCents,
+  flattenCronTenantRuns,
   serializeCronJsonPayload,
 } from "@/app/api/internal/cron/cronRouteShell";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
-import prisma from "@/lib/prisma";
+import {
+  readExplicitCronTenantId,
+  recordCronJobArtifact,
+  resolveCronTenantIds,
+} from "@/app/lib/server/cronTenantScope";
 
 /**
  * Ironbloom — monthly cron (UTC day 1, 09:00):
@@ -23,26 +27,25 @@ async function handleCron(request: Request) {
   }
   console.info("[CRON_ACTIVATION_TRACE] Carbon budget reallocation execution initiated successfully.");
 
-  const url = new URL(request.url);
-  const tenantId =
-    request.headers.get("x-tenant-id")?.trim() ||
-    url.searchParams.get("tenantId")?.trim() ||
-    process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
-    TENANT_UUIDS.medshield;
+  const explicitTenantId = readExplicitCronTenantId(request);
+  let artifactTenantId = explicitTenantId;
 
   try {
     await parseCronRequestBody(request);
+    const url = new URL(request.url);
     const force = url.searchParams.get("force") === "1";
+    const tenantIds = await resolveCronTenantIds(explicitTenantId);
+    artifactTenantId = tenantIds[0] ?? artifactTenantId;
+    const runs: Array<Record<string, unknown>> = [];
 
-    const result = await runCarbonBudgetReallocationAlertIfDue({ force });
-    const safeResult = serializeCronJsonPayload(result) as Record<string, unknown>;
-    const metricValue =
-      coerceBigIntCents((result as { mitigatedValueCents?: unknown }).mitigatedValueCents) ??
-      coerceBigIntCents(safeResult.mitigatedValueCents);
+    for (const tenantId of tenantIds) {
+      const result = await runCarbonBudgetReallocationAlertIfDue({ force, tenantId });
+      const safeResult = serializeCronJsonPayload(result) as Record<string, unknown>;
+      const metricValue =
+        coerceBigIntCents((result as { mitigatedValueCents?: unknown }).mitigatedValueCents) ??
+        coerceBigIntCents(safeResult.mitigatedValueCents);
 
-    const prismaAny = prisma as any;
-    const artifact = await prismaAny.cronJobArtifact.create({
-      data: {
+      const artifact = await recordCronJobArtifact({
         tenantId,
         agentName: "carbon-budget-reallocation",
         payloadJson: serializeCronJsonPayload({
@@ -52,25 +55,28 @@ async function handleCron(request: Request) {
         }),
         metricValue,
         metricUnit: metricValue == null ? null : "cents",
-      },
-      select: { id: true },
-    });
+      });
 
-    if (!result.ok) {
-      return NextResponse.json(
-        { ok: true, degraded: true, error: result.error, artifactId: artifact.id },
-        { status: 200 },
-      );
+      runs.push({
+        ...safeResult,
+        tenantId,
+        degraded: !result.ok,
+        artifactId: artifact.id,
+        ...(result.ok ? {} : { error: result.error }),
+      });
     }
 
-    return NextResponse.json({ ...safeResult, degraded: false, artifactId: artifact.id });
+    const anyDegraded = runs.some((run) => run.degraded === true);
+    return NextResponse.json(
+      { ok: true, degraded: anyDegraded, ...flattenCronTenantRuns(runs) },
+      { status: 200 },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    try {
-      const prismaAny = prisma as any;
-      await prismaAny.cronJobArtifact.create({
-        data: {
-          tenantId,
+    if (artifactTenantId) {
+      try {
+        await recordCronJobArtifact({
+          tenantId: artifactTenantId,
           agentName: "carbon-budget-reallocation",
           payloadJson: {
             degraded: true,
@@ -78,10 +84,10 @@ async function handleCron(request: Request) {
             details: message,
             source: "cron-carbon-budget-reallocation",
           },
-        },
-      });
-    } catch {
-      // Best-effort only.
+        });
+      } catch {
+        // Best-effort only.
+      }
     }
 
     return NextResponse.json(

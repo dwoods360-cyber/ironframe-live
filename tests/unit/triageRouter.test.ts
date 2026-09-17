@@ -17,17 +17,23 @@ vi.mock("@/app/lib/riskRegistryDb", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   default: {
-    systemConfig: {
-      update: vi.fn().mockResolvedValue({}),
-      findUnique: vi.fn().mockResolvedValue({
-        sustainabilityLiveApiDegraded: false,
-        sustainabilityApiDegradedSince: null,
-        sustainabilityStaleLockdownWaived: false,
-        stateFreezeActive: false,
-      }),
-    },
     riskRegistry: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
   },
+}));
+
+vi.mock("@/src/services/ironlock/freezeEngine", () => ({
+  initiateStateFreeze: vi.fn().mockResolvedValue({ ok: true, alreadyActive: false }),
+}));
+
+vi.mock("@/src/services/irontech/freezeEngine", () => ({
+  getIrontechFreezeEngineSnapshot: vi.fn().mockResolvedValue({
+    isSystemFrozen: false,
+    staleDataLockdownWindow: false,
+    hoursDegraded: null,
+    degradedSinceIso: null,
+    degradedDurationMs: null,
+    globalSecurityFreezeActive: false,
+  }),
 }));
 
 vi.mock("@/app/actions/auditActions", () => ({
@@ -62,6 +68,7 @@ describe("evaluateSystemTriage (TAS §4.3 consolidated engine)", () => {
     const { executeAutonomousStateFreeze } = await import(
       "@/src/services/orchestration/checkpointer"
     );
+    const { initiateStateFreeze } = await import("@/src/services/ironlock/freezeEngine");
     const result = await evaluateSystemTriage({
       tenantId: "t1",
       threadId: "th-2",
@@ -70,6 +77,7 @@ describe("evaluateSystemTriage (TAS §4.3 consolidated engine)", () => {
     });
     expect(result.status).toBe("TRIAGED_AND_HEALED");
     expect(executeAutonomousStateFreeze).toHaveBeenCalledWith("th-2", "t1");
+    expect(initiateStateFreeze).toHaveBeenCalled();
     if (result.status === "TRIAGED_AND_HEALED") {
       expect(result.checkpointId).toBe("cp-test");
       expect(result.incidentZone).toBe("RED_TEAM_BREACH");

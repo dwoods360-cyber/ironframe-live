@@ -4,7 +4,7 @@ import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath"
 import {
   briefingSynopsisFromMarkdown,
 } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
-import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
+import { fetchPublishedBriefingsForRequest } from "@/app/lib/governanceFrame/briefingLoader";
 import { isDeskNoteLedgerItem } from "@/app/lib/governanceFrame/publishedLedgerKind";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ function formatPublishedDate(iso: string): string {
  * Quarantined drafts do not appear here.
  */
 export default async function ResearchDeskNotesPage() {
-  const ledger = await fetchPublishedBriefings();
+  const ledger = await fetchPublishedBriefingsForRequest();
   const notes = ledger
     .filter((item) => isDeskNoteLedgerItem(item.markdown, item.slug, item.title))
     .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));

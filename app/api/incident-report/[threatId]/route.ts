@@ -3,9 +3,8 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { irongateInterceptRestrictedEvidenceChapterAccess } from "@/app/actions/agentActions";
-import { getCompanyIdForTenantUuid } from "@/app/lib/grc/clearanceThreatResolve";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { USER_CLEARANCE_COOKIE_NAME } from "@/app/utils/clearanceLogic";
 import { createClient } from "@/lib/supabase/server";
@@ -28,11 +27,6 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ threatI
   if (!guard.ok) return guard.response;
 
   const { threatId } = await ctx.params;
-  const companyId = await getCompanyIdForTenantUuid(guard.tenantUuid);
-  if (companyId == null) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const cookieStore = await cookies();
   const userClearance = cookieStore.get(USER_CLEARANCE_COOKIE_NAME)?.value ?? "PUBLIC";
   const gate = await irongateInterceptRestrictedEvidenceChapterAccess({
@@ -43,13 +37,33 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ threatI
     return NextResponse.json({ error: gate.message }, { status: gate.httpStatus });
   }
 
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: threatId, tenantCompanyId: companyId },
-    select: { postMortemReportPath: true },
+  const lookup = await withIronguardTenant(guard.tenantUuid, async (tx) => {
+    const primary = await tx.company.findFirst({
+      where: { tenantId: guard.tenantUuid, isTestRecord: false },
+      orderBy: { id: "asc" },
+      select: { id: true },
+    });
+    const company =
+      primary ??
+      (await tx.company.findFirst({
+        where: { tenantId: guard.tenantUuid },
+        orderBy: { id: "asc" },
+        select: { id: true },
+      }));
+    if (!company) return { company: false as const, row: null };
+    const row = await tx.riskEvent.findFirst({
+      where: { id: threatId, tenantCompanyId: company.id },
+      select: { postMortemReportPath: true },
+    });
+    return { company: true as const, row };
   });
-  if (!row?.postMortemReportPath) {
+  if (!lookup.company) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!lookup.row?.postMortemReportPath) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  const row = lookup.row;
 
   const parsed = parseStoredPath(row.postMortemReportPath);
   let buf: Buffer;

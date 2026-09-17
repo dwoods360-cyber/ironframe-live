@@ -1,8 +1,8 @@
 import "server-only";
 
 import { createHash } from "crypto";
-import prisma from "@/lib/prisma";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { recordCronJobArtifact } from "@/app/lib/server/cronTenantScope";
 import type {
   ComplianceDriftState,
   RegulatoryDriftAlert,
@@ -70,21 +70,22 @@ export function readComplianceDriftStateSync(): ComplianceDriftState {
   return DEFAULT_STATE;
 }
 
-export async function readComplianceDriftState(): Promise<ComplianceDriftState> {
+export async function readComplianceDriftState(tenantId: string): Promise<ComplianceDriftState> {
   try {
-    const prismaAny = prisma as any;
-    const row = await prismaAny.cronJobArtifact.findFirst({
-      where: {
-        tenantId: TENANT_UUIDS.medshield,
-        agentName: DRIFT_STATE_AGENT,
-      },
-      orderBy: {
-        runTimestamp: "desc",
-      },
-      select: {
-        payloadJson: true,
-      },
-    });
+    const row = await withIronguardTenant(tenantId, (tx) =>
+      tx.cronJobArtifact.findFirst({
+        where: {
+          tenantId,
+          agentName: DRIFT_STATE_AGENT,
+        },
+        orderBy: {
+          runTimestamp: "desc",
+        },
+        select: {
+          payloadJson: true,
+        },
+      }),
+    );
     const payload = row?.payloadJson;
     if (payload && typeof payload === "object" && !Array.isArray(payload)) {
       const state = (payload as { state?: unknown }).state;
@@ -97,19 +98,19 @@ export async function readComplianceDriftState(): Promise<ComplianceDriftState> 
   return DEFAULT_STATE;
 }
 
-export async function writeComplianceDriftState(state: ComplianceDriftState): Promise<void> {
+export async function writeComplianceDriftState(
+  tenantId: string,
+  state: ComplianceDriftState,
+): Promise<void> {
   const next: ComplianceDriftState = {
     ...state,
     horizons: refreshHorizonDays(state.horizons.length ? state.horizons : DEFAULT_HORIZONS),
   };
-  const prismaAny = prisma as any;
-  await prismaAny.cronJobArtifact.create({
-    data: {
-      tenantId: TENANT_UUIDS.medshield,
-      agentName: DRIFT_STATE_AGENT,
-      payloadJson: {
-        state: next,
-      },
+  await recordCronJobArtifact({
+    tenantId,
+    agentName: DRIFT_STATE_AGENT,
+    payloadJson: {
+      state: next,
     },
   });
 }

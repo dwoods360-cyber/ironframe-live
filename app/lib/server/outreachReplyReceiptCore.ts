@@ -1,6 +1,7 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 import {
   isOutreachReplyAlertEnabled,
   isOutreachReplyReceiptEnabled,
@@ -67,10 +68,12 @@ async function resolveCrmContact(email: string): Promise<{
   company: string | null;
 } | null> {
   const tenantId = resolveProspectPoolTenantId();
-  const contact = await prisma.ironboardCrmContact.findFirst({
+  const contact = await withProspectPoolTenant((tx) =>
+    tx.ironboardCrmContact.findFirst({
     where: { tenantId, email },
     select: { id: true, fullName: true, company: true },
-  });
+  }),
+  );
   if (!contact) return null;
   return {
     contactId: contact.id,

@@ -4,7 +4,7 @@ import { createHash } from "crypto";
 import { INDUSTRY_SCOUT_FEEDS, type IndustryScoutFeed } from "@/app/config/industryScoutFeeds";
 import { ironscribeForensicIngest } from "@/app/services/ironscribe/forensicIngestor";
 import { processIngestedRegulation } from "@/app/services/regulatoryPipeline";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { ABORT_REASONS } from "@/app/utils/abortReasons";
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -134,20 +134,21 @@ const INDUSTRY_SCOUT_ARTIFACT_LOOKBACK_ROWS = 2000;
 
 async function readIndustryScoutSeenIdsFromDb(tenantId: string): Promise<Set<string>> {
   const seen = new Set<string>();
-  const prismaAny = prisma as any;
-  const rows = await prismaAny.cronJobArtifact.findMany({
-    where: {
-      tenantId,
-      agentName: "industry-scout",
-    },
-    select: {
-      payloadJson: true,
-    },
-    orderBy: {
-      runTimestamp: "desc",
-    },
-    take: INDUSTRY_SCOUT_ARTIFACT_LOOKBACK_ROWS,
-  });
+  const rows = await withIronguardTenant(tenantId, (tx) =>
+    tx.cronJobArtifact.findMany({
+      where: {
+        tenantId,
+        agentName: "industry-scout",
+      },
+      select: {
+        payloadJson: true,
+      },
+      orderBy: {
+        runTimestamp: "desc",
+      },
+      take: INDUSTRY_SCOUT_ARTIFACT_LOOKBACK_ROWS,
+    }),
+  );
 
   for (const row of rows as Array<{ payloadJson?: unknown }>) {
     const payload = row.payloadJson;
@@ -167,11 +168,11 @@ async function readIndustryScoutSeenIdsFromDb(tenantId: string): Promise<Set<str
 /**
  * Ironsight Industry Scout — poll SEC / NIST CSRC / Colorado feeds, download rulings, hand to Ironscribe.
  */
-export async function runIndustryScoutWorker(options?: {
-  tenantId?: string;
+export async function runIndustryScoutWorker(options: {
+  tenantId: string;
 }): Promise<IndustryScoutRunResult> {
-  const tenantId = options?.tenantId?.trim();
-  const seen = tenantId ? await readIndustryScoutSeenIdsFromDb(tenantId) : new Set<string>();
+  const tenantId = options.tenantId.trim();
+  const seen = await readIndustryScoutSeenIdsFromDb(tenantId);
   const discovered: CrawlDiscoveredItem[] = [];
   const errors: string[] = [];
   const ingestedItemIds: string[] = [];
@@ -211,6 +212,7 @@ export async function runIndustryScoutWorker(options?: {
         sha256,
         mimeType: artifact.mimeType,
         blocks,
+        tenantId,
       });
       newlyIngested += 1;
       ingestedItemIds.push(item.id);

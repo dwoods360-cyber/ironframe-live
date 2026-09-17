@@ -7,8 +7,8 @@ import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath"
 import { listBriefingArchiveEntries, briefingArchiveExcluding } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
 import {
   briefingBodyMarkdown,
-  fetchBriefingBySlug,
-  fetchPublishedBriefings,
+  fetchBriefingBySlugForRequest,
+  fetchPublishedBriefingsForRequest,
 } from "@/app/lib/governanceFrame/briefingLoader";
 import { PUBLISHED_BRIEFING_SLUG_REDIRECTS } from "@/app/lib/governanceFrame/publishedBriefingSlugRedirects";
 import { researchHref } from "@/app/lib/governanceFrame/researchLinks";
@@ -32,7 +32,7 @@ function formatPublishedDate(iso: string): string {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const briefing = await fetchBriefingBySlug(slug);
+  const briefing = await fetchBriefingBySlugForRequest(slug);
   if (!briefing) return { title: "Briefing" };
   return { title: briefing.title };
 }
@@ -46,8 +46,8 @@ export default async function ResearchBriefingPage({ params }: PageProps) {
   }
 
   const [briefing, ledger] = await Promise.all([
-    fetchBriefingBySlug(slug),
-    fetchPublishedBriefings(),
+    fetchBriefingBySlugForRequest(slug),
+    fetchPublishedBriefingsForRequest(),
   ]);
   if (!briefing) notFound();
 

@@ -3,7 +3,8 @@ import { requirePrivilegedDatabaseUrl } from "@/lib/prismaPrivileged";
 
 describe("privileged Prisma configuration", () => {
   it("fails closed when the privileged credential is absent", () => {
-    expect(() => requirePrivilegedDatabaseUrl(undefined, undefined)).toThrow(
+    // Pass empty string — `undefined` would fall through to process.env defaults.
+    expect(() => requirePrivilegedDatabaseUrl("", "")).toThrow(
       "PRIVILEGED_DATABASE_URL_REQUIRED",
     );
   });

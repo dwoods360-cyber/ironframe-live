@@ -4,7 +4,7 @@
  * Applies schema from prisma migrate diff + ironguard GUC (same as Playwright workflow).
  */
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 
 const host = process.env.CI_PG_HOST ?? "127.0.0.1";
 const password = process.env.PGPASSWORD ?? "postgres_password";
@@ -63,6 +63,32 @@ run(
   `psql -h ${host} -U ${user} -d ${database} -v ON_ERROR_STOP=1 -f prisma/migrations/20260507200000_ironguard_session_tenant_guc/migration.sql`,
   { shell: true },
 );
+
+// Distinct privileged role so getPrismaPrivileged() can open a second client in CI
+// (PRIVILEGED_DATABASE_URL must not share the application role name).
+const privilegedRoleSqlPath = "prisma-ci-privileged-role.sql";
+writeFileSync(
+  privilegedRoleSqlPath,
+  `DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ironframe_privileged') THEN
+    CREATE ROLE ironframe_privileged LOGIN PASSWORD '${password}' BYPASSRLS;
+  ELSE
+    ALTER ROLE ironframe_privileged WITH LOGIN PASSWORD '${password}' BYPASSRLS;
+  END IF;
+END
+$$;
+GRANT CONNECT ON DATABASE ironframe_test TO ironframe_privileged;
+GRANT USAGE ON SCHEMA public TO ironframe_privileged;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ironframe_privileged;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ironframe_privileged;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ironframe_privileged;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ironframe_privileged;
+`,
+);
+run(`psql -h ${host} -U ${user} -d ${database} -v ON_ERROR_STOP=1 -f ${privilegedRoleSqlPath}`, {
+  shell: true,
+});
 
 console.log("ci-bootstrap-postgres: schema applied.");
 

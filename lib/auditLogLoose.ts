@@ -101,7 +101,13 @@ export async function auditLogCreateLoose(args: LooseAuditCreateArgs) {
 export function auditLogCreateLooseTx(
   tx: { auditLog: { create: (args: AuditLogCreateArgs) => Promise<unknown> } },
   args: LooseAuditCreateArgs,
-) {
+): Promise<{
+  id: string;
+  action: string;
+  justification: string | null;
+  operatorId: string;
+  createdAt: Date;
+}> {
   const data = { ...args.data };
   const tenantId =
     asTenantUuid(data.tenantId) ||
@@ -117,5 +123,11 @@ export function auditLogCreateLooseTx(
   return tx.auditLog.create({
     ...args,
     data: data as Prisma.AuditLogUncheckedCreateInput,
-  } as AuditLogCreateArgs);
+  } as AuditLogCreateArgs) as Promise<{
+    id: string;
+    action: string;
+    justification: string | null;
+    operatorId: string;
+    createdAt: Date;
+  }>;
 }

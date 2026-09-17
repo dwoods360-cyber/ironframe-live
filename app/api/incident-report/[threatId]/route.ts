@@ -63,9 +63,9 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ threatI
   if (!lookup.row?.postMortemReportPath) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const row = lookup.row;
+  const reportPath = lookup.row.postMortemReportPath;
 
-  const parsed = parseStoredPath(row.postMortemReportPath);
+  const parsed = parseStoredPath(reportPath);
   let buf: Buffer;
 
   if (parsed.kind === "local") {

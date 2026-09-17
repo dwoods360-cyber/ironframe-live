@@ -70,6 +70,11 @@ vi.mock("@/lib/prisma", () => ({
   default: prismaMock,
 }));
 
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: vi.fn(async (_tenant: string, fn: (tx: typeof prismaMock) => unknown) =>
+    fn(prismaMock)),
+}));
+
 import { executeDigitalShred } from "@/app/actions/shredderActions";
 import { EPIC_12_SHRED_BLOCK_MESSAGE } from "@/app/lib/evidence/signedAttestationGuard";
 import { EPIC_12_WORM_DELETE_BLOCK_MESSAGE } from "@/app/lib/evidence/wormStoragePolicy";
@@ -108,7 +113,8 @@ describe("Epic 12 — shredder attestation immutability guard", () => {
     const result = await executeDigitalShred("risk-vault-sealed-001", "operator-001");
 
     expect(result).toEqual({ ok: false, error: EPIC_12_SHRED_BLOCK_MESSAGE });
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(prismaMock.riskEvent.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.auditReceipt.create).not.toHaveBeenCalled();
   });
 
   it("allows shred when no attestation signals are present", async () => {
@@ -125,7 +131,8 @@ describe("Epic 12 — shredder attestation immutability guard", () => {
     const result = await executeDigitalShred("risk-unattested-001", "operator-001");
 
     expect(result.ok).toBe(true);
-    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.riskEvent.updateMany).toHaveBeenCalled();
+    expect(prismaMock.auditReceipt.create).toHaveBeenCalled();
   });
 
   it("blocks shred when post-mortem artifact is on a WORM storage path", async () => {
@@ -141,7 +148,8 @@ describe("Epic 12 — shredder attestation immutability guard", () => {
     const result = await executeDigitalShred("risk-worm-sealed-001", "operator-001");
 
     expect(result).toEqual({ ok: false, error: EPIC_12_WORM_DELETE_BLOCK_MESSAGE });
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(prismaMock.riskEvent.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.auditReceipt.create).not.toHaveBeenCalled();
   });
 
   it("blocks shred when attached evidence artifacts are on WORM storage paths", async () => {
@@ -164,6 +172,7 @@ describe("Epic 12 — shredder attestation immutability guard", () => {
     const result = await executeDigitalShred("risk-evidence-worm-001", "operator-001");
 
     expect(result).toEqual({ ok: false, error: EPIC_12_WORM_DELETE_BLOCK_MESSAGE });
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(prismaMock.riskEvent.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.auditReceipt.create).not.toHaveBeenCalled();
   });
 });

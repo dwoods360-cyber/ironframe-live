@@ -2145,12 +2145,8 @@ export async function revertThreatToPipelineAction(
 
 /** Reject risk ingestion/registration: creates server audit log only (threatId optional for client-only pipeline). */
 export async function rejectThreatAction(id: string, operatorId: string): Promise<{ success: true } | void> {
-  if (!prismaDelegates.auditLog?.create) {
-    warnMissingDelegate('auditLog');
-    return;
-  }
   try {
-    await auditLogCreateLooseTx(prismaDelegates, {
+    await auditLogCreateLoose({
       data: {
         action: 'RISK_REJECTED',
         justification: 'User rejected risk ingestion/registration.',
@@ -2162,7 +2158,7 @@ export async function rejectThreatAction(id: string, operatorId: string): Promis
     return { success: true };
   } catch {
     // Threat may not exist (e.g. client-only pipeline); create audit without FK
-    await auditLogCreateLooseTx(prismaDelegates, {
+    await auditLogCreateLoose({
       data: {
         action: 'RISK_REJECTED',
         justification: `User rejected risk ingestion/registration. threat_id: ${id}`,

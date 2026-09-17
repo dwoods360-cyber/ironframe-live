@@ -149,7 +149,7 @@ export async function submitOperationalDeficiencyReportAction(input: {
       return { reportId, auditLogId: createdRow.id };
     });
     if ("error" in created) {
-      return { success: false, error: created.error };
+      return { success: false, error: String(created.error) };
     }
 
     revalidatePath("/opsupport");
@@ -238,7 +238,7 @@ export async function submitOperationalSelfTestPassAction(input: {
       return { ok: true as const };
     });
     if ("error" in bound) {
-      return { success: false, error: bound.error };
+      return { success: false, error: String(bound.error) };
     }
 
     revalidatePath("/opsupport");

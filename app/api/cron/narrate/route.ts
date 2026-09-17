@@ -66,7 +66,7 @@ async function handleNarrate(request: Request) {
       );
 
       const result = await runNightlyGovernanceNarrate(tenantId);
-      runs.push({ tenantId, ...result, healthTelemetry: preflightSnapshot });
+      runs.push({ ...result, tenantId, healthTelemetry: preflightSnapshot });
     }
 
     const completedAt = new Date().toISOString();

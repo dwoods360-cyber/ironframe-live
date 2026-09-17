@@ -42,7 +42,7 @@ async function agentConsideredWorkloadActive(agentCanon: string): Promise<boolea
     status: { in: ACTIVE_THREAT_STATUSES },
     OR: [
       { assigneeId: assigneeKey },
-      { sourceAgent: { equals: agentCanon, mode: "insensitive" } },
+      { sourceAgent: { equals: agentCanon, mode: "insensitive" as const } },
     ],
   };
   for (const tenantId of await listCatalogTenantIds()) {

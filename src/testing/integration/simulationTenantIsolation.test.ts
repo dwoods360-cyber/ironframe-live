@@ -6,6 +6,11 @@ vi.mock("@/lib/prisma", () => ({
   default: prismaMock,
 }));
 
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: vi.fn(async (_tenant: string, fn: (tx: typeof prismaMock) => unknown) =>
+    fn(prismaMock)),
+}));
+
 vi.mock("@/app/middleware/irongateShield", () => ({
   validateIngressContext: vi.fn((tenantId: string | undefined) => {
     if (!tenantId?.trim()) {

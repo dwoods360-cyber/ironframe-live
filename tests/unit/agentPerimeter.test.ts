@@ -53,8 +53,8 @@ vi.mock("@/app/lib/security/tenantMembershipGuard", () => ({
   assertAuthenticatedIronguardTenantOr403: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  default: {
+const { prismaMock } = vi.hoisted(() => ({
+  prismaMock: {
     ironboardCrmContact: {
       findFirst: vi.fn(),
       create: vi.fn(),
@@ -69,7 +69,17 @@ vi.mock("@/lib/prisma", () => ({
     agentLog: {
       create: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  default: prismaMock,
+}));
+
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: vi.fn(async (_tenant: string, fn: (tx: typeof prismaMock) => unknown) =>
+    fn(prismaMock)),
 }));
 
 const mockGenerateContent = vi.hoisted(() =>

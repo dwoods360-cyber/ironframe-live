@@ -10,30 +10,38 @@ const findFirstRevokedInvite = vi.fn();
 const findManyAudit = vi.fn();
 const createAssignment = vi.fn();
 
-vi.mock("@/lib/prisma", () => ({
-  default: {
-    tenant: {
-      findUnique: findUniqueTenant,
-      findMany: findManyTenants,
-    },
-    userRoleAssignment: {
-      findMany: findManyAssignments,
-      findFirst: findFirstAssignment,
-      create: createAssignment,
-    },
-    tenantWorkspaceInvitation: {
-      findMany: vi.fn((args: { where?: { status?: string } }) => {
-        if (args?.where?.status === "CONSUMED") {
-          return findManyConsumedInvites();
-        }
-        return findInvitations();
-      }),
-      findFirst: findFirstRevokedInvite,
-    },
-    auditLog: {
-      findMany: findManyAudit,
-    },
+const prismaMock = {
+  tenant: {
+    findUnique: findUniqueTenant,
+    findMany: findManyTenants,
   },
+  userRoleAssignment: {
+    findMany: findManyAssignments,
+    findFirst: findFirstAssignment,
+    create: createAssignment,
+  },
+  tenantWorkspaceInvitation: {
+    findMany: vi.fn((args: { where?: { status?: string } }) => {
+      if (args?.where?.status === "CONSUMED") {
+        return findManyConsumedInvites();
+      }
+      return findInvitations();
+    }),
+    findFirst: findFirstRevokedInvite,
+  },
+  auditLog: {
+    findMany: findManyAudit,
+  },
+  $transaction: vi.fn(),
+};
+
+vi.mock("@/lib/prisma", () => ({
+  default: prismaMock,
+}));
+
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: vi.fn(async (_tenant: string, fn: (tx: typeof prismaMock) => unknown) =>
+    fn(prismaMock)),
 }));
 
 describe("resolveWorkspaceAccessDenial", () => {

@@ -11,7 +11,7 @@ const source = readFileSync(
 describe("evidence request-path tenant binding", () => {
   it("runs tenant-scoped evidence operations through the Ironguard transaction wrapper", () => {
     expect(source).toContain('import { withIronguardTenant }');
-    expect(source.match(/withIronguardTenant\(/g)).toHaveLength(3);
+    expect(source.match(/withIronguardTenant\(/g)).toHaveLength(5);
     expect(source).not.toContain("prisma.evidenceArtifact.create");
     expect(source).not.toContain("prisma.evidenceArtifact.findFirst");
     expect(source).not.toContain("prisma.evidenceAttachment.findMany");

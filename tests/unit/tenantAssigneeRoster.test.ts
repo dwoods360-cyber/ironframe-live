@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/prisma", () => ({
-  default: {
+const { prismaMock } = vi.hoisted(() => ({
+  prismaMock: {
     company: {
       findMany: vi.fn(),
     },
@@ -14,7 +14,17 @@ vi.mock("@/lib/prisma", () => ({
     riskEvent: {
       findMany: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  default: prismaMock,
+}));
+
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: vi.fn(async (_tenant: string, fn: (tx: typeof prismaMock) => unknown) =>
+    fn(prismaMock)),
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -69,7 +79,7 @@ describe("fetchTenantAssigneeRoster", () => {
       },
     } as never);
 
-    const roster = await fetchTenantAssigneeRoster("tenant-uuid-run4c");
+    const roster = await fetchTenantAssigneeRoster("5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01");
 
     expect(roster).toEqual(
       expect.arrayContaining([
@@ -88,7 +98,7 @@ describe("fetchTenantAssigneeRoster", () => {
       { assigneeId: "legacy-analyst-42" },
     ] as never);
 
-    const roster = await fetchTenantAssigneeRoster("tenant-uuid-empty");
+    const roster = await fetchTenantAssigneeRoster("11111111-1111-4111-8111-111111111111");
 
     expect(roster.map((row) => row.value)).toEqual(
       expect.arrayContaining(["dereck", "user_01", "legacy-analyst-42"]),
@@ -132,7 +142,7 @@ describe("fetchTenantAssigneeRoster", () => {
       },
     } as never);
 
-    const roster = await fetchTenantAssigneeRoster("tenant-uuid-medshield", {
+    const roster = await fetchTenantAssigneeRoster("5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01", {
       expandForPlatformAdmin: true,
     });
 

@@ -24,12 +24,23 @@ vi.mock('next/cache', () => ({
   unstable_noStore: vi.fn(),
 }));
 
-vi.mock('@/lib/prisma', () => ({
-  default: {
+const { prismaMock } = vi.hoisted(() => ({
+  prismaMock: {
     threatEvent: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
+}));
+
+vi.mock('@/lib/prisma', () => ({
+  default: prismaMock,
+}));
+
+vi.mock('@/app/lib/server/ironguardSessionTenant', () => ({
+  withIronguardTenant: vi.fn(async (_tenant: string, fn: (tx: typeof prismaMock) => unknown) =>
+    fn(prismaMock)),
 }));
 
 vi.mock('@/app/actions/threatActions', () => ({
@@ -80,6 +91,7 @@ describe('POST /api/threats/ingest — GRC gate', () => {
   beforeEach(() => {
     mockCookiesGet.mockReturnValue(undefined);
     vi.mocked(prisma.threatEvent.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.threatEvent.findFirst).mockResolvedValue(null);
     vi.mocked(acknowledgeThreatAction).mockResolvedValue({ success: true });
     vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValue(SAMPLE_TENANT);
   });
@@ -105,7 +117,7 @@ describe('POST /api/threats/ingest — GRC gate', () => {
   });
 
   it('returns 400 when threat is $10M and justification is missing', async () => {
-    vi.mocked(prisma.threatEvent.findUnique).mockResolvedValue({
+    vi.mocked(prisma.threatEvent.findFirst).mockResolvedValue({
       financialRisk_cents: BigInt(1_000_000_000),
       status: 'IDENTIFIED',
       createdAt: new Date(),
@@ -128,7 +140,7 @@ describe('POST /api/threats/ingest — GRC gate', () => {
   });
 
   it('returns 400 when threat is $10M and justification is under 50 characters', async () => {
-    vi.mocked(prisma.threatEvent.findUnique).mockResolvedValue({
+    vi.mocked(prisma.threatEvent.findFirst).mockResolvedValue({
       financialRisk_cents: BigInt(1_000_000_000),
       status: 'IDENTIFIED',
       createdAt: new Date(),
@@ -152,7 +164,7 @@ describe('POST /api/threats/ingest — GRC gate', () => {
   });
 
   it('succeeds when threat is $10M and justification has 50+ characters', async () => {
-    vi.mocked(prisma.threatEvent.findUnique).mockResolvedValue({
+    vi.mocked(prisma.threatEvent.findFirst).mockResolvedValue({
       financialRisk_cents: BigInt(1_000_000_000),
       status: 'IDENTIFIED',
       createdAt: new Date(),

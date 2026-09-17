@@ -2,9 +2,10 @@ import "server-only";
 
 import { randomUUID } from "crypto";
 
-import { auditLogCreateLoose } from "@/lib/auditLogLoose";
+import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getPrismaPrivileged } from "@/lib/prismaPrivileged";
 import { IroncastService } from "@/services/ironcast.service";
 import { computeSustainabilityStaleLockdown } from "@/app/config/sustainabilityStaleLockdown";
 import { recalculateSystemMaturityScore } from "@/app/services/governanceScoring";
@@ -80,6 +81,35 @@ async function dispatchPagerDutyStateFreezeCritical(payload: {
       "error",
     );
     return false;
+  }
+}
+
+async function listPrivilegedTenantIds(): Promise<string[]> {
+  const tenants = await getPrismaPrivileged().tenant.findMany({
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+  if (!tenants.length) {
+    throw new Error("No tenant rows available for state-freeze forensic fan-out.");
+  }
+  return tenants.map((tenant) => tenant.id);
+}
+
+async function appendLevel1ForensicAudit(justification: string, tenantIds?: string[]): Promise<void> {
+  const ids = tenantIds ?? (await listPrivilegedTenantIds());
+  for (const tenantId of ids) {
+    await withIronguardTenant(tenantId, (tx) =>
+      auditLogCreateLooseTx(tx, {
+        data: {
+          action: "LEVEL_1_FORENSIC_EVENT",
+          justification,
+          operatorId: "IRONCAST_AGENT_7",
+          threatId: null,
+          isSimulation: false,
+          governance_tenant_uuid: tenantId,
+        },
+      }),
+    );
   }
 }
 
@@ -166,7 +196,8 @@ async function dispatchTwilioStateFreezeVoice(toE164: string): Promise<boolean> 
  * PagerDuty (Constitutional Authority integration) + Ironcast URGENT email.
  */
 export async function ensureStateFreezeCisoEscalation(): Promise<void> {
-  const row = await prisma.systemConfig.findUnique({
+  const privileged = getPrismaPrivileged();
+  const row = await privileged.systemConfig.findUnique({
     where: { id: "global" },
     select: {
       sustainabilityLiveApiDegraded: true,
@@ -180,7 +211,7 @@ export async function ensureStateFreezeCisoEscalation(): Promise<void> {
   if (!lock.blockingMutations) return;
   if (row?.stateFreezeEscalatedAt) return;
 
-  const claimed = await prisma.systemConfig.updateMany({
+  const claimed = await privileged.systemConfig.updateMany({
     where: { id: "global", stateFreezeEscalatedAt: null },
     data: { stateFreezeEscalatedAt: new Date() },
   });
@@ -196,34 +227,27 @@ export async function ensureStateFreezeCisoEscalation(): Promise<void> {
     process.env.THREAT_CONFIRMATION_RECIPIENTS?.split(",")[0]?.trim() ||
     process.env.IRONCAST_SMOKE_RECIPIENT?.trim();
 
-  const tenant = await prisma.tenant.findFirst({ select: { id: true } });
-  const tenantId = tenant?.id ?? "00000000-0000-0000-0000-000000000001";
-
+  const tenantIds = await listPrivilegedTenantIds();
   if (adminEmail) {
-    await dispatchIroncastStateFreezeEmail(adminEmail, tenantId);
+    await dispatchIroncastStateFreezeEmail(adminEmail, tenantIds[0]!);
   } else {
     logStructuredEvent("Ironcast", "state_freeze_email_skipped", { reason: "no_admin_email" }, "warn");
   }
 
   try {
-    await auditLogCreateLoose({
-      data: {
-        action: "LEVEL_1_FORENSIC_EVENT",
-        justification: JSON.stringify({
-          kind: "STATE_FREEZE_IRONCAST_ESCALATION",
-          agent: "IRONCAST_AGENT_7",
-          severity: "LEVEL_1",
-          pagerDutyEnqueued: pdOk,
-          dedupKey,
-          degradedSinceIso,
-          message:
-            "Ironcast (Agent 7): Level 1 forensic event — Irontech State Freeze; PagerDuty CRITICAL to Constitutional Authority service (if routing key configured); URGENT Ironcast email to admin path; Twilio voice ladder armed for T+5m if CISO emergency number configured.",
-        }),
-        operatorId: "IRONCAST_AGENT_7",
-        threatId: null,
-        isSimulation: false,
-      },
-    });
+    await appendLevel1ForensicAudit(
+      JSON.stringify({
+        kind: "STATE_FREEZE_IRONCAST_ESCALATION",
+        agent: "IRONCAST_AGENT_7",
+        severity: "LEVEL_1",
+        pagerDutyEnqueued: pdOk,
+        dedupKey,
+        degradedSinceIso,
+        message:
+          "Ironcast (Agent 7): Level 1 forensic event — Irontech State Freeze; PagerDuty CRITICAL to Constitutional Authority service (if routing key configured); URGENT Ironcast email to admin path; Twilio voice ladder armed for T+5m if CISO emergency number configured.",
+      }),
+      tenantIds,
+    );
   } catch (e) {
     console.error("[Ironcast] Level 1 forensic audit failed", e);
   }
@@ -235,7 +259,8 @@ export async function ensureStateFreezeCisoEscalation(): Promise<void> {
  * voice is the statutory follow-up rung (recorded as maturity drift when dispatched).
  */
 export async function maybeDispatchStateFreezeCisoVoiceFallback(): Promise<void> {
-  const row = await prisma.systemConfig.findUnique({
+  const privileged = getPrismaPrivileged();
+  const row = await privileged.systemConfig.findUnique({
     where: { id: "global" },
     select: {
       sustainabilityLiveApiDegraded: true,
@@ -266,28 +291,22 @@ export async function maybeDispatchStateFreezeCisoVoiceFallback(): Promise<void>
   const ok = await dispatchTwilioStateFreezeVoice(to);
   if (!ok) return;
 
-  await prisma.systemConfig.update({
+  await privileged.systemConfig.update({
     where: { id: "global" },
     data: { stateFreezeVoiceDispatchedAt: new Date() },
   });
 
   try {
-    await auditLogCreateLoose({
-      data: {
-        action: "LEVEL_1_FORENSIC_EVENT",
-        justification: JSON.stringify({
-          kind: "STATE_FREEZE_CISO_VOICE_FALLBACK",
-          agent: "IRONCAST_AGENT_7",
-          severity: "LEVEL_1",
-          delayMsApprox: VOICE_FALLBACK_DELAY_MS,
-          message:
-            "Ironcast (Agent 7): CISO emergency voice ladder — Twilio outbound after statutory delay; records constitutional escalation gap as maturity drift.",
-        }),
-        operatorId: "IRONCAST_AGENT_7",
-        threatId: null,
-        isSimulation: false,
-      },
-    });
+    await appendLevel1ForensicAudit(
+      JSON.stringify({
+        kind: "STATE_FREEZE_CISO_VOICE_FALLBACK",
+        agent: "IRONCAST_AGENT_7",
+        severity: "LEVEL_1",
+        delayMsApprox: VOICE_FALLBACK_DELAY_MS,
+        message:
+          "Ironcast (Agent 7): CISO emergency voice ladder — Twilio outbound after statutory delay; records constitutional escalation gap as maturity drift.",
+      }),
+    );
   } catch (e) {
     console.error("[Ironcast] voice fallback audit failed", e);
   }

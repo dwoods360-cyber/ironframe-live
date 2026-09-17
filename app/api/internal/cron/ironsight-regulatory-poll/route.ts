@@ -5,8 +5,12 @@ import {
   checkCronBearerAuth,
   cronBearerUnauthorizedResponse,
 } from "@/app/api/internal/cron/cronAuth";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
-import prisma from "@/lib/prisma";
+import { flattenCronTenantRuns } from "@/app/api/internal/cron/cronRouteShell";
+import {
+  readExplicitCronTenantId,
+  recordCronJobArtifact,
+  resolveCronTenantIds,
+} from "@/app/lib/server/cronTenantScope";
 
 /**
  * Ironsight regulatory horizon poll — pairs with Vercel Cron.
@@ -18,19 +22,21 @@ async function handleCron(request: Request) {
   }
   console.info("[CRON_ACTIVATION_TRACE] Ironsight regulatory poll execution initiated successfully.");
 
-  const url = new URL(request.url);
-  const tenantId =
-    request.headers.get("x-tenant-id")?.trim() ||
-    url.searchParams.get("tenantId")?.trim() ||
-    process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
-    TENANT_UUIDS.medshield;
+  const explicitTenantId = readExplicitCronTenantId(request);
+  let artifactTenantId = explicitTenantId;
 
   try {
-    const poll = await runIronsightRegulatoryPoll();
-    const maturity = await recalculateSystemMaturityScore({ trigger: "IRONSIGHT_REGULATORY_POLL" });
-    const prismaAny = prisma as any;
-    const artifact = await prismaAny.cronJobArtifact.create({
-      data: {
+    const tenantIds = await resolveCronTenantIds(explicitTenantId);
+    artifactTenantId = tenantIds[0] ?? artifactTenantId;
+    const runs: Array<Record<string, unknown>> = [];
+
+    for (const tenantId of tenantIds) {
+      const poll = await runIronsightRegulatoryPoll(tenantId);
+      const maturity = await recalculateSystemMaturityScore({
+        tenantId,
+        trigger: "IRONSIGHT_REGULATORY_POLL",
+      });
+      const artifact = await recordCronJobArtifact({
         tenantId,
         agentName: "ironsight-regulatory-poll",
         payloadJson: {
@@ -39,24 +45,24 @@ async function handleCron(request: Request) {
           degraded: false,
           source: "cron-ironsight-regulatory-poll",
         },
-      },
-      select: { id: true },
-    });
+      });
+      runs.push({
+        ok: true,
+        degraded: false,
+        tenantId,
+        poll,
+        maturityScore: maturity.current.score,
+        artifactId: artifact.id,
+      });
+    }
 
-    return NextResponse.json({
-      ok: true,
-      degraded: false,
-      poll,
-      maturityScore: maturity.current.score,
-      artifactId: artifact.id,
-    });
+    return NextResponse.json({ ok: true, degraded: false, ...flattenCronTenantRuns(runs) });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    try {
-      const prismaAny = prisma as any;
-      await prismaAny.cronJobArtifact.create({
-        data: {
-          tenantId,
+    if (artifactTenantId) {
+      try {
+        await recordCronJobArtifact({
+          tenantId: artifactTenantId,
           agentName: "ironsight-regulatory-poll",
           payloadJson: {
             degraded: true,
@@ -64,10 +70,10 @@ async function handleCron(request: Request) {
             details: message,
             source: "cron-ironsight-regulatory-poll",
           },
-        },
-      });
-    } catch {
-      // Best-effort only.
+        });
+      } catch {
+        // Best-effort only.
+      }
     }
 
     return NextResponse.json(

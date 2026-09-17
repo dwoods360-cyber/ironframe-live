@@ -1,6 +1,10 @@
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
 import { checkBoardFeedAuth } from "@/app/api/internal/cron/cronAuth";
 import { buildBoardFeedRssXml } from "@/app/lib/governanceFrame/boardFeedXml";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+
+const TENANT_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(req: Request) {
   if (!checkBoardFeedAuth(req)) {
@@ -8,14 +12,22 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const tenantId = searchParams.get("tenantId")?.trim() || undefined;
+  const tenantId = searchParams.get("tenantId")?.trim() || "";
+  if (!TENANT_UUID_RE.test(tenantId)) {
+    return NextResponse.json(
+      { error: "tenantId query parameter (UUID) is required." },
+      { status: 400 },
+    );
+  }
 
   try {
-    const briefings = await prisma.publishedBriefing.findMany({
-      where: tenantId ? { tenantId } : undefined,
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
+    const briefings = await withIronguardTenant(tenantId, async (tx) =>
+      tx.publishedBriefing.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+    );
 
     const xml = buildBoardFeedRssXml(
       briefings.map((item) => ({

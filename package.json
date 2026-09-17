@@ -54,6 +54,7 @@
     "install-hooks": "node scripts/install-pre-commit.mjs",
     "cold-store:init": "node scripts/init-ironframe-cold-store.mjs",
     "smoke:worm": "npx tsx scripts/smoke-test-worm.ts",
+    "smoke:rls:preview": "npx tsx scripts/preview-rls-nobyypass-smoke.ts",
     "db:seed": "prisma db seed",
     "db:seed:benchmarks": "npx tsx prisma/seedBenchmarks.ts",
     "db:seed:auditor-readiness": "npx tsx scripts/seed-auditor-readiness-telemetry.ts",

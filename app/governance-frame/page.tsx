@@ -3,7 +3,7 @@ import Link from "next/link";
 import EarlyEnclaveCta from "@/app/components/governanceFrame/EarlyEnclaveCta";
 import {
   briefingBodyMarkdown,
-  fetchPublishedBriefings,
+  fetchPublishedBriefingsForRequest,
 } from "@/app/lib/governanceFrame/briefingLoader";
 import {
   parseBriefingSections,
@@ -33,7 +33,7 @@ function primaryCentMetric(markdown: string, title: string): string | null {
 }
 
 export default async function GovernanceFrameIndexPage() {
-  const briefings = await fetchPublishedBriefings();
+  const briefings = await fetchPublishedBriefingsForRequest();
 
   return (
     <>

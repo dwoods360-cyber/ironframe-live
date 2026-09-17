@@ -11,8 +11,8 @@ export async function GET(request: NextRequest) {
   const guard = await assertAuthenticatedIronguardTenantOr403(request);
   if (!guard.ok) return guard.response;
   const tenantId = guard.tenantUuid;
-  const state = await readComplianceDriftState();
-  const penalty = await getActiveComplianceDriftMaturityPenalty();
+  const state = await readComplianceDriftState(tenantId);
+  const penalty = await getActiveComplianceDriftMaturityPenalty(tenantId);
   const active = activeDriftAlerts(state);
 
   return NextResponse.json(

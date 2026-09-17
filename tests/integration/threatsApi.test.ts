@@ -32,20 +32,38 @@ vi.mock('@/src/services/orchestration/ingestBusBridge', () => ({
   invokeIngestOrchestrationBus: vi.fn(),
 }));
 
+const prismaMocks = vi.hoisted(() => ({
+  threatEventCreate: vi.fn(),
+  threatEventUpdate: vi.fn().mockImplementation(async ({ data }: { data?: { ingestionDetails?: string } }) => ({
+    id: 'updated',
+    ingestionDetails: data?.ingestionDetails ?? null,
+  })),
+  companyFindFirst: vi.fn().mockResolvedValue(null),
+  simulationConfigFindUnique: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock('@/lib/prisma', () => ({
   default: {
+    $transaction: vi.fn(async (cb: (tx: Record<string, unknown>) => unknown) =>
+      cb({
+        $queryRaw: vi.fn().mockResolvedValue([{ present: false }]),
+        $executeRaw: vi.fn().mockResolvedValue(1),
+        company: { findFirst: prismaMocks.companyFindFirst },
+        threatEvent: {
+          create: prismaMocks.threatEventCreate,
+          update: prismaMocks.threatEventUpdate,
+        },
+      }),
+    ),
     threatEvent: {
-      create: vi.fn(),
-      update: vi.fn().mockImplementation(async ({ data }: { data?: { ingestionDetails?: string } }) => ({
-        id: 'updated',
-        ingestionDetails: data?.ingestionDetails ?? null,
-      })),
+      create: prismaMocks.threatEventCreate,
+      update: prismaMocks.threatEventUpdate,
     },
     company: {
-      findFirst: vi.fn().mockResolvedValue(null),
+      findFirst: prismaMocks.companyFindFirst,
     },
     simulationConfig: {
-      findUnique: vi.fn().mockResolvedValue(null),
+      findUnique: prismaMocks.simulationConfigFindUnique,
     },
   },
 }));

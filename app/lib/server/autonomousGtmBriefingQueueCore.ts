@@ -7,6 +7,7 @@ import { BRIEFING_QUEUE_DIR, resolveDocsRoot } from "@/app/lib/governanceFrame/b
 import { requestGovernanceBriefingSeriesCore } from "@/app/lib/server/requestGovernanceBriefingSeriesCore";
 import { requestGovernanceNewsletterSeriesCore } from "@/app/lib/server/requestGovernanceNewsletterSeriesCore";
 import prisma from "@/lib/prisma";
+import { recordCronJobArtifact } from "@/app/lib/server/cronTenantScope";
 
 export type AutonomousGtmTopic = {
   id: string;
@@ -250,21 +251,18 @@ export async function runAutonomousGtmBriefingQueue(
     );
   }
 
-  const artifact = await prisma.cronJobArtifact.create({
-    data: {
-      tenantId: tenant.id,
-      agentName: "gtm-briefing-queue-autonomous",
-      payloadJson: {
-        dateLabel,
-        topicId: topic.id,
-        staged,
-        skippedExisting,
-        failed,
-        source: "api-cron-gtm-briefing-queue",
-        publishState: "QUARANTINED_AWAITING_OPERATOR",
-      },
+  const artifact = await recordCronJobArtifact({
+    tenantId: tenant.id,
+    agentName: "gtm-briefing-queue-autonomous",
+    payloadJson: {
+      dateLabel,
+      topicId: topic.id,
+      staged,
+      skippedExisting,
+      failed,
+      source: "api-cron-gtm-briefing-queue",
+      publishState: "QUARANTINED_AWAITING_OPERATOR",
     },
-    select: { id: true },
   });
 
   return {

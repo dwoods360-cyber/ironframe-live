@@ -2,6 +2,7 @@
 
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -49,15 +50,18 @@ export async function checkRetentionViolations(): Promise<
   }
 
   const cutoff = new Date(Date.now() - RETENTION_WINDOW_DAYS * MS_PER_DAY);
-  const risks = await prisma.riskEvent.findMany({
-    where: {
-      tenantCompanyId: { in: companyIds },
-      updatedAt: { lt: cutoff },
-    },
-    select: { id: true, title: true, updatedAt: true },
-    take: 500,
-    orderBy: { updatedAt: "asc" },
-  });
+  const risks = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.findMany({
+      where: {
+        tenantId: tenantUuid,
+        tenantCompanyId: { in: companyIds },
+        updatedAt: { lt: cutoff },
+      },
+      select: { id: true, title: true, updatedAt: true },
+      take: 500,
+      orderBy: { updatedAt: "asc" },
+    }),
+  );
 
   const now = Date.now();
   const violations: RetentionViolation[] = risks.map((r) => ({

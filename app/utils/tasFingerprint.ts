@@ -5,6 +5,8 @@ import { join } from "path";
 import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import {
   SYSTEM_OWNER_ID,
@@ -570,40 +572,50 @@ export async function applyIronlockConstitutionalFreeze(): Promise<{ threatsFroz
   let threatsFrozen = 0;
   let shadowFrozen = 0;
 
-  const prodRows = await prisma.threatEvent.findMany({
-    where: { status: { in: ACTIVE_THREAT_STATES } },
-    select: { id: true, ingestionDetails: true },
-  });
-  for (const row of prodRows) {
-    const merged = mergeIngestionDetailsPatch(row.ingestionDetails, {
-      [IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY]: patchJson,
-    });
-    await runAuditedThreatEventWormBypass({
-      threatId: row.id,
-      eventType: "TAS_IRONLOCK_CONSTITUTIONAL_FREEZE",
-      actorUserId: "IRONLOCK_AGENT_06",
-      execute: (tx) =>
-        tx.threatEvent.update({
-          where: { id: row.id },
-          data: { ingestionDetails: merged },
-        }),
-    });
-    threatsFrozen += 1;
-  }
+  for (const tenantId of await listCatalogTenantIds()) {
+    const counts = await withIronguardTenant(tenantId, async (tx) => {
+      let tf = 0;
+      let sf = 0;
+      const prodRows = await tx.threatEvent.findMany({
+        where: { tenantId, status: { in: ACTIVE_THREAT_STATES } },
+        select: { id: true, ingestionDetails: true },
+      });
+      for (const row of prodRows) {
+        const merged = mergeIngestionDetailsPatch(row.ingestionDetails, {
+          [IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY]: patchJson,
+        });
+        await runAuditedThreatEventWormBypass({
+          threatId: row.id,
+          eventType: "TAS_IRONLOCK_CONSTITUTIONAL_FREEZE",
+          actorUserId: "IRONLOCK_AGENT_06",
+          existingTx: tx,
+          execute: (innerTx) =>
+            innerTx.threatEvent.update({
+              where: { id: row.id },
+              data: { ingestionDetails: merged },
+            }),
+        });
+        tf += 1;
+      }
 
-  const simRows = await prisma.riskEvent.findMany({
-    where: { status: { in: ACTIVE_THREAT_STATES } },
-    select: { id: true, tenantId: true, ingestionDetails: true },
-  });
-  for (const row of simRows) {
-    const merged = mergeIngestionDetailsPatchJson(row.ingestionDetails, {
-      [IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY]: patchJson,
+      const simRows = await tx.riskEvent.findMany({
+        where: { tenantId, status: { in: ACTIVE_THREAT_STATES } },
+        select: { id: true, tenantId: true, ingestionDetails: true },
+      });
+      for (const row of simRows) {
+        const merged = mergeIngestionDetailsPatchJson(row.ingestionDetails, {
+          [IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY]: patchJson,
+        });
+        await tx.riskEvent.updateMany({
+          where: { id: row.id, tenantId: row.tenantId },
+          data: { ingestionDetails: merged },
+        });
+        sf += 1;
+      }
+      return { threatsFrozen: tf, shadowFrozen: sf };
     });
-    await prisma.riskEvent.updateMany({
-      where: { id: row.id, tenantId: row.tenantId },
-      data: { ingestionDetails: merged },
-    });
-    shadowFrozen += 1;
+    threatsFrozen += counts.threatsFrozen;
+    shadowFrozen += counts.shadowFrozen;
   }
 
   ironlockFreezeApplied = true;
@@ -633,47 +645,56 @@ export async function applyIronlockConstitutionalFreezeForTenant(
   });
   const companyIds = companies.map((c) => c.id);
 
-  if (companyIds.length > 0) {
-    const prodRows = await prisma.threatEvent.findMany({
-      where: {
-        status: { in: ACTIVE_THREAT_STATES },
-        tenantCompanyId: { in: companyIds },
-      },
-      select: { id: true, ingestionDetails: true },
+  const counts = await withIronguardTenant(tid, async (tx) => {
+    let tf = 0;
+    let sf = 0;
+    if (companyIds.length > 0) {
+      const prodRows = await tx.threatEvent.findMany({
+        where: {
+          tenantId: tid,
+          status: { in: ACTIVE_THREAT_STATES },
+          tenantCompanyId: { in: companyIds },
+        },
+        select: { id: true, ingestionDetails: true },
+      });
+      for (const row of prodRows) {
+        const merged = mergeIngestionDetailsPatch(row.ingestionDetails, {
+          [IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY]: patchJson,
+        });
+        await runAuditedThreatEventWormBypass({
+          threatId: row.id,
+          eventType: "TAS_IRONLOCK_TENANT_CONSTITUTIONAL_FREEZE",
+          actorUserId: "IRONLOCK_AGENT_06",
+          detail: `tenant=${tid}`,
+          existingTx: tx,
+          execute: (innerTx) =>
+            innerTx.threatEvent.update({
+              where: { id: row.id },
+              data: { ingestionDetails: merged },
+            }),
+        });
+        tf += 1;
+      }
+    }
+
+    const simRows = await tx.riskEvent.findMany({
+      where: { status: { in: ACTIVE_THREAT_STATES }, tenantId: tid },
+      select: { id: true, tenantId: true, ingestionDetails: true },
     });
-    for (const row of prodRows) {
-      const merged = mergeIngestionDetailsPatch(row.ingestionDetails, {
+    for (const row of simRows) {
+      const merged = mergeIngestionDetailsPatchJson(row.ingestionDetails, {
         [IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY]: patchJson,
       });
-      await runAuditedThreatEventWormBypass({
-        threatId: row.id,
-        eventType: "TAS_IRONLOCK_TENANT_CONSTITUTIONAL_FREEZE",
-        actorUserId: "IRONLOCK_AGENT_06",
-        detail: `tenant=${tid}`,
-        execute: (tx) =>
-          tx.threatEvent.update({
-            where: { id: row.id },
-            data: { ingestionDetails: merged },
-          }),
+      await tx.riskEvent.updateMany({
+        where: { id: row.id, tenantId: row.tenantId },
+        data: { ingestionDetails: merged },
       });
-      threatsFrozen += 1;
+      sf += 1;
     }
-  }
-
-  const simRows = await prisma.riskEvent.findMany({
-    where: { status: { in: ACTIVE_THREAT_STATES }, tenantId: tid },
-    select: { id: true, tenantId: true, ingestionDetails: true },
+    return { threatsFrozen: tf, shadowFrozen: sf };
   });
-  for (const row of simRows) {
-    const merged = mergeIngestionDetailsPatchJson(row.ingestionDetails, {
-      [IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY]: patchJson,
-    });
-    await prisma.riskEvent.updateMany({
-      where: { id: row.id, tenantId: row.tenantId },
-      data: { ingestionDetails: merged },
-    });
-    shadowFrozen += 1;
-  }
+  threatsFrozen = counts.threatsFrozen;
+  shadowFrozen = counts.shadowFrozen;
 
   if (cachedSnapshot) {
     cachedSnapshot = { ...cachedSnapshot, ironlockFreezeApplied: true };
@@ -743,52 +764,65 @@ export async function performIrontechRebaselineVerification(): Promise<{
   let clearedProd = 0;
   let clearedShadow = 0;
 
-  const prodRows = await prisma.threatEvent.findMany({
-    where: { ingestionDetails: { contains: IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY } },
-    select: { id: true, ingestionDetails: true },
-  });
-  for (const row of prodRows) {
-    const cleared = clearEmergencyPatchFromIngestion(row.ingestionDetails);
-    if (cleared === row.ingestionDetails) continue;
-    await runAuditedThreatEventWormBypass({
-      threatId: row.id,
-      eventType: "TAS_IRONTECH_REBASELINE_CLEAR",
-      actorUserId: "IRONTECH_AGENT_04",
-      execute: (tx) =>
-        tx.threatEvent.update({
-          where: { id: row.id },
-          data: { ingestionDetails: typeof cleared === "string" ? cleared : JSON.stringify(cleared) },
-        }),
-    });
-    clearedProd += 1;
-  }
+  for (const tenantId of await listCatalogTenantIds()) {
+    const counts = await withIronguardTenant(tenantId, async (tx) => {
+      let cp = 0;
+      let cs = 0;
+      const prodRows = await tx.threatEvent.findMany({
+        where: {
+          tenantId,
+          ingestionDetails: { contains: IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY },
+        },
+        select: { id: true, ingestionDetails: true },
+      });
+      for (const row of prodRows) {
+        const cleared = clearEmergencyPatchFromIngestion(row.ingestionDetails);
+        if (cleared === row.ingestionDetails) continue;
+        await runAuditedThreatEventWormBypass({
+          threatId: row.id,
+          eventType: "TAS_IRONTECH_REBASELINE_CLEAR",
+          actorUserId: "IRONTECH_AGENT_04",
+          existingTx: tx,
+          execute: (innerTx) =>
+            innerTx.threatEvent.update({
+              where: { id: row.id },
+              data: { ingestionDetails: typeof cleared === "string" ? cleared : JSON.stringify(cleared) },
+            }),
+        });
+        cp += 1;
+      }
 
-  const simCandidates = await prisma.riskEvent.findMany({
-    where: { status: { in: ACTIVE_THREAT_STATES } },
-    select: { id: true, tenantId: true, ingestionDetails: true },
-  });
-  const simRows = simCandidates.filter((row) => {
-    const raw =
-      typeof row.ingestionDetails === "string"
-        ? row.ingestionDetails
-        : row.ingestionDetails != null
-          ? JSON.stringify(row.ingestionDetails)
-          : null;
-    return readIronlockEmergencyFromIngestion(raw) != null;
-  });
-  for (const row of simRows) {
-    const cleared = clearEmergencyPatchFromIngestion(
-      typeof row.ingestionDetails === "string"
-        ? row.ingestionDetails
-        : row.ingestionDetails != null
-          ? JSON.stringify(row.ingestionDetails)
-          : null,
-    );
-    await prisma.riskEvent.updateMany({
-      where: { id: row.id, tenantId: row.tenantId },
-      data: { ingestionDetails: cleared as import("@prisma/client").Prisma.InputJsonValue },
+      const simCandidates = await tx.riskEvent.findMany({
+        where: { tenantId, status: { in: ACTIVE_THREAT_STATES } },
+        select: { id: true, tenantId: true, ingestionDetails: true },
+      });
+      const simRows = simCandidates.filter((row) => {
+        const raw =
+          typeof row.ingestionDetails === "string"
+            ? row.ingestionDetails
+            : row.ingestionDetails != null
+              ? JSON.stringify(row.ingestionDetails)
+              : null;
+        return readIronlockEmergencyFromIngestion(raw) != null;
+      });
+      for (const row of simRows) {
+        const cleared = clearEmergencyPatchFromIngestion(
+          typeof row.ingestionDetails === "string"
+            ? row.ingestionDetails
+            : row.ingestionDetails != null
+              ? JSON.stringify(row.ingestionDetails)
+              : null,
+        );
+        await tx.riskEvent.updateMany({
+          where: { id: row.id, tenantId: row.tenantId },
+          data: { ingestionDetails: cleared as import("@prisma/client").Prisma.InputJsonValue },
+        });
+        cs += 1;
+      }
+      return { clearedProd: cp, clearedShadow: cs };
     });
-    clearedShadow += 1;
+    clearedProd += counts.clearedProd;
+    clearedShadow += counts.clearedShadow;
   }
 
   try {

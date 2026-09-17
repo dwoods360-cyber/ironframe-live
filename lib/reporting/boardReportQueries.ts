@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import {
   calculateOutOfPocketExposure,
   calculateInsurancePremiumCents,
@@ -218,12 +220,22 @@ async function loadReadinessInputs(now = new Date()) {
         lastProbeOk: false,
       },
     }),
-    prisma.auditLog.count({
-      where: {
-        action: "LAB_RESTORATION_SUCCESS",
-        createdAt: { gte: thirty },
-      },
-    }),
+    (async () => {
+      const tenantIds = await listCatalogTenantIds();
+      let total = 0;
+      for (const tenantId of tenantIds) {
+        total += await withIronguardTenant(tenantId, (tx) =>
+          tx.auditLog.count({
+            where: {
+              tenantId,
+              action: "LAB_RESTORATION_SUCCESS",
+              createdAt: { gte: thirty },
+            },
+          }),
+        );
+      }
+      return total;
+    })(),
     prisma.syntheticEmployee.count({
       where: {
         clearanceLevel: { gte: 1, lte: 4 },
@@ -300,37 +312,58 @@ function heatTier(row: {
 async function loadFinancialBlock(): Promise<BoardFinancialBlock> {
   const thirty = daysAgo(30);
 
-  const [capAgg, simThreatBleed, threatBleed, simLossCount, threatLossCount, remediatedSim, remediatedThreat] =
-    await Promise.all([
-      prisma.syntheticEmployee.aggregate({ _sum: { monetaryValue: true, totalLossIncurred: true } }),
-      prisma.riskEvent.aggregate({
-        where: simLossRiskWhereSince(thirty),
-        _sum: { financialRisk_cents: true },
-      }),
-      prisma.threatEvent.aggregate({
-        where: simLossThreatWhereSince(thirty),
-        _sum: { financialRisk_cents: true },
-      }),
-      prisma.riskEvent.count({ where: simLossRiskWhereSince(thirty) }),
-      prisma.threatEvent.count({ where: simLossThreatWhereSince(thirty) }),
-      prisma.riskEvent.count({
-        where: {
-          updatedAt: { gte: thirty },
-          ...LAB_REMEDIATED_RISK_FILTER,
-        },
-      }),
-      prisma.threatEvent.count({
-        where: {
-          updatedAt: { gte: thirty },
-          ...LAB_REMEDIATED_THREAT_FILTER,
-        },
-      }),
-    ]);
+  const capAgg = await prisma.syntheticEmployee.aggregate({
+    _sum: { monetaryValue: true, totalLossIncurred: true },
+  });
+
+  let simThreatBleedSum = 0n;
+  let threatBleedSum = 0n;
+  let simLossCount = 0;
+  let threatLossCount = 0;
+  let remediatedSim = 0;
+  let remediatedThreat = 0;
+
+  for (const tenantId of await listCatalogTenantIds()) {
+    const batch = await withIronguardTenant(tenantId, async (tx) => {
+      const [simBleed, threatBleed, simLoss, threatLoss, remSim, remThreat] = await Promise.all([
+        tx.riskEvent.aggregate({
+          where: { tenantId, ...simLossRiskWhereSince(thirty) },
+          _sum: { financialRisk_cents: true },
+        }),
+        tx.threatEvent.aggregate({
+          where: { tenantId, ...simLossThreatWhereSince(thirty) },
+          _sum: { financialRisk_cents: true },
+        }),
+        tx.riskEvent.count({ where: { tenantId, ...simLossRiskWhereSince(thirty) } }),
+        tx.threatEvent.count({ where: { tenantId, ...simLossThreatWhereSince(thirty) } }),
+        tx.riskEvent.count({
+          where: {
+            tenantId,
+            updatedAt: { gte: thirty },
+            ...LAB_REMEDIATED_RISK_FILTER,
+          },
+        }),
+        tx.threatEvent.count({
+          where: {
+            tenantId,
+            updatedAt: { gte: thirty },
+            ...LAB_REMEDIATED_THREAT_FILTER,
+          },
+        }),
+      ]);
+      return { simBleed, threatBleed, simLoss, threatLoss, remSim, remThreat };
+    });
+    simThreatBleedSum += batch.simBleed._sum.financialRisk_cents ?? 0n;
+    threatBleedSum += batch.threatBleed._sum.financialRisk_cents ?? 0n;
+    simLossCount += batch.simLoss;
+    threatLossCount += batch.threatLoss;
+    remediatedSim += batch.remSim;
+    remediatedThreat += batch.remThreat;
+  }
 
   const totalCapital = capAgg._sum.monetaryValue ?? 0n;
   const totalLossCurrent = capAgg._sum.totalLossIncurred ?? 0n;
-  const bleed =
-    (simThreatBleed._sum.financialRisk_cents ?? 0n) + (threatBleed._sum.financialRisk_cents ?? 0n);
+  const bleed = simThreatBleedSum + threatBleedSum;
 
   const simLossEventCount30d = simLossCount + threatLossCount;
   const remediatedThreatCount30d = remediatedSim + remediatedThreat;
@@ -483,19 +516,33 @@ async function loadGovernance(): Promise<BoardGovernanceRow[]> {
       },
     ],
   };
-  const rows = await prisma.auditLog.findMany({
-    where: governanceWhere,
-    orderBy: { createdAt: "desc" },
-    take: 5,
-    select: {
-      id: true,
-      action: true,
-      justification: true,
-      operatorId: true,
-      createdAt: true,
-    },
-  });
-  return rows.map((r) => ({
+  const tenantIds = await listCatalogTenantIds();
+  const rows: Array<{
+    id: string;
+    action: string;
+    justification: string | null;
+    operatorId: string;
+    createdAt: Date;
+  }> = [];
+  for (const tenantId of tenantIds) {
+    const slice = await withIronguardTenant(tenantId, (tx) =>
+      tx.auditLog.findMany({
+        where: { tenantId, ...governanceWhere },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          action: true,
+          justification: true,
+          operatorId: true,
+          createdAt: true,
+        },
+      }),
+    );
+    rows.push(...slice);
+  }
+  rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  return rows.slice(0, 5).map((r) => ({
     id: r.id,
     action: r.action,
     justification: r.justification,

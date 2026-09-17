@@ -15,7 +15,7 @@ import {
 import { normalizeAccountDomain } from "@/app/lib/ingress/ironleadsSuspectIdentity";
 import { parkImportedOverflow } from "@/app/lib/server/ironleadsPendingPoolCore";
 import { websiteUrlFromDomainOrUrl } from "@/app/lib/server/ironleadsSuspectLocation";
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 export type { DirectoryImportRow, MsspDirectorySeed };
 export { listMsspFreeDirectorySeeds, parseDirectoryImportPaste };
@@ -44,10 +44,12 @@ async function stampDirectoryMetadata(input: {
   directorySource: string;
   notes: string | null;
 }): Promise<void> {
-  const contact = await prisma.ironboardCrmContact.findUnique({
-    where: { id: input.contactId },
+  const contact = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findFirst({
+    where: { id: input.contactId, tenantId },
     select: { metadata: true },
-  });
+  }),
+  );
   if (!contact) return;
   const meta = asRecord(contact.metadata);
   const websiteUrl =
@@ -59,14 +61,16 @@ async function stampDirectoryMetadata(input: {
     importedAt: new Date().toISOString(),
     notes: input.notes,
   };
-  await prisma.ironboardCrmContact.update({
-    where: { id: input.contactId },
+  await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.updateMany({
+    where: { id: input.contactId, tenantId },
     data: {
       ingestionSource: "MANUAL_INPUT",
       title: "Suspect — free directory import",
       metadata: meta as Prisma.InputJsonValue,
     },
-  });
+  }),
+  );
 }
 
 export async function importMsspDirectoryAccounts(

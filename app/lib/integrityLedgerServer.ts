@@ -1,8 +1,9 @@
 import "server-only";
 
 import { unstable_noStore as noStore } from "next/cache";
-import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import {
   frameworkBadgesForChaosScenario,
   type FrameworkBadgeKind,
@@ -136,20 +137,26 @@ function ledgerAuthorizedDisplayName(rec: Record<string, unknown>, userId: strin
 export async function fetchResolvedChaosLedgerRows(): Promise<ServerIntegrityLedgerRow[]> {
   noStore();
 
-  const rows = await prisma.threatEvent.findMany({
-    where: {
-      status: { in: [ThreatState.RESOLVED] },
-    },
-    orderBy: { updatedAt: "desc" },
-    take: 400,
-    select: {
-      id: true,
-      title: true,
-      ingestionDetails: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  const tenantId = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantId) return [];
+
+  const rows = await withIronguardTenant(tenantId, (tx) =>
+    tx.threatEvent.findMany({
+      where: {
+        tenantId,
+        status: { in: [ThreatState.RESOLVED] },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 400,
+      select: {
+        id: true,
+        title: true,
+        ingestionDetails: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+  );
 
   const out: ServerIntegrityLedgerRow[] = [];
 

@@ -14,7 +14,7 @@ import {
   type GRCPlaybookTier,
 } from "@/Ironboard/src/agents/sales/playbook";
 import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 const MAX_DRAFT_SUMMARY_CHARS = 12_000;
 
@@ -114,15 +114,33 @@ export async function upsertProspectCrmContact(intake: SalesAgentIntake) {
   const tenantId = resolveProspectPoolTenantId();
   const metricData = ALE_BASELINES[intake.baselineTarget];
 
-  const existing = await prisma.ironboardCrmContact.findFirst({
-    where: { tenantId, email: intake.email },
-  });
+  return withIronguardTenant(tenantId, async (tx) => {
+    const existing = await tx.ironboardCrmContact.findFirst({
+      where: { tenantId, email: intake.email },
+    });
 
-  if (existing) {
-    return prisma.ironboardCrmContact.update({
-      where: { id: existing.id },
+    if (existing) {
+      return tx.ironboardCrmContact.update({
+        where: { id: existing.id },
+        data: {
+          fullName: intake.name,
+          company: intake.company,
+          title: `Beachhead:${intake.baselineTarget} [${metricData.baselineId}]`,
+          metadata: {
+            initialBaselineAlignment: intake.baselineTarget,
+            targetALE: GRC_SALES_PLAYBOOK[intake.baselineTarget].targetALE,
+            ingressNotes: intake.notes,
+          },
+        },
+      });
+    }
+
+    return tx.ironboardCrmContact.create({
       data: {
+        id: randomUUID(),
+        tenantId,
         fullName: intake.name,
+        email: intake.email,
         company: intake.company,
         title: `Beachhead:${intake.baselineTarget} [${metricData.baselineId}]`,
         metadata: {
@@ -132,22 +150,6 @@ export async function upsertProspectCrmContact(intake: SalesAgentIntake) {
         },
       },
     });
-  }
-
-  return prisma.ironboardCrmContact.create({
-    data: {
-      id: randomUUID(),
-      tenantId,
-      fullName: intake.name,
-      email: intake.email,
-      company: intake.company,
-      title: `Beachhead:${intake.baselineTarget} [${metricData.baselineId}]`,
-      metadata: {
-        initialBaselineAlignment: intake.baselineTarget,
-        targetALE: GRC_SALES_PLAYBOOK[intake.baselineTarget].targetALE,
-        ingressNotes: intake.notes,
-      },
-    },
   });
 }
 
@@ -180,7 +182,8 @@ export async function logPendingSalesDraftApproval(input: {
   notes: string;
   proposedPitch: string;
 }): Promise<string> {
-  const interaction = await prisma.ironboardCrmInteraction.create({
+  const interaction = await withIronguardTenant(input.tenantId, (tx) =>
+    tx.ironboardCrmInteraction.create({
     data: {
       id: randomUUID(),
       tenantId: input.tenantId,
@@ -189,7 +192,8 @@ export async function logPendingSalesDraftApproval(input: {
       summary: buildSalesPendingDraftSummary(input),
       occurredAt: new Date(),
     },
-  });
+  }),
+  );
   return interaction.id;
 }
 
@@ -217,7 +221,8 @@ export async function logAutomatedSalesProposal(input: {
     .filter(Boolean)
     .join("\n");
 
-  await prisma.ironboardCrmInteraction.create({
+  await withIronguardTenant(input.tenantId, (tx) =>
+    tx.ironboardCrmInteraction.create({
     data: {
       id: randomUUID(),
       tenantId: input.tenantId,
@@ -226,7 +231,8 @@ export async function logAutomatedSalesProposal(input: {
       summary: consolidatedSummary.slice(0, 12_000),
       occurredAt: new Date(),
     },
-  });
+  }),
+  );
 }
 
 function resolveApiKey(): string {

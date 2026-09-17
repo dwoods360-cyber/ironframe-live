@@ -1,12 +1,27 @@
 import "server-only";
 
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type {
+  ChannelVersions,
+  Checkpoint,
+  CheckpointListOptions,
+  CheckpointMetadata,
+  CheckpointTuple,
+  PendingWrite,
+} from "@langchain/langgraph-checkpoint";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
-import type { CheckpointTuple } from "@langchain/langgraph-checkpoint";
 import { Pool } from "pg";
+import {
+  assertCheckpointTenantParity,
+  composeCheckpointThreadId,
+  parseCheckpointThreadTenant,
+  requireCheckpointTenantUuid,
+  tenantIdFromCheckpointValues,
+} from "@/src/services/orchestration/checkpointTenant";
 
 /**
  * Epic 15 — Agent 04 (Irontech) Postgres checkpoint authority.
- * Tenant isolation: every read validates `channel_values.tenant_id` against the caller stamp.
+ * Thread IDs are tenant-prefixed; every read asserts stamp parity before return.
  */
 
 export class Epic15DatabaseConfigError extends Error {
@@ -55,12 +70,139 @@ function buildCheckpointPool(): Pool {
   });
 }
 
+function configThreadId(config: RunnableConfig | undefined): string {
+  const raw = config?.configurable?.thread_id;
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function configTenantId(config: RunnableConfig | undefined): string | undefined {
+  const configurable = config?.configurable;
+  if (!configurable || typeof configurable !== "object") return undefined;
+  const raw =
+    (configurable as Record<string, unknown>).tenant_id ??
+    (configurable as Record<string, unknown>).tenantId;
+  return typeof raw === "string" ? raw.trim() : undefined;
+}
+
+function bindCheckpointConfig(
+  config: RunnableConfig,
+  fallbackTenant?: string,
+): { config: RunnableConfig; tenant: string } {
+  const threadId = configThreadId(config);
+  if (!threadId) {
+    throw new Error("CHECKPOINT_THREAD_ID_REQUIRED");
+  }
+  const tenant = requireCheckpointTenantUuid(
+    configTenantId(config) ?? parseCheckpointThreadTenant(threadId) ?? fallbackTenant,
+  );
+  const boundThread = composeCheckpointThreadId(tenant, threadId);
+  return {
+    tenant,
+    config: {
+      ...config,
+      configurable: {
+        ...config.configurable,
+        thread_id: boundThread,
+        tenant_id: tenant,
+      },
+    },
+  };
+}
+
+function resolvePutTenant(config: RunnableConfig, checkpoint: Checkpoint): string {
+  return requireCheckpointTenantUuid(
+    configTenantId(config) ??
+      parseCheckpointThreadTenant(configThreadId(config)) ??
+      tenantIdFromCheckpointValues(checkpoint.channel_values),
+  );
+}
+
+function stampCheckpoint(checkpoint: Checkpoint, tenant: string): Checkpoint {
+  const values =
+    checkpoint.channel_values && typeof checkpoint.channel_values === "object"
+      ? { ...(checkpoint.channel_values as Record<string, unknown>) }
+      : {};
+  const existing = tenantIdFromCheckpointValues(values);
+  if (existing && existing !== tenant) {
+    throw new Error(
+      `CRITICAL_TENANT_VIOLATION: checkpoint stamp ${existing} does not match tenant ${tenant}.`,
+    );
+  }
+  return {
+    ...checkpoint,
+    channel_values: { ...values, tenant_id: tenant },
+  };
+}
+
+function assertReturnedTuple(tuple: CheckpointTuple, tenant: string, threadId: string): CheckpointTuple {
+  assertCheckpointTenantParity({
+    callerTenant: tenant,
+    threadId,
+    channelValues: tuple.checkpoint?.channel_values,
+  });
+  return tuple;
+}
+
+/**
+ * Prefixes thread IDs with the tenant UUID and refuses to return unstamped
+ * or cross-tenant checkpoint state. Database tenant_id is filled from that prefix.
+ */
+class TenantBoundPostgresSaver extends PostgresSaver {
+  override async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
+    const bound = bindCheckpointConfig(config);
+    const tuple = await super.getTuple(bound.config);
+    if (!tuple?.checkpoint) return tuple;
+    return assertReturnedTuple(tuple, bound.tenant, String(bound.config.configurable?.thread_id ?? ""));
+  }
+
+  override async *list(
+    config: RunnableConfig,
+    options?: CheckpointListOptions,
+  ): AsyncGenerator<CheckpointTuple> {
+    const bound = bindCheckpointConfig(config);
+    const threadId = String(bound.config.configurable?.thread_id ?? "");
+    for await (const tuple of super.list(bound.config, options)) {
+      if (!tuple?.checkpoint) continue;
+      yield assertReturnedTuple(tuple, bound.tenant, threadId);
+    }
+  }
+
+  override async put(
+    config: RunnableConfig,
+    checkpoint: Checkpoint,
+    metadata: CheckpointMetadata,
+    newVersions: ChannelVersions,
+  ): Promise<RunnableConfig> {
+    const tenant = resolvePutTenant(config, checkpoint);
+    const bound = bindCheckpointConfig(config, tenant);
+    return super.put(bound.config, stampCheckpoint(checkpoint, tenant), metadata, newVersions);
+  }
+
+  override async putWrites(
+    config: RunnableConfig,
+    writes: PendingWrite[],
+    taskId: string,
+  ): Promise<void> {
+    const bound = bindCheckpointConfig(config);
+    return super.putWrites(bound.config, writes, taskId);
+  }
+
+  override async deleteThread(threadId: string): Promise<void> {
+    const trimmed = threadId.trim();
+    const tenant = parseCheckpointThreadTenant(trimmed);
+    if (!tenant) {
+      throw new Error("IRONGUARD_SESSION_TENANT_UUID_REQUIRED");
+    }
+    return super.deleteThread(composeCheckpointThreadId(tenant, trimmed));
+  }
+}
+
 /** Sole authority checkpointer — call `setup()` once per process via `getPostgresCheckpointer()`. */
 export async function getPostgresCheckpointer(): Promise<PostgresSaver> {
   assertEpic15DatabaseUrlLock();
   if (!postgresCheckpointer) {
     checkpointPool = buildCheckpointPool();
-    postgresCheckpointer = new PostgresSaver(checkpointPool);
+    postgresCheckpointer = new TenantBoundPostgresSaver(checkpointPool);
     setupPromise ??= postgresCheckpointer.setup().catch((err) => {
       setupPromise = null;
       throw err;
@@ -85,36 +227,25 @@ export type OperationalStateFreezeResult = {
   threadId: string;
 };
 
-function tenantIdFromCheckpointValues(values: unknown): string | null {
-  if (values == null || typeof values !== "object") return null;
-  const tenant = (values as Record<string, unknown>).tenant_id;
-  return typeof tenant === "string" && tenant.trim() ? tenant.trim() : null;
-}
-
 /**
- * Resolve latest LangGraph checkpoint for a thread and enforce tenant stamp parity.
+ * Resolve latest LangGraph checkpoint for a thread and enforce tenant stamp parity
+ * before any channel values are returned.
  */
 export async function getTenantBoundCheckpointTuple(
   threadId: string,
   tenantId: string,
 ): Promise<CheckpointTuple | null> {
   const trimmedThread = threadId.trim();
-  const trimmedTenant = tenantId.trim();
-  if (!trimmedThread || !trimmedTenant) return null;
+  const tenant = requireCheckpointTenantUuid(tenantId);
+  if (!trimmedThread) {
+    throw new Error("CHECKPOINT_THREAD_ID_REQUIRED");
+  }
 
   const checkpointer = await getPostgresCheckpointer();
   const tuple = await checkpointer.getTuple({
-    configurable: { thread_id: trimmedThread },
+    configurable: { thread_id: trimmedThread, tenant_id: tenant },
   });
   if (!tuple?.checkpoint) return null;
-
-  const stampedTenant = tenantIdFromCheckpointValues(tuple.checkpoint.channel_values);
-  if (stampedTenant && stampedTenant !== trimmedTenant) {
-    throw new Error(
-      `CRITICAL_TENANT_VIOLATION: Thread ${trimmedThread} belongs to tenant ${stampedTenant}, not ${trimmedTenant}.`,
-    );
-  }
-
   return tuple;
 }
 
@@ -134,8 +265,8 @@ export async function executeAutonomousStateFreeze(
     status: "OPERATIONAL_FREEZE_LOCKED",
     checkpointId: tuple.checkpoint.id,
     timestamp: new Date().toISOString(),
-    tenantId: tenantId.trim(),
-    threadId: threadId.trim(),
+    tenantId: requireCheckpointTenantUuid(tenantId),
+    threadId: composeCheckpointThreadId(tenantId, threadId),
   };
 }
 

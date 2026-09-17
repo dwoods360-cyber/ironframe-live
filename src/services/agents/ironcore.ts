@@ -1,6 +1,7 @@
 import { SovereignGraphState } from '../orchestration/state';
 import { saveCheckpoint } from '@/app/utils/irontechResilience';
 import prisma from '@/lib/prisma';
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { getSustainabilityApiDegradedAsync } from "@/src/services/ironlock/validationRules";
 import {
   electricityMapsStatusFromDegradedFlag,
@@ -139,10 +140,12 @@ export class IronCore {
     if (!tid) return;
 
     try {
-      const exists = await prisma.threatEvent.findUnique({
-        where: { id: tid },
-        select: { id: true },
-      });
+      const exists = await withIronguardTenant(args.tenantId, (tx) =>
+        tx.threatEvent.findFirst({
+          where: { id: tid, tenantId: args.tenantId },
+          select: { id: true },
+        }),
+      );
       if (!exists) return;
 
       const traceFromPayload =

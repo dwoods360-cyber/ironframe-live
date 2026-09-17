@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { ThreatState, SimThreatSource, ComplianceFramework } from "@prisma/client";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { revalidatePath } from "next/cache";
 import { getIronwatchAgent13Attestation, getIronwatchMatchMessage } from "@/app/actions/agentActions";
 import { ironwatchCrossReferenceHistoricalEvidence } from "@/app/actions/ironwatchGovernanceActions";
@@ -21,6 +22,7 @@ import { computeSentinelFinancialRiskCents } from "@/app/utils/irontrustDetermin
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
 import { recordAgentComputeUsage } from "@/app/actions/agentComputeActions";
 import { GRC_GOLD_OPERATION_SENTINEL_SWEEP_PREVIEW } from "@/lib/constants/grcGold";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 const GRC_GOLD_GOVERNANCE_BLOCK_ACTION = "GRC_GOLD_GOVERNANCE_BLOCK";
 
@@ -141,40 +143,42 @@ export async function triggerSentinelHunch(
     ? targetAsset.split("::").slice(1).join("::").trim() || targetAsset
     : targetAsset;
 
-  const threat = await prisma.riskEvent.create({
-    data: {
-      title: `Sentinel Hypothesis: ${targetAsset}`,
-      sourceAgent: "HUMAN_SENTINEL",
-      source: SimThreatSource.HUMAN_SENTINEL,
-      status: ThreatState.IDENTIFIED,
-      severity: confidence >= 70 ? "HIGH" : confidence >= 40 ? "MEDIUM" : "LOW",
-      score: Math.max(1, confidence),
-      priority_score: Math.max(1, confidence),
-      targetEntity: targetAsset,
-      tenantCompanyId: companyId,
-      tenantId: hunchTenant.tenantId,
-      threatVelocity: 1.0,
-      complianceFramework,
-      mappedControls,
-      monitoringExpiry: null,
-      ingestionDetails: {
-        sourcePlane: "MANUAL",
-        threadId: orchestrationThreadId,
-        orchestrationThreadId,
-        controlStressTest: true,
-        controlStressTestControlId,
-        sentinelIntake: {
-          observedSymptom: input.observedSymptom,
-          confidenceLevel: confidence,
-          complianceFramework,
-          verificationPhaseRequired: true,
-          submittedAt: new Date().toISOString(),
-        },
-        isDeepMonitoring: false,
-      } satisfies Prisma.InputJsonValue,
-    },
-    select: { id: true },
-  });
+  const threat = await withIronguardTenant(hunchTenant.tenantId, (tx) =>
+    tx.riskEvent.create({
+      data: {
+        title: `Sentinel Hypothesis: ${targetAsset}`,
+        sourceAgent: "HUMAN_SENTINEL",
+        source: SimThreatSource.HUMAN_SENTINEL,
+        status: ThreatState.IDENTIFIED,
+        severity: confidence >= 70 ? "HIGH" : confidence >= 40 ? "MEDIUM" : "LOW",
+        score: Math.max(1, confidence),
+        priority_score: Math.max(1, confidence),
+        targetEntity: targetAsset,
+        tenantCompanyId: companyId,
+        tenantId: hunchTenant.tenantId,
+        threatVelocity: 1.0,
+        complianceFramework,
+        mappedControls,
+        monitoringExpiry: null,
+        ingestionDetails: {
+          sourcePlane: "MANUAL",
+          threadId: orchestrationThreadId,
+          orchestrationThreadId,
+          controlStressTest: true,
+          controlStressTestControlId,
+          sentinelIntake: {
+            observedSymptom: input.observedSymptom,
+            confidenceLevel: confidence,
+            complianceFramework,
+            verificationPhaseRequired: true,
+            submittedAt: new Date().toISOString(),
+          },
+          isDeepMonitoring: false,
+        } satisfies Prisma.InputJsonValue,
+      },
+      select: { id: true },
+    }),
+  );
 
   revalidatePath("/");
   revalidatePath("/vault");
@@ -707,14 +711,17 @@ export async function getForensicReasoningPlayback(threatId: string): Promise<Go
   if (!tid) return { ok: false, error: "Threat id is required." };
 
   const companyId = await getCompanyIdForActiveTenant();
-  if (companyId == null) {
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (companyId == null || !tenantUuid) {
     return { ok: false, error: "Missing company context for tenant isolation." };
   }
 
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: tid, tenantCompanyId: companyId },
-    select: { ingestionDetails: true, forensicSeal: true, governanceHash: true },
-  });
+  const row = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: tid, tenantId: tenantUuid, tenantCompanyId: companyId },
+      select: { ingestionDetails: true, forensicSeal: true, governanceHash: true },
+    }),
+  );
 
   if (!row?.ingestionDetails || typeof row.ingestionDetails !== "object" || Array.isArray(row.ingestionDetails)) {
     return { ok: false, error: "No ingestion ledger found for this threat." };
@@ -752,14 +759,17 @@ export async function verifyGovernanceIntegrity(
   if (!tid) return { ok: false, error: "Threat id is required." };
 
   const companyId = await getCompanyIdForActiveTenant();
-  if (companyId == null) {
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (companyId == null || !tenantUuid) {
     return { ok: false, error: "Missing company context for tenant isolation." };
   }
 
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: tid, tenantCompanyId: companyId },
-    select: { id: true, governanceHash: true, forensicSeal: true, ingestionDetails: true },
-  });
+  const row = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: tid, tenantId: tenantUuid, tenantCompanyId: companyId },
+      select: { id: true, governanceHash: true, forensicSeal: true, ingestionDetails: true },
+    }),
+  );
 
   if (!row) return { ok: false, error: "Threat not found." };
   if (!row.governanceHash) {
@@ -810,22 +820,25 @@ export async function listAuditorRiskLedger(): Promise<
   { ok: true; rows: AuditorRiskLedgerRow[] } | { ok: false; error: string }
 > {
   const companyId = await getCompanyIdForActiveTenant();
-  if (companyId == null) {
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (companyId == null || !tenantUuid) {
     return { ok: false, error: "Missing company context for tenant isolation." };
   }
 
-  const rows = await prisma.riskEvent.findMany({
-    where: { tenantCompanyId: companyId },
-    orderBy: { createdAt: "desc" },
-    take: 500,
-    select: {
-      id: true,
-      title: true,
-      mappedControls: true,
-      governanceHash: true,
-      forensicSeal: true,
-    },
-  });
+  const rows = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.findMany({
+      where: { tenantId: tenantUuid, tenantCompanyId: companyId },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+      select: {
+        id: true,
+        title: true,
+        mappedControls: true,
+        governanceHash: true,
+        forensicSeal: true,
+      },
+    }),
+  );
 
   const mapped: AuditorRiskLedgerRow[] = rows.map((r) => {
     let digitalSignature: string | null = null;

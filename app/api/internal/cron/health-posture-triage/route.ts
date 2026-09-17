@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { runHealthPostureTriage } from "@/src/services/irontech/healthPostureMonitor";
 import {
   checkCronBearerAuth,
   cronBearerUnauthorizedResponse,
 } from "@/app/api/internal/cron/cronAuth";
+import { flattenCronTenantRuns } from "@/app/api/internal/cron/cronRouteShell";
+import {
+  readExplicitCronTenantId,
+  resolveCronTenantIds,
+} from "@/app/lib/server/cronTenantScope";
 
 /**
  * TAS §4.3 — Live heartbeat & self-healing router (Epic 13).
@@ -20,18 +24,13 @@ async function handleCron(request: Request) {
 
   try {
     const body = await parseCronRequestBody(request);
-    const defaultTenant =
-      process.env.CRON_HEALTH_DEFAULT_TENANT_ID?.trim() ||
-      process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
-      TENANT_UUIDS.medshield;
-    const tenantId =
-      typeof body.tenantId === "string" && body.tenantId.trim()
-        ? body.tenantId.trim()
-        : defaultTenant;
-    const threadId =
-      typeof body.threadId === "string" && body.threadId.trim()
-        ? body.threadId.trim()
-        : `tas-4.3-health-${tenantId}`;
+    const bodyTenantId =
+      typeof body.tenantId === "string" && body.tenantId.trim() ? body.tenantId.trim() : null;
+    const tenantIds = await resolveCronTenantIds(
+      readExplicitCronTenantId(request, bodyTenantId ?? process.env.CRON_HEALTH_DEFAULT_TENANT_ID),
+    );
+    const threadHint =
+      typeof body.threadId === "string" && body.threadId.trim() ? body.threadId.trim() : null;
     const healthRaw = body.currentHealthBarPercent ?? body.healthBarPercent ?? 85;
     const targetZone =
       typeof body.targetZone === "string"
@@ -40,32 +39,40 @@ async function handleCron(request: Request) {
           ? body.incidentZone
           : undefined;
 
-    const result = await runHealthPostureTriage({
-      tenantId,
-      threadId,
-      healthBarPercent: Number(healthRaw),
-      incidentZone: targetZone,
-    });
-
-    console.info(
-      "[epic13-telemetry-triage]",
-      JSON.stringify({
+    const runs: Array<Record<string, unknown>> = [];
+    for (const tenantId of tenantIds) {
+      const threadId = threadHint ?? `tas-4.3-health-${tenantId}`;
+      const result = await runHealthPostureTriage({
         tenantId,
         threadId,
         healthBarPercent: Number(healthRaw),
-        triageEngaged: result.triageEngaged,
-        outcomeStatus: result.outcome.status,
-        auditIntelligenceLogged: result.auditIntelligenceLogged,
-      }),
-    );
+        incidentZone: targetZone,
+      });
 
-    return NextResponse.json(
-      {
+      console.info(
+        "[epic13-telemetry-triage]",
+        JSON.stringify({
+          tenantId,
+          threadId,
+          healthBarPercent: Number(healthRaw),
+          triageEngaged: result.triageEngaged,
+          outcomeStatus: result.outcome.status,
+          auditIntelligenceLogged: result.auditIntelligenceLogged,
+        }),
+      );
+
+      runs.push({
         success: true,
+        tenantId,
         outcome: result.outcome,
         triageEngaged: result.triageEngaged,
         auditIntelligenceLogged: result.auditIntelligenceLogged,
-      },
+      });
+    }
+
+    const payload = flattenCronTenantRuns(runs);
+    return NextResponse.json(
+      { success: true, ...payload },
       { status: 200, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

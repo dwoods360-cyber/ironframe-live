@@ -38,6 +38,7 @@ export type IngestRegulationInput = {
   sha256: string;
   mimeType: string;
   blocks: RequirementBlock[];
+  tenantId: string;
 };
 
 function buildDiffRows(blocks: RequirementBlock[], _tasMd: string): ComparisonDiffRow[] {
@@ -167,7 +168,7 @@ export async function processIngestedRegulation(input: IngestRegulationInput): P
     if (extra) alerts.push({ ...extra, severity: "CRITICAL" as const });
   }
 
-  const driftPrev = await readComplianceDriftState();
+  const driftPrev = await readComplianceDriftState(input.tenantId);
   const merged = mergeDriftAlerts(driftPrev.alerts, alerts);
 
   const ingestPrev = await readRegulatoryIngestionState();
@@ -188,7 +189,7 @@ export async function processIngestedRegulation(input: IngestRegulationInput): P
     cisoNotifications.unshift(note);
   }
 
-  await writeComplianceDriftState({
+  await writeComplianceDriftState(input.tenantId, {
     ...driftPrev,
     lastPollAt: new Date().toISOString(),
     alerts: merged.map((a) => {
@@ -209,7 +210,10 @@ export async function processIngestedRegulation(input: IngestRegulationInput): P
     lastScoutRunAt: new Date().toISOString(),
   });
 
-  await recalculateSystemMaturityScore({ trigger: "REGULATORY_INGESTION_PIPELINE" });
+  await recalculateSystemMaturityScore({
+    tenantId: input.tenantId,
+    trigger: "REGULATORY_INGESTION_PIPELINE",
+  });
 
   return {
     regulationId,

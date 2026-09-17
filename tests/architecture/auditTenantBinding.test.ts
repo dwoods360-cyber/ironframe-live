@@ -24,4 +24,14 @@ describe("Audit Intelligence tenant binding", () => {
     expect(freeze).not.toContain("prisma.tenant.findFirst");
     expect(freeze).not.toContain("resolveGovernanceTenantUuidForAudit");
   });
+
+  it("fans Ironcast state-freeze audits out without a silent tenant fallback", () => {
+    const escalation = source("src/services/ironcast/stateFreezeCisoEscalation.ts");
+
+    expect(escalation).toContain("getPrismaPrivileged");
+    expect(escalation).toContain("withIronguardTenant");
+    expect(escalation).not.toContain("prisma.tenant.findFirst");
+    expect(escalation).not.toContain("00000000-0000-0000-0000-000000000001");
+    expect(escalation).not.toContain('from "@/lib/prisma"');
+  });
 });

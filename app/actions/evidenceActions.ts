@@ -11,6 +11,7 @@ import {
 } from "@/app/lib/evidence/wormStoragePolicy";
 import { uploadImmutableWormObject } from "@/app/lib/evidence/supabaseWormStorage";
 import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 type EvidenceUploadInput = {
   fileData: Blob | ArrayBuffer | Uint8Array | string;
@@ -48,45 +49,46 @@ async function normalizeInputToBytes(input: EvidenceUploadInput["fileData"]): Pr
 }
 
 async function resolveThreatTenantContext(threatId: string): Promise<ThreatTenantContext | null> {
-  const threat = await prisma.threatEvent.findUnique({
-    where: { id: threatId },
-    select: { id: true, tenantCompanyId: true },
-  });
-  if (!threat?.tenantCompanyId) return null;
+  const tenantId = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantId) return null;
 
-  const company = await prisma.company.findUnique({
-    where: { id: threat.tenantCompanyId },
-    select: { tenantId: true },
-  });
-  if (!company?.tenantId) return null;
+  return withIronguardTenant(tenantId, async (tx) => {
+    const threat = await tx.threatEvent.findFirst({
+      where: { id: threatId, tenantId },
+      select: { id: true, tenantCompanyId: true, tenantId: true },
+    });
+    if (!threat?.tenantCompanyId) return null;
 
-  return {
-    threatId: threat.id,
-    tenantId: company.tenantId,
-    threatCompanyId: threat.tenantCompanyId,
-  };
+    return {
+      threatId: threat.id,
+      tenantId: threat.tenantId,
+      threatCompanyId: threat.tenantCompanyId,
+    };
+  });
 }
 
-async function resolveThreatEntityId(inputId: string): Promise<string | null> {
-  const direct = await prisma.threatEvent.findUnique({
-    where: { id: inputId },
-    select: { id: true },
-  });
-  if (direct?.id) return direct.id;
+async function resolveThreatEntityId(inputId: string, tenantId: string): Promise<string | null> {
+  return withIronguardTenant(tenantId, async (tx) => {
+    const direct = await tx.threatEvent.findFirst({
+      where: { id: inputId, tenantId },
+      select: { id: true },
+    });
+    if (direct?.id) return direct.id;
 
-  const synthetic = await (prisma as any).syntheticEmployee.findUnique({
-    where: { id: inputId },
-    select: { email: true },
-  });
-  const email = typeof synthetic?.email === "string" ? synthetic.email.trim() : "";
-  if (!email) return null;
+    const synthetic = await (tx as any).syntheticEmployee.findUnique({
+      where: { id: inputId },
+      select: { email: true },
+    });
+    const email = typeof synthetic?.email === "string" ? synthetic.email.trim() : "";
+    if (!email) return null;
 
-  const linked = await prisma.threatEvent.findFirst({
-    where: { targetEntity: email },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
+    const linked = await tx.threatEvent.findFirst({
+      where: { targetEntity: email, tenantId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    return linked?.id ?? null;
   });
-  return linked?.id ?? null;
 }
 
 async function writeArtifactToStorage(params: {
@@ -291,9 +293,6 @@ export async function listEvidenceForThreatEntity(
   if (!userId) return { ok: false, items: [], error: "Authentication required." };
 
   try {
-    const eid = await resolveThreatEntityId(inputId);
-    if (!eid) return { ok: true, items: [] };
-
     const tenantRole = await prisma.userRoleAssignment.findFirst({
       where: { userId },
       select: { tenantId: true },
@@ -302,6 +301,9 @@ export async function listEvidenceForThreatEntity(
     if (!tenantRole?.tenantId) {
       return { ok: false, items: [], error: "No tenant role assignment found for user." };
     }
+
+    const eid = await resolveThreatEntityId(inputId, tenantRole.tenantId);
+    if (!eid) return { ok: true, items: [] };
 
     const rows = await withIronguardTenant(tenantRole.tenantId, (tx) =>
       tx.evidenceAttachment.findMany({

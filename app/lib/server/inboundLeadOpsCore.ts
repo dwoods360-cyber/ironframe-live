@@ -1,6 +1,7 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 import {
   CUSTOMER_FACING_PATH_B_SKU,
   WORKFLOW_REVIEW_CTA_MINUTES,
@@ -236,17 +237,20 @@ export async function listInboundProspectLeads(limit = 40): Promise<InboundProsp
 
   const emails = rows.map((row) => row.email.toLowerCase());
   const tenantId = resolveProspectPoolTenantId();
-  const contacts = await prisma.ironboardCrmContact.findMany({
+  const contacts = await withProspectPoolTenant((tx) =>
+    tx.ironboardCrmContact.findMany({
     where: { tenantId, email: { in: emails } },
     select: { id: true, email: true },
-  });
+  }),
+  );
   const contactIdByEmail = new Map(
     contacts.map((c) => [c.email.toLowerCase(), c.id] as const),
   );
   const contactIds = [...contactIdByEmail.values()];
   const pendingByContact = new Map<string, string>();
   if (contactIds.length > 0) {
-    const pendings = await prisma.ironboardCrmInteraction.findMany({
+    const pendings = await withProspectPoolTenant((tx) =>
+      tx.ironboardCrmInteraction.findMany({
       where: {
         tenantId,
         contactId: { in: contactIds },
@@ -254,7 +258,8 @@ export async function listInboundProspectLeads(limit = 40): Promise<InboundProsp
       },
       orderBy: { occurredAt: "desc" },
       select: { id: true, contactId: true },
-    });
+    }),
+    );
     for (const row of pendings) {
       if (!row.contactId) continue;
       if (!pendingByContact.has(row.contactId)) {
@@ -334,14 +339,16 @@ export async function queueInboundLeadApprovalDraft(input: {
   });
 
   const tenantId = resolveProspectPoolTenantId();
-  const existingPending = await prisma.ironboardCrmInteraction.findFirst({
+  const existingPending = await withProspectPoolTenant((tx) =>
+    tx.ironboardCrmInteraction.findFirst({
     where: {
       tenantId,
       contactId: contact.id,
       summary: { contains: PENDING_SALES_DRAFT_TAG },
     },
     orderBy: { occurredAt: "desc" },
-  });
+  }),
+  );
   if (existingPending) {
     await syncInboundActivityAfterQueue({
       slug,

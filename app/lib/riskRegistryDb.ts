@@ -2,6 +2,7 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
 import type { RiskLifecycleStatus, RiskRegistryRecord } from "@/app/types/riskLifecycle";
 import { RISK_LIFECYCLE_ORDER } from "@/app/types/riskLifecycle";
@@ -68,8 +69,12 @@ function isStaleDelegateError(err: unknown): boolean {
   return msg.includes("findMany") && msg.includes("undefined");
 }
 
-function riskRegistryDelegate(): RiskRegistryPrismaDelegate | null {
-  const candidate = (prisma as unknown as { riskRegistry?: RiskRegistryPrismaDelegate }).riskRegistry;
+function riskRegistryDelegate(
+  db: { riskRegistry?: RiskRegistryPrismaDelegate } = prisma as unknown as {
+    riskRegistry?: RiskRegistryPrismaDelegate;
+  },
+): RiskRegistryPrismaDelegate | null {
+  const candidate = db.riskRegistry;
   if (!candidate || typeof candidate.findMany !== "function") return null;
   return candidate;
 }
@@ -153,9 +158,10 @@ function mapRawRow(row: {
 async function listRiskRegistryRawSql(
   tenantId: string,
   limit: number,
+  db: Pick<Prisma.TransactionClient, "$queryRaw"> = prisma,
 ): Promise<RiskRegistryRecord[]> {
   try {
-    const rows = await prisma.$queryRaw<
+    const rows = await db.$queryRaw<
       Array<{
         id: string;
         tenant_id: string;
@@ -249,8 +255,8 @@ export async function persistForensicState(
   ).slice(0, 64);
 
   try {
-    return await prisma.$transaction(async (tx) => {
-      const txRegistry = (tx as unknown as { riskRegistry: RiskRegistryPrismaDelegate }).riskRegistry;
+    return await withIronguardTenant(tenantId, async (tx) => {
+      const txRegistry = riskRegistryDelegate(tx as unknown as { riskRegistry?: RiskRegistryPrismaDelegate });
       if (!txRegistry?.findFirst) {
         warnMissingRiskRegistryClient();
         return null;
@@ -315,27 +321,29 @@ export async function insertRiskRegistryIngested(input: {
   ingestionDetails?: unknown;
   deltaLabel?: string;
 }): Promise<RiskRegistryRecord | null> {
-  const registry = riskRegistryDelegate();
-  if (!registry) {
-    warnMissingRiskRegistryClient();
-    return null;
-  }
   try {
-    const row = await registry.create({
-      data: {
-        tenantId: input.tenantId,
-        title: input.title.slice(0, 240),
-        telemetryValue: input.telemetryValue.slice(0, 120),
-        sourceAgent: input.sourceAgent.slice(0, 64),
-        lifecycleStatus: "INGESTED",
-        deltaLabel: input.deltaLabel ?? "Sensing…",
-        ingestionDetails:
-          input.ingestionDetails === undefined
-            ? undefined
-            : (input.ingestionDetails as Prisma.InputJsonValue),
-      },
+    return await withIronguardTenant(input.tenantId, async (tx) => {
+      const registry = riskRegistryDelegate(tx as unknown as { riskRegistry?: RiskRegistryPrismaDelegate });
+      if (!registry) {
+        warnMissingRiskRegistryClient();
+        return null;
+      }
+      const row = await registry.create({
+        data: {
+          tenantId: input.tenantId,
+          title: input.title.slice(0, 240),
+          telemetryValue: input.telemetryValue.slice(0, 120),
+          sourceAgent: input.sourceAgent.slice(0, 64),
+          lifecycleStatus: "INGESTED",
+          deltaLabel: input.deltaLabel ?? "Sensing…",
+          ingestionDetails:
+            input.ingestionDetails === undefined
+              ? undefined
+              : (input.ingestionDetails as Prisma.InputJsonValue),
+        },
+      });
+      return sanitizeRecord(row);
     });
-    return sanitizeRecord(row);
   } catch (err) {
     if (isMissingRiskRegistryTable(err) || isStaleDelegateError(err)) return null;
     throw err;
@@ -351,16 +359,18 @@ export async function findRiskRegistryByThreatEventId(
   const tid = tenantId.trim();
   if (!threatId || !tid) return null;
 
-  const registry = riskRegistryDelegate();
-  if (!registry) {
-    warnMissingRiskRegistryClient();
-    return null;
-  }
   try {
-    const row = await registry.findFirst({
-      where: { tenantId: tid, riskEventId: threatId },
+    return await withIronguardTenant(tid, async (tx) => {
+      const registry = riskRegistryDelegate(tx as unknown as { riskRegistry?: RiskRegistryPrismaDelegate });
+      if (!registry) {
+        warnMissingRiskRegistryClient();
+        return null;
+      }
+      const row = await registry.findFirst({
+        where: { tenantId: tid, riskEventId: threatId },
+      });
+      return row ? sanitizeRecord(row) : null;
     });
-    return row ? sanitizeRecord(row) : null;
   } catch (err) {
     if (isMissingRiskRegistryTable(err) || isStaleDelegateError(err)) return null;
     throw err;
@@ -371,16 +381,18 @@ export async function findRiskRegistryById(
   riskId: string,
   tenantId: string,
 ): Promise<RiskRegistryRecord | null> {
-  const registry = riskRegistryDelegate();
-  if (!registry) {
-    warnMissingRiskRegistryClient();
-    return null;
-  }
   try {
-    const row = await registry.findFirst({
-      where: { id: riskId, tenantId },
+    return await withIronguardTenant(tenantId, async (tx) => {
+      const registry = riskRegistryDelegate(tx as unknown as { riskRegistry?: RiskRegistryPrismaDelegate });
+      if (!registry) {
+        warnMissingRiskRegistryClient();
+        return null;
+      }
+      const row = await registry.findFirst({
+        where: { id: riskId, tenantId },
+      });
+      return row ? sanitizeRecord(row) : null;
     });
-    return row ? sanitizeRecord(row) : null;
   } catch (err) {
     if (isMissingRiskRegistryTable(err) || isStaleDelegateError(err)) return null;
     throw err;
@@ -397,54 +409,55 @@ export async function resolveRiskRegistryForThreatEvent(input: {
   const tenantId = input.tenantId.trim();
   if (!threatEventId || !tenantId) return [];
 
-  const registry = riskRegistryDelegate();
-  if (!registry) {
-    warnMissingRiskRegistryClient();
-    return [];
-  }
-
   const resolvedAtIso = input.resolvedAtIso.trim();
-  const updated: RiskRegistryRecord[] = [];
 
   try {
-    const rows = await registry.findMany({
-      where: { tenantId, riskEventId: threatEventId },
-    });
-    for (const row of rows) {
-      let ingestionPatch: Record<string, unknown> = {};
-      try {
-        const prev =
-          row.ingestionDetails == null
-            ? {}
-            : typeof row.ingestionDetails === "string"
-              ? (JSON.parse(row.ingestionDetails) as Record<string, unknown>)
-              : (row.ingestionDetails as Record<string, unknown>);
-        ingestionPatch = {
-          ...prev,
-          [RISK_REGISTRY_RESOLVED_AT_JSON_KEY]: resolvedAtIso,
-        };
-      } catch {
-        ingestionPatch = { [RISK_REGISTRY_RESOLVED_AT_JSON_KEY]: resolvedAtIso };
+    return await withIronguardTenant(tenantId, async (tx) => {
+      const registry = riskRegistryDelegate(tx as unknown as { riskRegistry?: RiskRegistryPrismaDelegate });
+      if (!registry) {
+        warnMissingRiskRegistryClient();
+        return [];
       }
 
-      const next = await registry.update({
-        where: { id: row.id },
-        data: {
-          lifecycleStatus: "RESOLVED",
-          deltaLabel: deltaLabelForLifecycle("RESOLVED"),
-          ingestionDetails: ingestionPatch as Prisma.InputJsonValue,
-        },
+      const updated: RiskRegistryRecord[] = [];
+      const rows = await registry.findMany({
+        where: { tenantId, riskEventId: threatEventId },
       });
-      if (next.tenantId === tenantId) {
-        updated.push(sanitizeRecord(next));
+      for (const row of rows) {
+        let ingestionPatch: Record<string, unknown> = {};
+        try {
+          const prev =
+            row.ingestionDetails == null
+              ? {}
+              : typeof row.ingestionDetails === "string"
+                ? (JSON.parse(row.ingestionDetails) as Record<string, unknown>)
+                : (row.ingestionDetails as Record<string, unknown>);
+          ingestionPatch = {
+            ...prev,
+            [RISK_REGISTRY_RESOLVED_AT_JSON_KEY]: resolvedAtIso,
+          };
+        } catch {
+          ingestionPatch = { [RISK_REGISTRY_RESOLVED_AT_JSON_KEY]: resolvedAtIso };
+        }
+
+        const next = await registry.update({
+          where: { id: row.id },
+          data: {
+            lifecycleStatus: "RESOLVED",
+            deltaLabel: deltaLabelForLifecycle("RESOLVED"),
+            ingestionDetails: ingestionPatch as Prisma.InputJsonValue,
+          },
+        });
+        if (next.tenantId === tenantId) {
+          updated.push(sanitizeRecord(next));
+        }
       }
-    }
+      return updated;
+    });
   } catch (err) {
     if (isMissingRiskRegistryTable(err) || isStaleDelegateError(err)) return [];
     throw err;
   }
-
-  return updated;
 }
 
 export async function updateRiskRegistry(
@@ -458,26 +471,33 @@ export async function updateRiskRegistry(
     ingestionDetails?: unknown;
   },
 ): Promise<RiskRegistryRecord | null> {
-  const registry = riskRegistryDelegate();
-  if (!registry) {
-    warnMissingRiskRegistryClient();
-    return null;
-  }
   try {
-    const row = await registry.update({
-      where: { id: riskId },
-      data: {
-        ...(patch.lifecycleStatus ? { lifecycleStatus: patch.lifecycleStatus } : {}),
-        ...(patch.telemetryValue !== undefined ? { telemetryValue: patch.telemetryValue } : {}),
-        ...(patch.deltaLabel !== undefined ? { deltaLabel: patch.deltaLabel } : {}),
-        ...(patch.riskEventId !== undefined ? { riskEventId: patch.riskEventId } : {}),
-        ...(patch.ingestionDetails !== undefined
-          ? { ingestionDetails: patch.ingestionDetails as Prisma.InputJsonValue }
-          : {}),
-      },
+    return await withIronguardTenant(tenantId, async (tx) => {
+      const registry = riskRegistryDelegate(tx as unknown as { riskRegistry?: RiskRegistryPrismaDelegate });
+      if (!registry) {
+        warnMissingRiskRegistryClient();
+        return null;
+      }
+      const existing = await registry.findFirst({
+        where: { id: riskId, tenantId },
+        select: { id: true },
+      });
+      if (!existing) return null;
+      const row = await registry.update({
+        where: { id: existing.id },
+        data: {
+          ...(patch.lifecycleStatus ? { lifecycleStatus: patch.lifecycleStatus } : {}),
+          ...(patch.telemetryValue !== undefined ? { telemetryValue: patch.telemetryValue } : {}),
+          ...(patch.deltaLabel !== undefined ? { deltaLabel: patch.deltaLabel } : {}),
+          ...(patch.riskEventId !== undefined ? { riskEventId: patch.riskEventId } : {}),
+          ...(patch.ingestionDetails !== undefined
+            ? { ingestionDetails: patch.ingestionDetails as Prisma.InputJsonValue }
+            : {}),
+        },
+      });
+      if (row.tenantId !== tenantId) return null;
+      return sanitizeRecord(row);
     });
-    if (row.tenantId !== tenantId) return null;
-    return sanitizeRecord(row);
   } catch (err) {
     if (isMissingRiskRegistryTable(err) || isStaleDelegateError(err)) return null;
     throw err;
@@ -492,39 +512,39 @@ export async function listRiskRegistryForTenant(
   tenantId: string,
   limit = 24,
 ): Promise<RiskRegistryRecord[]> {
-  const prismaRiskRegistry = (prisma as unknown as { riskRegistry?: RiskRegistryPrismaDelegate })
-    .riskRegistry;
-  if (!prismaRiskRegistry) {
-    warnMissingRiskRegistryClient();
-    return [];
-  }
-
-  const registry = riskRegistryDelegate();
-  if (!registry) {
-    warnMissingRiskRegistryClient();
-    try {
-      return await listRiskRegistryRawSql(tenantId, limit);
-    } catch {
-      return [];
-    }
-  }
-
   try {
-    const rows = await registry.findMany({
-      where: {
-        tenantId,
-        lifecycleStatus: { in: LIFECYCLE_STATUS_FILTER },
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit,
+    return await withIronguardTenant(tenantId, async (tx) => {
+      const registry = riskRegistryDelegate(tx as unknown as { riskRegistry?: RiskRegistryPrismaDelegate });
+      if (!registry) {
+        warnMissingRiskRegistryClient();
+        try {
+          return await listRiskRegistryRawSql(tenantId, limit, tx);
+        } catch {
+          return [];
+        }
+      }
+
+      try {
+        const rows = await registry.findMany({
+          where: {
+            tenantId,
+            lifecycleStatus: { in: LIFECYCLE_STATUS_FILTER },
+          },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+        });
+        return rows.map(sanitizeRecord);
+      } catch (err) {
+        if (!isMissingRiskRegistryTable(err) && !isStaleDelegateError(err)) throw err;
+        try {
+          return await listRiskRegistryRawSql(tenantId, limit, tx);
+        } catch {
+          return [];
+        }
+      }
     });
-    return rows.map(sanitizeRecord);
   } catch (err) {
-    if (!isMissingRiskRegistryTable(err) && !isStaleDelegateError(err)) throw err;
-    try {
-      return await listRiskRegistryRawSql(tenantId, limit);
-    } catch {
-      return [];
-    }
+    if (isMissingRiskRegistryTable(err) || isStaleDelegateError(err)) return [];
+    throw err;
   }
 }

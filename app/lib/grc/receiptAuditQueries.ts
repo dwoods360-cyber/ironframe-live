@@ -1,13 +1,18 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import type { DigitalReceiptAuditStub } from "@/app/lib/grc/threatReceipt";
+
+type ReceiptAuditDb = Pick<Prisma.TransactionClient, "auditLog">;
 
 export async function loadAuditTailForDigitalReceipt(
   mode: "sim" | "prod",
   threatId: string,
+  db?: ReceiptAuditDb,
 ): Promise<DigitalReceiptAuditStub[]> {
+  const client = db ?? prisma;
   const rows =
     mode === "prod"
-      ? await prisma.auditLog.findMany({
+      ? await client.auditLog.findMany({
           where: { threatId },
           orderBy: { createdAt: "desc" },
           take: 30,
@@ -20,7 +25,7 @@ export async function loadAuditTailForDigitalReceipt(
             isSimulation: true,
           },
         })
-      : await prisma.auditLog.findMany({
+      : await client.auditLog.findMany({
           where: {
             isSimulation: true,
             justification: { contains: `"simThreatId":"${threatId}"` },

@@ -34,8 +34,11 @@ vi.mock("@/src/services/integrityService", () => ({
   },
 }));
 
+const VAULT_TENANT_UUID = "11111111-1111-1111-1111-111111111111";
+
 type ThreatRow = {
   id: string;
+  tenantId: string;
   tenantCompanyId: bigint;
   targetEntity: string;
   ingestionDetails: string | null;
@@ -145,6 +148,25 @@ Object.assign(prismaMock, {
     }),
     findFirst: vi.fn(async (args: any) => {
       const threat = state.threat;
+      if (
+        threat &&
+        args?.where?.id &&
+        args?.where?.tenantId &&
+        threat.id === args.where.id &&
+        threat.tenantId === args.where.tenantId
+      ) {
+        const select = args?.select ?? {};
+        return {
+          ...(select.id ? { id: threat.id } : {}),
+          ...(select.tenantCompanyId ? { tenantCompanyId: threat.tenantCompanyId } : {}),
+          ...(select.tenantId ? { tenantId: threat.tenantId } : {}),
+          ...(select.assigneeId ? { assigneeId: threat.assigneeId } : {}),
+          ...(select.title ? { title: threat.title } : {}),
+          ...(select.ingestionDetails ? { ingestionDetails: threat.ingestionDetails } : {}),
+          ...(select.financialRisk_cents ? { financialRisk_cents: threat.financialRisk_cents } : {}),
+          ...(select.status ? { status: threat.status } : {}),
+        };
+      }
       if (
         threat &&
         args?.where?.id &&
@@ -349,6 +371,19 @@ vi.mock("@/lib/prisma", () => ({
   default: prismaMock,
 }));
 
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: vi.fn(async (_tenant: string, fn: (tx: typeof prismaMock) => unknown) =>
+    fn(prismaMock)),
+}));
+
+vi.mock("@/app/utils/serverTenantContext", () => ({
+  getActiveTenantUuidFromCookies: vi.fn(async () => VAULT_TENANT_UUID),
+  getScopedTenantUuidFromCookies: vi.fn(async () => VAULT_TENANT_UUID),
+  isValidTenantUuid: (v: string | null | undefined): v is string =>
+    typeof v === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.trim()),
+}));
+
 import {
   approveThreatResolution,
   requestThreatResolution,
@@ -361,6 +396,7 @@ describe("Epic 11 bank vault positive chain", () => {
     state.membershipAllowed = true;
     state.threat = {
       id: "threat-bank-vault-success",
+      tenantId: VAULT_TENANT_UUID,
       tenantCompanyId: 9001n,
       targetEntity: "target@ironframe.local",
       ingestionDetails: "{}",

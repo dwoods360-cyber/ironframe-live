@@ -14,8 +14,10 @@ export type ComplianceDriftPenaltySnapshot = {
 /**
  * Task 5 — Active regulatory drift with deadline &lt;30 days reduces maturity by 1.5.
  */
-export async function getActiveComplianceDriftMaturityPenalty(): Promise<ComplianceDriftPenaltySnapshot> {
-  const state = await readComplianceDriftState();
+export async function getActiveComplianceDriftMaturityPenalty(
+  tenantId: string,
+): Promise<ComplianceDriftPenaltySnapshot> {
+  const state = await readComplianceDriftState(tenantId);
   const active = activeDriftAlerts(state);
   const urgent = active.filter((a) => {
     const days = Math.ceil((Date.parse(a.deadline) - Date.now()) / (24 * 60 * 60 * 1000));

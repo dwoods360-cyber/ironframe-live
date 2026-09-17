@@ -2,6 +2,7 @@ import "server-only";
 
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { aggregateProductionMitigatedValueCents } from "@/app/lib/ironbloom/productionCarbonLedger";
 import { calculateBudgetJustification } from "@/app/utils/grcMath";
@@ -65,18 +66,21 @@ export async function fetchFinancialIntegrityLedgerDbSnapshot(
     const ytdStart = new Date();
     ytdStart.setUTCMonth(0, 1);
     ytdStart.setUTCHours(0, 0, 0, 0);
-    const closedYtd = await prisma.riskEvent.findMany({
-      where: {
-        tenantCompanyId: { in: tenantCompanyIds },
-        status: { in: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] },
-        updatedAt: { gte: ytdStart },
-      },
-      select: {
-        financialRisk_cents: true,
-        complianceFramework: true,
-        ingestionDetails: true,
-      },
-    });
+    const closedYtd = await withIronguardTenant(activeTenantUuid, (tx) =>
+      tx.riskEvent.findMany({
+        where: {
+          tenantId: activeTenantUuid,
+          tenantCompanyId: { in: tenantCompanyIds },
+          status: { in: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] },
+          updatedAt: { gte: ytdStart },
+        },
+        select: {
+          financialRisk_cents: true,
+          complianceFramework: true,
+          ingestionDetails: true,
+        },
+      }),
+    );
     for (const ev of closedYtd) {
       totalValueMitigatedYtdCents += calculateBudgetJustification(ev).totalValueCreatedCents;
     }

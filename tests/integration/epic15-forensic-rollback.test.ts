@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, beforeAll } from "vitest";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/prisma";
 import { TRANSACTION_ABORTED } from "@/src/services/orchestration/forensicFaultInjection";
+import { composeCheckpointThreadId, NIL_TENANT_UUID } from "@/src/services/orchestration/checkpointTenant";
 
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
 let databaseReachable = false;
@@ -30,7 +31,7 @@ describe("Epic 15 — Postgres Saver transactional rollback validation", () => {
         "@/src/services/orchestration/forensicPipelineGraph"
       );
       const cp = await postgresCheckpointer();
-      await cp.deleteThread(testThreatId);
+      await cp.deleteThread(composeCheckpointThreadId(testTenantId, testThreatId));
     } catch {
       /* thread may not exist */
     }
@@ -44,7 +45,11 @@ describe("Epic 15 — Postgres Saver transactional rollback validation", () => {
         return;
       }
 
-      const tenantRow = await prisma.tenant.findFirst({ select: { id: true } });
+      const tenantRow = await prisma.tenant.findFirst({
+        where: { id: { not: NIL_TENANT_UUID } },
+        select: { id: true },
+        orderBy: { id: "asc" },
+      });
       if (!tenantRow?.id) {
         throw new Error("Epic 15 rollback test requires at least one Tenant row.");
       }
@@ -75,7 +80,12 @@ describe("Epic 15 — Postgres Saver transactional rollback validation", () => {
         historyLogs: [] as Array<{ agentId: string; timestamp: string; message: string }>,
       };
 
-      const config = { configurable: { thread_id: testThreatId } };
+      const config = {
+        configurable: {
+          thread_id: composeCheckpointThreadId(testTenantId, testThreatId),
+          tenant_id: testTenantId,
+        },
+      };
 
       let caught: Error | null = null;
       try {

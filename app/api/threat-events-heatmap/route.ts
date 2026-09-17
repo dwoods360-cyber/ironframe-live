@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
-import prisma from "@/lib/prisma";
 import { resolveTenantIndustryForBenchmarks } from "@/app/utils/tenantIndustryBenchmark";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { ThreatState } from "@prisma/client";
 
@@ -60,46 +60,57 @@ export async function GET(request: NextRequest) {
   if (!guard.ok) return guard.response;
   const tenantUuid = guard.tenantUuid;
 
-  const [tenantRow, company] = await Promise.all([
-    prisma.tenant.findUnique({
-      where: { id: tenantUuid },
-      select: { industry: true },
-    }),
-    prisma.company.findFirst({
-      where: { tenantId: tenantUuid },
-      select: { id: true },
-    }),
-  ]);
+  const simPlane = await readSimulationPlaneEnabled();
+  const { tenantRow, company, rows } = await withIronguardTenant(tenantUuid, async (tx) => {
+    const [tenantHit, companyHit] = await Promise.all([
+      tx.tenant.findUnique({
+        where: { id: tenantUuid },
+        select: { industry: true },
+      }),
+      tx.company.findFirst({
+        where: { tenantId: tenantUuid },
+        select: { id: true },
+      }),
+    ]);
+    if (!companyHit) {
+      return { tenantRow: tenantHit, company: null, rows: [] as Array<{
+        id: string;
+        title: string;
+        score: number;
+        financialRisk_cents: bigint;
+        sourceAgent: string;
+        targetEntity: string;
+      }> };
+    }
+    const heatQuery = {
+      where: {
+        tenantCompanyId: companyHit.id,
+        status: { in: HEAT_MAP_STATUSES },
+      },
+      select: {
+        id: true,
+        title: true,
+        score: true,
+        financialRisk_cents: true,
+        sourceAgent: true,
+        targetEntity: true,
+      },
+      orderBy: { updatedAt: "desc" as const },
+      take: 200,
+    };
+    const heatRows = simPlane
+      ? await tx.riskEvent.findMany(heatQuery)
+      : await tx.threatEvent.findMany(heatQuery);
+    return { tenantRow: tenantHit, company: companyHit, rows: heatRows };
+  });
 
   const tenantIndustry = resolveTenantIndustryForBenchmarks(tenantRow?.industry);
-
   if (!company) {
     return NextResponse.json({
       threats: [] as HeatMapThreatPayload[],
       tenantIndustry,
     });
   }
-
-  const simPlane = await readSimulationPlaneEnabled();
-  const heatQuery = {
-    where: {
-      tenantCompanyId: company.id,
-      status: { in: HEAT_MAP_STATUSES },
-    },
-    select: {
-      id: true,
-      title: true,
-      score: true,
-      financialRisk_cents: true,
-      sourceAgent: true,
-      targetEntity: true,
-    },
-    orderBy: { updatedAt: "desc" as const },
-    take: 200,
-  };
-  const rows = simPlane
-    ? await prisma.riskEvent.findMany(heatQuery)
-    : await prisma.threatEvent.findMany(heatQuery);
 
   const threats: HeatMapThreatPayload[] = rows.map((t) => {
     const { likelihood, impact } = deriveLikelihoodImpactFromScore(t.score);

@@ -1,6 +1,7 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 import {
   INBOUND_LEAD_REPLY_SLA_HOURS,
   INBOUND_SLA_WINDOW_COPY,
@@ -57,14 +58,16 @@ async function appendSlaMarker(activityId: string, marker: string): Promise<void
 
 export async function hasInboundSalesDispatch(contactId: string): Promise<boolean> {
   const tenantId = resolveProspectPoolTenantId();
-  const row = await prisma.ironboardCrmInteraction.findFirst({
+  const row = await withProspectPoolTenant((tx) =>
+    tx.ironboardCrmInteraction.findFirst({
     where: {
       tenantId,
       contactId,
       summary: { contains: DISPATCHED_SALES_DRAFT_TAG },
     },
     select: { id: true },
-  });
+  }),
+  );
   return Boolean(row);
 }
 
@@ -73,10 +76,12 @@ async function resolveProspectContact(email: string): Promise<{
   tenantId: string;
 } | null> {
   const tenantId = resolveProspectPoolTenantId();
-  const contact = await prisma.ironboardCrmContact.findFirst({
+  const contact = await withProspectPoolTenant((tx) =>
+    tx.ironboardCrmContact.findFirst({
     where: { tenantId, email: email.toLowerCase() },
     select: { id: true },
-  });
+  }),
+  );
   if (!contact) return null;
   return { contactId: contact.id, tenantId };
 }

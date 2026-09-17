@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Bot, Sparkles } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { formatAuditTimestampForDisplay } from "@/app/utils/formatAuditTimestamp";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import DispositionControls from "./DispositionControls";
@@ -112,23 +113,27 @@ export default async function ClearancePage() {
     select: { id: true },
   });
 
-  const queue = company
-    ? await prisma.threatEvent.findMany({
-        where: {
-          status: { in: CLEARANCE_QUEUE_STATUSES },
-          tenantCompanyId: company.id,
-        },
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          title: true,
-          sourceAgent: true,
-          createdAt: true,
-          ingestionDetails: true,
-          aiReport: true,
-        },
-      })
-    : [];
+  const queue =
+    company && tenantUuid
+      ? await withIronguardTenant(tenantUuid, (tx) =>
+          tx.threatEvent.findMany({
+            where: {
+              tenantId: tenantUuid,
+              status: { in: CLEARANCE_QUEUE_STATUSES },
+              tenantCompanyId: company.id,
+            },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              title: true,
+              sourceAgent: true,
+              createdAt: true,
+              ingestionDetails: true,
+              aiReport: true,
+            },
+          }),
+        )
+      : [];
 
   return (
     <div className="min-h-full bg-slate-950 px-6 py-6 text-slate-100">

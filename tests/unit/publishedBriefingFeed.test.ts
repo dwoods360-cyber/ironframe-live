@@ -11,14 +11,16 @@ import {
   stripFrontmatter,
 } from "@/app/lib/governanceFrame/briefingDraftValidation";
 import * as FeedRoute from "@/app/api/board/feed/route";
-import prisma from "@/lib/prisma";
 
-vi.mock("@/lib/prisma", () => ({
-  default: {
-    publishedBriefing: {
-      findMany: vi.fn(),
-    },
-  },
+const briefingFindMany = vi.hoisted(() => vi.fn());
+
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: vi.fn(
+    async (
+      _tenantId: string,
+      run: (tx: { publishedBriefing: { findMany: typeof briefingFindMany } }) => unknown,
+    ) => run({ publishedBriefing: { findMany: briefingFindMany } }),
+  ),
 }));
 
 const SAMPLE_FRONTMATTER = `---
@@ -99,9 +101,9 @@ describe("checkBoardFeedAuth", () => {
 
 describe("GET /api/board/feed", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
     process.env.IRONFRAME_CRON_SECRET = "test-cron-secret";
-    vi.mocked(prisma.publishedBriefing.findMany).mockReset();
+    briefingFindMany.mockReset();
   });
 
   it("returns 401 without auth", async () => {
@@ -109,8 +111,16 @@ describe("GET /api/board/feed", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns XML from database rows", async () => {
-    vi.mocked(prisma.publishedBriefing.findMany).mockResolvedValue([
+  it("returns 400 when tenantId is missing", async () => {
+    const res = await FeedRoute.GET(
+      new Request("http://localhost:3000/api/board/feed?secret=test-cron-secret"),
+    );
+    expect(res.status).toBe(400);
+    expect(briefingFindMany).not.toHaveBeenCalled();
+  });
+
+  it("returns XML from database rows for a tenant", async () => {
+    briefingFindMany.mockResolvedValue([
       {
         id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
         tenantId: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
@@ -125,29 +135,15 @@ describe("GET /api/board/feed", () => {
     ]);
 
     const res = await FeedRoute.GET(
-      new Request("http://localhost:3000/api/board/feed?secret=test-cron-secret"),
+      new Request(
+        "http://localhost:3000/api/board/feed?secret=test-cron-secret&tenantId=5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
+      ),
     );
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toContain("application/xml");
     const body = await res.text();
     expect(body).toContain("Medshield SEC Update - $96,500.00 Risk Exposure");
-    expect(prisma.publishedBriefing.findMany).toHaveBeenCalledWith({
-      where: undefined,
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
-  });
-
-  it("scopes feed by tenantId when provided", async () => {
-    vi.mocked(prisma.publishedBriefing.findMany).mockResolvedValue([]);
-
-    await FeedRoute.GET(
-      new Request(
-        "http://localhost:3000/api/board/feed?secret=test-cron-secret&tenantId=5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
-      ),
-    );
-
-    expect(prisma.publishedBriefing.findMany).toHaveBeenCalledWith({
+    expect(briefingFindMany).toHaveBeenCalledWith({
       where: { tenantId: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01" },
       orderBy: { createdAt: "desc" },
       take: 20,

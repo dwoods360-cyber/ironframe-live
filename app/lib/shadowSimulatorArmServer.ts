@@ -2,6 +2,7 @@ import "server-only";
 
 import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 export type ShadowSimulatorArmSnapshot = {
@@ -24,22 +25,26 @@ export async function readShadowSimulatorArmSnapshot(): Promise<ShadowSimulatorA
   }
 
   const whereInfil = {
+    tenantId,
     tenantCompanyId: company.id,
     sourceAgent: "INFILBOT_SIMULATION" as const,
     status: { not: ThreatState.RESOLVED },
   };
   const wherePhish = {
+    tenantId,
     tenantCompanyId: company.id,
     sourceAgent: "PHISHBOT_SIMULATION" as const,
     status: { not: ThreatState.RESOLVED },
   };
 
-  const [iProd, iSim, pProd, pSim] = await Promise.all([
-    prisma.threatEvent.count({ where: whereInfil }),
-    prisma.riskEvent.count({ where: whereInfil }),
-    prisma.threatEvent.count({ where: wherePhish }),
-    prisma.riskEvent.count({ where: wherePhish }),
-  ]);
+  const [iProd, iSim, pProd, pSim] = await withIronguardTenant(tenantId, (tx) =>
+    Promise.all([
+      tx.threatEvent.count({ where: whereInfil }),
+      tx.riskEvent.count({ where: whereInfil }),
+      tx.threatEvent.count({ where: wherePhish }),
+      tx.riskEvent.count({ where: wherePhish }),
+    ]),
+  );
 
   return {
     infiltrBotSimActive: iProd + iSim > 0,

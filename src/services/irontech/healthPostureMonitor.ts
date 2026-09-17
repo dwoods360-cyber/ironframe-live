@@ -10,7 +10,13 @@ import {
   normalizeTriageIncidentZone,
   type TriageIncidentZone,
 } from "@/app/config/tasHealthTriage";
-import { getPostgresCheckpointer } from "@/src/services/orchestration/checkpointer";
+import {
+  getPostgresCheckpointer,
+} from "@/src/services/orchestration/checkpointer";
+import {
+  composeCheckpointThreadId,
+  requireCheckpointTenantUuid,
+} from "@/src/services/orchestration/checkpointTenant";
 import {
   evaluateSystemTriage,
   type SystemTriageResult,
@@ -43,9 +49,11 @@ export async function ensureTriageThreadCheckpoint(
   tenantId: string,
   threadId: string,
 ): Promise<void> {
+  const tenant = requireCheckpointTenantUuid(tenantId);
+  const boundThread = composeCheckpointThreadId(tenant, threadId);
   const cp = await getPostgresCheckpointer();
   const readConfig = {
-    configurable: { thread_id: threadId.trim(), checkpoint_ns: "" },
+    configurable: { thread_id: boundThread, checkpoint_ns: "", tenant_id: tenant },
   };
   const existing = await cp.getTuple(readConfig);
   if (existing?.checkpoint) return;
@@ -55,7 +63,7 @@ export async function ensureTriageThreadCheckpoint(
     id: randomUUID(),
     ts: new Date().toISOString(),
     channel_values: {
-      tenant_id: tenantId.trim(),
+      tenant_id: tenant,
       tas_health_posture_seed: true,
     },
     channel_versions: { __start__: 1 },

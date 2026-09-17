@@ -1,7 +1,8 @@
 "use server";
 
-import prisma from "@/lib/prisma";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import {
   pollResilienceIntelStreamLinesCore,
   type ResiliencePollRow,
@@ -17,20 +18,25 @@ export async function recordResilienceIntelStreamLine(line: string, threatId: st
   const tid = threatId.trim();
   if (!tid) return;
   try {
+    const tenantId = (await getActiveTenantUuidFromCookies()).trim();
+    if (!tenantId) return;
+
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     let prod: { id: string } | null = null;
     let sim: { id: string } | null = null;
     for (let i = 0; i < 4; i += 1) {
-      [prod, sim] = await Promise.all([
-        prisma.threatEvent.findUnique({
-          where: { id: tid },
-          select: { id: true },
-        }),
-        prisma.riskEvent.findFirst({
-          where: { id: tid },
-          select: { id: true },
-        }),
-      ]);
+      [prod, sim] = await withIronguardTenant(tenantId, async (tx) =>
+        Promise.all([
+          tx.threatEvent.findFirst({
+            where: { id: tid, tenantId },
+            select: { id: true },
+          }),
+          tx.riskEvent.findFirst({
+            where: { id: tid, tenantId },
+            select: { id: true },
+          }),
+        ]),
+      );
       if (prod || sim) break;
       // Ingress race: card id can exist in client before DB commit finalizes.
       if (i < 3) await sleep(120);

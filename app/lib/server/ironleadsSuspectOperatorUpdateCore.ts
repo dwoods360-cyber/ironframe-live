@@ -18,7 +18,7 @@ import { enrichIronleadsSuspectWithHunter } from "@/app/lib/server/ironleadsHunt
 import { enrichIronleadsSuspectWithProspeo } from "@/app/lib/server/ironleadsProspeoEnrichCore";
 import { discardIronleadsSuspectContact } from "@/app/lib/server/ironleadsOsintNoisePurgeCore";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 export type SuspectOperatorUpdateInput = {
   fullName?: string;
@@ -79,15 +79,17 @@ export async function updateIronleadsSuspectContact(
     }
   | { ok: false; error: string; status: number }
 > {
-  const contact = await prisma.ironboardCrmContact.findUnique({
-    where: { id: contactId },
+  const contact = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findFirst({
+    where: { id: contactId, tenantId },
     include: {
       primaryDeals: {
         orderBy: { updatedAt: "desc" },
         take: 1,
       },
     },
-  });
+    }),
+  );
   if (!contact) {
     return { ok: false, error: "Contact not found", status: 404 };
   }
@@ -273,18 +275,13 @@ export async function updateIronleadsSuspectContact(
 
   data.metadata = nextMeta as Prisma.InputJsonValue;
 
-  await prisma.ironboardCrmContact.update({
-    where: { id: contact.id },
-    data,
-  });
-
+  const dealData: Prisma.IronboardCrmDealUpdateInput = {};
   if (deal) {
     const derivedDomain =
       normalizeAccountDomain(deal.accountDomain) ||
       normalizeAccountDomain(
         typeof nextMeta.websiteUrl === "string" ? nextMeta.websiteUrl : null,
       );
-    const dealData: Prisma.IronboardCrmDealUpdateInput = {};
     if (derivedDomain && !deal.accountDomain) {
       dealData.accountDomain = derivedDomain;
     }
@@ -317,14 +314,20 @@ export async function updateIronleadsSuspectContact(
       const noteLine = `[${stamp}] Operator enrichment: ${input.operatorNote.trim().slice(0, 400)}`;
       dealData.notes = deal.notes?.trim() ? `${deal.notes.trim()}\n${noteLine}` : noteLine;
     }
+  }
 
-    if (Object.keys(dealData).length > 0) {
-      await prisma.ironboardCrmDeal.update({
-        where: { id: deal.id },
+  await withProspectPoolTenant(async (tx, tenantId) => {
+    await tx.ironboardCrmContact.updateMany({
+      where: { id: contact.id, tenantId },
+      data,
+    });
+    if (deal && Object.keys(dealData).length > 0) {
+      await tx.ironboardCrmDeal.updateMany({
+        where: { id: deal.id, tenantId },
         data: dealData,
       });
     }
-  }
+  });
 
   const report = await buildIronleadsSuspectReport(contactId);
   if (!report) {

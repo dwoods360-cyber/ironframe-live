@@ -9,6 +9,7 @@ import {
   getActiveTenantUuidFromCookies,
   getRedTeamSimulationTenantUuid,
 } from "@/app/utils/serverTenantContext";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { assertSimulationInjectAllowedForTenant } from "@/app/lib/simulationStandDown";
 import {
   ATTACK_SOURCE,
@@ -344,17 +345,19 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
   };
 
   if (sim) {
-    const rows = await prisma.riskEvent.findMany({
-      where: {
-        AND: [
-          { tenantId: tenantUuid },
-          statusClause,
-          ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeRiskEvent()] : []),
-        ],
-      },
-      orderBy: { createdAt: "desc" },
-      select: pipelineScalarsSim,
-    });
+    const rows = await withIronguardTenant(tenantUuid, (tx) =>
+      tx.riskEvent.findMany({
+        where: {
+          AND: [
+            { tenantId: tenantUuid },
+            statusClause,
+            ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeRiskEvent()] : []),
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        select: pipelineScalarsSim,
+      }),
+    );
     return rows.map((r) => mapPipelineRow(r, true));
   }
 
@@ -365,17 +368,20 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
   const companyIds = companies.map((c) => c.id);
   if (companyIds.length === 0) return [];
 
-  const rows = await prisma.threatEvent.findMany({
-    where: {
-      AND: [
-        { tenantCompanyId: { in: companyIds } },
-        statusClause,
-        ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeThreatEvent()] : []),
-      ],
-    },
-    orderBy: { createdAt: "desc" },
-    select: pipelineProdSelect,
-  });
+  const rows = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.threatEvent.findMany({
+      where: {
+        AND: [
+          { tenantId: tenantUuid },
+          { tenantCompanyId: { in: companyIds } },
+          statusClause,
+          ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeThreatEvent()] : []),
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      select: pipelineProdSelect,
+    }),
+  );
   const stressBridge = tenantUuid
     ? await listControlStressRiskEventsForPipeline(tenantUuid, [
         ThreatState.IDENTIFIED,

@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { withThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import { evaluateSystemTriage } from "@/src/services/irontech/triageRouter";
 import { ensureTriageThreadCheckpoint } from "@/src/services/irontech/healthPostureMonitor";
+import { composeCheckpointThreadId, NIL_TENANT_UUID } from "@/src/services/orchestration/checkpointTenant";
 import * as Agent17SentinelCron from "@/app/api/internal/cron/agent17-sentinel/route";
 import * as CarbonBudgetCron from "@/app/api/internal/cron/carbon-budget-reallocation/route";
 import * as GridcoreRatePollCron from "@/app/api/internal/cron/gridcore-rate-poll/route";
@@ -96,7 +97,9 @@ describe("Epic 13 — Active telemetry triage (TAS §4.3)", () => {
           "@/src/services/orchestration/checkpointer"
         );
         const cp = await getPostgresCheckpointer();
-        await cp.deleteThread(mockThread);
+        if (testTenantId) {
+          await cp.deleteThread(composeCheckpointThreadId(testTenantId, mockThread));
+        }
       } catch {
         /* thread may not exist */
       }
@@ -107,6 +110,7 @@ describe("Epic 13 — Active telemetry triage (TAS §4.3)", () => {
     "freezes pipelines and stamps Agent 12 registry isolation when health is below 50%",
     async () => {
       const tenantRow = await prisma.tenant.findFirst({
+        where: { id: { not: NIL_TENANT_UUID } },
         select: { id: true },
         orderBy: { id: "asc" },
       });

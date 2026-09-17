@@ -1,6 +1,10 @@
 import "server-only";
 
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getPrismaPrivileged } from "@/lib/prismaPrivileged";
 import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
 import { HUMAN_ACK_ANOMALY_AUDIT_ACTION } from "@/app/lib/ironwatch/humanAckAnomalyAuditAction";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
@@ -103,6 +107,135 @@ async function sendRecidivistSummaryIroncast(payload: Record<string, unknown>): 
   }
 }
 
+type TenantScopeAuditRow = {
+  id: string;
+  tenantId: string;
+  createdAt: Date;
+  operatorId: string;
+  justification: string | null;
+  governance_tenant_uuid: string | null;
+};
+
+type ActionAuditRow = {
+  id: string;
+  tenantId: string;
+  createdAt: Date;
+  operatorId: string;
+  action: string;
+  justification: string | null;
+};
+
+type HumanAnomalyAuditRow = {
+  id: string;
+  tenantId: string;
+  createdAt: Date;
+  operatorId: string;
+  justification: string | null;
+};
+
+type FreezeEvidenceLog = {
+  id: string;
+  tenantId: string;
+  createdAt: Date;
+};
+
+type TenantAuditSlice = {
+  tenantScopeLogs: TenantScopeAuditRow[];
+  freezeTriggerCount: number;
+  freezeEvidenceLog: FreezeEvidenceLog | null;
+  governedExceptionLogs: ActionAuditRow[];
+  humanAnomalyAckLogs: HumanAnomalyAuditRow[];
+};
+
+async function readTenantAuditSlice(tenantId: string, since: Date): Promise<TenantAuditSlice> {
+  return withIronguardTenant(tenantId, async (tx: Prisma.TransactionClient) => {
+    const [
+      tenantScopeLogs,
+      freezeTriggerCount,
+      freezeEvidenceLog,
+      governedExceptionLogs,
+      humanAnomalyAckLogs,
+    ] = await Promise.all([
+      tx.auditLog.findMany({
+        where: {
+          tenantId,
+          createdAt: { gte: since },
+          action: "TENANT_SCOPE_CHANGE",
+        },
+        select: {
+          id: true,
+          tenantId: true,
+          createdAt: true,
+          operatorId: true,
+          justification: true,
+          governance_tenant_uuid: true,
+        },
+        orderBy: { createdAt: "asc" },
+        take: 5000,
+      }),
+      tx.auditLog.count({
+        where: {
+          tenantId,
+          createdAt: { gte: since },
+          action: IRONLOCK_FREEZE_AUDIT_ACTION,
+        },
+      }),
+      tx.auditLog.findFirst({
+        where: {
+          tenantId,
+          createdAt: { gte: since },
+          action: IRONLOCK_FREEZE_AUDIT_ACTION,
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, tenantId: true, createdAt: true },
+      }),
+      tx.auditLog.findMany({
+        where: {
+          tenantId,
+          createdAt: { gte: since },
+          action: {
+            in: ["GOVERNED_EXCEPTION_QUARANTINE_RESET", "ATTEMPTING_NON_COMPLIANT_OVERRIDE"],
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          tenantId: true,
+          createdAt: true,
+          operatorId: true,
+          action: true,
+          justification: true,
+        },
+      }),
+      tx.auditLog.findMany({
+        where: {
+          tenantId,
+          createdAt: { gte: since },
+          action: HUMAN_ACK_ANOMALY_AUDIT_ACTION,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        select: {
+          id: true,
+          tenantId: true,
+          createdAt: true,
+          operatorId: true,
+          justification: true,
+        },
+      }),
+    ]);
+
+    return {
+      tenantScopeLogs,
+      freezeTriggerCount,
+      freezeEvidenceLog,
+      governedExceptionLogs,
+      humanAnomalyAckLogs,
+    };
+  });
+}
+
 function formatDirectiveSummaryLine(
   counts: Map<ConstitutionalDirectiveKey, number>,
   freezeTriggers: number,
@@ -132,34 +265,11 @@ export async function runIronscribeDailyAuditSynthesis(now: Date = new Date()): 
   const since = new Date(now.getTime() - WINDOW_MS);
   const correlationSince = new Date(now.getTime() - VIOLATION_CORRELATION_WINDOW_MS);
 
-  const [
-    tenantScopeLogs,
-    ironguardRows,
-    highRiskLedger,
-    correlationViolations,
-    freezeTriggerCount,
-    freezeEvidenceLog,
-    systemConfigRow,
-    governedExceptionLogs,
-    humanAnomalyAckLogs,
-  ] = await Promise.all([
-      prisma.auditLog.findMany({
-        where: {
-          createdAt: { gte: since },
-          action: "TENANT_SCOPE_CHANGE",
-        },
-        select: {
-          id: true,
-          tenantId: true,
-          createdAt: true,
-          operatorId: true,
-          justification: true,
-          governance_tenant_uuid: true,
-        },
-        orderBy: { createdAt: "asc" },
-        take: 5000,
-      }),
-      prisma.ironguardViolation.findMany({
+  const privileged = getPrismaPrivileged();
+  const [tenantIds, ironguardRows, highRiskLedger, correlationViolations, systemConfigRow] =
+    await Promise.all([
+      listCatalogTenantIds(),
+      privileged.ironguardViolation.findMany({
         where: { createdAt: { gte: since } },
         orderBy: { createdAt: "desc" },
         take: 2000,
@@ -171,7 +281,7 @@ export async function runIronscribeDailyAuditSynthesis(now: Date = new Date()): 
         orderBy: { lastViolationAt: "desc" },
         take: 500,
       }),
-      prisma.ironguardViolation.findMany({
+      privileged.ironguardViolation.findMany({
         where: { createdAt: { gte: correlationSince } },
         orderBy: { createdAt: "desc" },
         select: {
@@ -182,58 +292,38 @@ export async function runIronscribeDailyAuditSynthesis(now: Date = new Date()): 
         },
         take: 10000,
       }),
-      prisma.auditLog.count({
-        where: {
-          createdAt: { gte: since },
-          action: IRONLOCK_FREEZE_AUDIT_ACTION,
-        },
-      }),
-      prisma.auditLog.findFirst({
-        where: {
-          createdAt: { gte: since },
-          action: IRONLOCK_FREEZE_AUDIT_ACTION,
-        },
-        orderBy: { createdAt: "desc" },
-        select: { id: true, tenantId: true },
-      }),
-      prisma.systemConfig.findUnique({
+      privileged.systemConfig.findUnique({
         where: { id: "global" },
         select: { updatedAt: true },
       }),
-      prisma.auditLog.findMany({
-        where: {
-          createdAt: { gte: since },
-          action: {
-            in: ["GOVERNED_EXCEPTION_QUARANTINE_RESET", "ATTEMPTING_NON_COMPLIANT_OVERRIDE"],
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-        select: {
-          id: true,
-          tenantId: true,
-          createdAt: true,
-          operatorId: true,
-          action: true,
-          justification: true,
-        },
-      }),
-      prisma.auditLog.findMany({
-        where: {
-          createdAt: { gte: since },
-          action: HUMAN_ACK_ANOMALY_AUDIT_ACTION,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 200,
-        select: {
-          id: true,
-          tenantId: true,
-          createdAt: true,
-          operatorId: true,
-          justification: true,
-        },
-      }),
     ]);
+
+  const tenantScopeLogs: TenantScopeAuditRow[] = [];
+  let freezeTriggerCount = 0;
+  let freezeEvidenceLog: FreezeEvidenceLog | null = null;
+  const governedExceptionLogs: ActionAuditRow[] = [];
+  const humanAnomalyAckLogs: HumanAnomalyAuditRow[] = [];
+
+  for (const tenantId of tenantIds) {
+    const slice = await readTenantAuditSlice(tenantId, since);
+    tenantScopeLogs.push(...slice.tenantScopeLogs);
+    freezeTriggerCount += slice.freezeTriggerCount;
+    if (
+      slice.freezeEvidenceLog &&
+      (!freezeEvidenceLog || slice.freezeEvidenceLog.createdAt > freezeEvidenceLog.createdAt)
+    ) {
+      freezeEvidenceLog = slice.freezeEvidenceLog;
+    }
+    governedExceptionLogs.push(...slice.governedExceptionLogs);
+    humanAnomalyAckLogs.push(...slice.humanAnomalyAckLogs);
+  }
+
+  tenantScopeLogs.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  tenantScopeLogs.splice(5000);
+  governedExceptionLogs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  governedExceptionLogs.splice(50);
+  humanAnomalyAckLogs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  humanAnomalyAckLogs.splice(200);
 
   const directiveCounts = new Map<ConstitutionalDirectiveKey, number>();
   for (const v of ironguardRows) {

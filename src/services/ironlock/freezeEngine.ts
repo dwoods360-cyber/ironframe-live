@@ -4,6 +4,7 @@ import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { getPrismaPrivileged } from "@/lib/prismaPrivileged";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
+import { NIL_TENANT_UUID } from "@/src/services/orchestration/checkpointTenant";
 
 const FREEZE_AUDIT_ACTION = "AUTONOMOUS_STATE_FREEZE_TRIGGERED";
 
@@ -14,6 +15,7 @@ async function appendGlobalFreezeAuditForEveryTenant(input: {
 }): Promise<void> {
   const tenants = await getPrismaPrivileged().tenant.findMany({
     select: { id: true },
+    where: { id: { not: NIL_TENANT_UUID } },
     orderBy: { id: "asc" },
   });
   if (!tenants.length) {

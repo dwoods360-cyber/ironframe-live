@@ -1,6 +1,8 @@
 import "server-only";
 
 import { randomUUID } from "crypto";
+import type { Prisma } from "@prisma/client";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import prisma from "@/lib/prisma";
 
 export type CarbonIntensitySample = {
@@ -110,86 +112,140 @@ function mapThrottleRow(row: {
 
 export async function pruneCarbonSamplesForTenant(tenantId: string): Promise<void> {
   const cutoff = new Date(Date.now() - SAMPLE_RETENTION_MS);
-  await prisma.carbonPulseSample.deleteMany({
-    where: { tenantId, sampledAt: { lt: cutoff } },
+  await withIronguardTenant(tenantId, async (tx) => {
+    await tx.carbonPulseSample.deleteMany({
+      where: { tenantId, sampledAt: { lt: cutoff } },
+    });
+
+    const ordered = await tx.carbonPulseSample.findMany({
+      where: { tenantId },
+      orderBy: { sampledAt: "desc" },
+      select: { tenantId: true, id: true },
+    });
+
+    if (ordered.length <= MAX_SAMPLES_PER_TENANT) return;
+
+    const excess = ordered.slice(MAX_SAMPLES_PER_TENANT);
+    await Promise.all(
+      excess.map((row) =>
+        tx.carbonPulseSample.delete({
+          where: { tenantId_id: { tenantId: row.tenantId, id: row.id } },
+        }),
+      ),
+    );
   });
-
-  const ordered = await prisma.carbonPulseSample.findMany({
-    where: { tenantId },
-    orderBy: { sampledAt: "desc" },
-    select: { tenantId: true, id: true },
-  });
-
-  if (ordered.length <= MAX_SAMPLES_PER_TENANT) return;
-
-  const excess = ordered.slice(MAX_SAMPLES_PER_TENANT);
-  await Promise.all(
-    excess.map((row) =>
-      prisma.carbonPulseSample.delete({
-        where: { tenantId_id: { tenantId: row.tenantId, id: row.id } },
-      }),
-    ),
-  );
 }
 
 export async function appendCarbonSampleToStore(
   tenantId: string,
   sample: CarbonIntensitySample,
 ): Promise<void> {
-  await prisma.carbonPulseSample.create({
-    data: {
-      tenantId,
-      id: randomUUID(),
-      sampledAt: new Date(sample.at),
-      zone: sample.zone,
-      gco2PerKwh: sample.gco2PerKwh,
-      mitigatedValueCents: BigInt(sample.mitigatedValueCents || "0"),
-      dirty: sample.dirty,
-    },
-  });
+  await withIronguardTenant(tenantId, (tx) =>
+    tx.carbonPulseSample.create({
+      data: {
+        tenantId,
+        id: randomUUID(),
+        sampledAt: new Date(sample.at),
+        zone: sample.zone,
+        gco2PerKwh: sample.gco2PerKwh,
+        mitigatedValueCents: BigInt(sample.mitigatedValueCents || "0"),
+        dirty: sample.dirty,
+      },
+    }),
+  );
   await pruneCarbonSamplesForTenant(tenantId);
 }
 
 export async function readCarbonPulseStateForTenant(tenantId: string): Promise<CarbonIntensitySample[]> {
-  const rows = await prisma.carbonPulseSample.findMany({
-    where: { tenantId },
-    orderBy: { sampledAt: "asc" },
-  });
+  const rows = await withIronguardTenant(tenantId, (tx) =>
+    tx.carbonPulseSample.findMany({
+      where: { tenantId },
+      orderBy: { sampledAt: "asc" },
+    }),
+  );
   return rows.map(mapSampleRow);
 }
 
-export async function readCarbonPulseState(): Promise<CarbonPulseState> {
-  const [sampleRows, alertRows, throttleRows, syncMetaRows] = await Promise.all([
-    prisma.carbonPulseSample.findMany({ orderBy: [{ tenantId: "asc" }, { sampledAt: "asc" }] }),
-    prisma.dirtyGridAlert.findMany({ orderBy: { sentAt: "desc" }, take: 100 }),
-    prisma.ironlockCarbonThrottle.findMany(),
-    prisma.ironbloomTenantSyncMeta.findMany({
-      where: { lastDirtyAlertAtByTenant: { not: null } },
+export async function listDirtyGridAlertsForTenant(tenantId: string): Promise<DirtyGridAlertRecord[]> {
+  const rows = await withIronguardTenant(tenantId, (tx) =>
+    tx.dirtyGridAlert.findMany({
+      where: { tenantId },
+      orderBy: { sentAt: "desc" },
+      take: 100,
     }),
+  );
+  return rows.map(mapAlertRow);
+}
+
+export async function countAcknowledgedDirtyGridAlerts(tenantId: string): Promise<number> {
+  return withIronguardTenant(tenantId, (tx) =>
+    tx.dirtyGridAlert.count({
+      where: { tenantId, acknowledged: true },
+    }),
+  );
+}
+
+async function readCarbonPulseBundleInTx(
+  tenantId: string,
+  tx: Prisma.TransactionClient,
+): Promise<CarbonPulseState> {
+  const [sampleRows, alertRows, throttleRow, syncMeta] = await Promise.all([
+    tx.carbonPulseSample.findMany({
+      where: { tenantId },
+      orderBy: { sampledAt: "asc" },
+    }),
+    tx.dirtyGridAlert.findMany({
+      where: { tenantId },
+      orderBy: { sentAt: "desc" },
+      take: 100,
+    }),
+    tx.ironlockCarbonThrottle.findUnique({ where: { tenantId } }),
+    tx.ironbloomTenantSyncMeta.findUnique({ where: { tenantId } }),
   ]);
 
+  return {
+    samplesByTenant: { [tenantId]: sampleRows.map(mapSampleRow) },
+    dirtyGridAlerts: alertRows.map(mapAlertRow),
+    lastDirtyAlertAtByTenant: syncMeta?.lastDirtyAlertAtByTenant
+      ? { [tenantId]: syncMeta.lastDirtyAlertAtByTenant.toISOString() }
+      : {},
+    ironlockThrottleByTenant: throttleRow
+      ? { [tenantId]: mapThrottleRow(throttleRow) }
+      : {},
+  };
+}
+
+/** Tenant-scoped Carbon Pulse slice for read-modify-write workers. */
+export async function readCarbonPulseStateForTenantBundle(tenantId: string): Promise<CarbonPulseState> {
+  return withIronguardTenant(tenantId, (tx) => readCarbonPulseBundleInTx(tenantId, tx));
+}
+
+/**
+ * Catalog-iterated aggregator. `tenants` is not RLS-scoped; each ledger read binds first.
+ */
+export async function readCarbonPulseState(): Promise<CarbonPulseState> {
+  const tenantRows = await prisma.tenant.findMany({
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+
   const samplesByTenant: Record<string, CarbonIntensitySample[]> = {};
-  for (const row of sampleRows) {
-    const sample = mapSampleRow(row);
-    if (!samplesByTenant[row.tenantId]) samplesByTenant[row.tenantId] = [];
-    samplesByTenant[row.tenantId]!.push(sample);
-  }
-
+  const dirtyGridAlerts: DirtyGridAlertRecord[] = [];
   const lastDirtyAlertAtByTenant: Record<string, string> = {};
-  for (const meta of syncMetaRows) {
-    if (meta.lastDirtyAlertAtByTenant) {
-      lastDirtyAlertAtByTenant[meta.tenantId] = meta.lastDirtyAlertAtByTenant.toISOString();
-    }
-  }
-
   const ironlockThrottleByTenant: Record<string, IronlockThrottleTenantRecord> = {};
-  for (const row of throttleRows) {
-    ironlockThrottleByTenant[row.tenantId] = mapThrottleRow(row);
+
+  for (const { id: tenantId } of tenantRows) {
+    const slice = await withIronguardTenant(tenantId, (tx) => readCarbonPulseBundleInTx(tenantId, tx));
+    samplesByTenant[tenantId] = slice.samplesByTenant[tenantId] ?? [];
+    dirtyGridAlerts.push(...slice.dirtyGridAlerts);
+    Object.assign(lastDirtyAlertAtByTenant, slice.lastDirtyAlertAtByTenant);
+    Object.assign(ironlockThrottleByTenant, slice.ironlockThrottleByTenant);
   }
 
+  dirtyGridAlerts.sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt));
   return {
     samplesByTenant,
-    dirtyGridAlerts: alertRows.map(mapAlertRow),
+    dirtyGridAlerts: dirtyGridAlerts.slice(0, 100),
     lastDirtyAlertAtByTenant,
     ironlockThrottleByTenant,
   };
@@ -206,19 +262,20 @@ export function readCarbonPulseStateSync(): CarbonPulseState {
 
 async function replaceTenantSamples(tenantId: string, samples: CarbonIntensitySample[]): Promise<void> {
   const pruned = pruneSamplesOlderThan24h(samples).slice(-MAX_SAMPLES_PER_TENANT);
-  await prisma.carbonPulseSample.deleteMany({ where: { tenantId } });
-  if (pruned.length === 0) return;
-
-  await prisma.carbonPulseSample.createMany({
-    data: pruned.map((sample) => ({
-      tenantId,
-      id: randomUUID(),
-      sampledAt: new Date(sample.at),
-      zone: sample.zone,
-      gco2PerKwh: sample.gco2PerKwh,
-      mitigatedValueCents: BigInt(sample.mitigatedValueCents || "0"),
-      dirty: sample.dirty,
-    })),
+  await withIronguardTenant(tenantId, async (tx) => {
+    await tx.carbonPulseSample.deleteMany({ where: { tenantId } });
+    if (pruned.length === 0) return;
+    await tx.carbonPulseSample.createMany({
+      data: pruned.map((sample) => ({
+        tenantId,
+        id: randomUUID(),
+        sampledAt: new Date(sample.at),
+        zone: sample.zone,
+        gco2PerKwh: sample.gco2PerKwh,
+        mitigatedValueCents: BigInt(sample.mitigatedValueCents || "0"),
+        dirty: sample.dirty,
+      })),
+    });
   });
 }
 
@@ -246,69 +303,75 @@ export async function writeCarbonPulseState(next: CarbonPulseState): Promise<voi
 
   for (const alert of next.dirtyGridAlerts) {
     if (!existingTenantIds.has(alert.tenantId)) continue;
-    await prisma.dirtyGridAlert.upsert({
-      where: { tenantId_id: { tenantId: alert.tenantId, id: alert.id } },
-      update: {
-        sentAt: new Date(alert.sentAt),
-        intensityGco2PerKwh: alert.intensityGco2PerKwh,
-        thresholdGco2PerKwh: alert.thresholdGco2PerKwh,
-        tenantUsageKwh: alert.tenantUsageKwh,
-        usageBaselineKwh: alert.usageBaselineKwh,
-        message: alert.message,
-        acknowledged: alert.acknowledged ?? false,
-        evidenceArtifactSha: alert.evidenceArtifactSha256 ?? null,
-      },
-      create: {
-        tenantId: alert.tenantId,
-        id: alert.id,
-        sentAt: new Date(alert.sentAt),
-        intensityGco2PerKwh: alert.intensityGco2PerKwh,
-        thresholdGco2PerKwh: alert.thresholdGco2PerKwh,
-        tenantUsageKwh: alert.tenantUsageKwh,
-        usageBaselineKwh: alert.usageBaselineKwh,
-        message: alert.message,
-        acknowledged: alert.acknowledged ?? false,
-        evidenceArtifactSha: alert.evidenceArtifactSha256 ?? null,
-      },
-    });
+    await withIronguardTenant(alert.tenantId, (tx) =>
+      tx.dirtyGridAlert.upsert({
+        where: { tenantId_id: { tenantId: alert.tenantId, id: alert.id } },
+        update: {
+          sentAt: new Date(alert.sentAt),
+          intensityGco2PerKwh: alert.intensityGco2PerKwh,
+          thresholdGco2PerKwh: alert.thresholdGco2PerKwh,
+          tenantUsageKwh: alert.tenantUsageKwh,
+          usageBaselineKwh: alert.usageBaselineKwh,
+          message: alert.message,
+          acknowledged: alert.acknowledged ?? false,
+          evidenceArtifactSha: alert.evidenceArtifactSha256 ?? null,
+        },
+        create: {
+          tenantId: alert.tenantId,
+          id: alert.id,
+          sentAt: new Date(alert.sentAt),
+          intensityGco2PerKwh: alert.intensityGco2PerKwh,
+          thresholdGco2PerKwh: alert.thresholdGco2PerKwh,
+          tenantUsageKwh: alert.tenantUsageKwh,
+          usageBaselineKwh: alert.usageBaselineKwh,
+          message: alert.message,
+          acknowledged: alert.acknowledged ?? false,
+          evidenceArtifactSha: alert.evidenceArtifactSha256 ?? null,
+        },
+      }),
+    );
   }
 
   for (const [tenantId, record] of Object.entries(next.ironlockThrottleByTenant ?? {})) {
     if (!existingTenantIds.has(tenantId)) continue;
-    await prisma.ironlockCarbonThrottle.upsert({
-      where: { tenantId },
-      update: {
-        active: record.active,
-        updatedAt: new Date(record.updatedAt),
-        intensityGco2PerKwh: record.intensityGco2PerKwh,
-        thresholdGco2PerKwh: record.thresholdGco2PerKwh,
-        autonomousMitigationEnabled: record.autonomousMitigationEnabled,
-        lastAutoThrottleAuditAt: record.lastAutoThrottleAuditAt
-          ? new Date(record.lastAutoThrottleAuditAt)
-          : null,
-      },
-      create: {
-        tenantId,
-        active: record.active,
-        updatedAt: new Date(record.updatedAt),
-        intensityGco2PerKwh: record.intensityGco2PerKwh,
-        thresholdGco2PerKwh: record.thresholdGco2PerKwh,
-        autonomousMitigationEnabled: record.autonomousMitigationEnabled,
-        lastAutoThrottleAuditAt: record.lastAutoThrottleAuditAt
-          ? new Date(record.lastAutoThrottleAuditAt)
-          : null,
-      },
-    });
+    await withIronguardTenant(tenantId, (tx) =>
+      tx.ironlockCarbonThrottle.upsert({
+        where: { tenantId },
+        update: {
+          active: record.active,
+          updatedAt: new Date(record.updatedAt),
+          intensityGco2PerKwh: record.intensityGco2PerKwh,
+          thresholdGco2PerKwh: record.thresholdGco2PerKwh,
+          autonomousMitigationEnabled: record.autonomousMitigationEnabled,
+          lastAutoThrottleAuditAt: record.lastAutoThrottleAuditAt
+            ? new Date(record.lastAutoThrottleAuditAt)
+            : null,
+        },
+        create: {
+          tenantId,
+          active: record.active,
+          updatedAt: new Date(record.updatedAt),
+          intensityGco2PerKwh: record.intensityGco2PerKwh,
+          thresholdGco2PerKwh: record.thresholdGco2PerKwh,
+          autonomousMitigationEnabled: record.autonomousMitigationEnabled,
+          lastAutoThrottleAuditAt: record.lastAutoThrottleAuditAt
+            ? new Date(record.lastAutoThrottleAuditAt)
+            : null,
+        },
+      }),
+    );
   }
 
   await Promise.all(
     Object.entries(next.lastDirtyAlertAtByTenant).map(([tenantId, sentAt]) =>
       existingTenantIds.has(tenantId)
-        ? prisma.ironbloomTenantSyncMeta.upsert({
-            where: { tenantId },
-            update: { lastDirtyAlertAtByTenant: new Date(sentAt) },
-            create: { tenantId, lastDirtyAlertAtByTenant: new Date(sentAt) },
-          })
+        ? withIronguardTenant(tenantId, (tx) =>
+            tx.ironbloomTenantSyncMeta.upsert({
+              where: { tenantId },
+              update: { lastDirtyAlertAtByTenant: new Date(sentAt) },
+              create: { tenantId, lastDirtyAlertAtByTenant: new Date(sentAt) },
+            }),
+          )
         : Promise.resolve(),
     ),
   );

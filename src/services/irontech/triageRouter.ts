@@ -18,6 +18,7 @@ import {
 } from "@/app/config/tasHealthTriage";
 import { findRiskRegistryByThreatEventId } from "@/app/lib/riskRegistryDb";
 import { logThreatActivity } from "@/app/actions/auditActions";
+import { initiateStateFreeze } from "@/src/services/ironlock/freezeEngine";
 import {
   executeAutonomousStateFreeze,
   type OperationalStateFreezeResult,
@@ -200,10 +201,10 @@ async function activateIronlockPriorityInterrupt(input: {
   lockTimestamp: string;
 }): Promise<boolean> {
   try {
-    await prisma.systemConfig.update({
-      where: { id: "global" },
-      data: { stateFreezeActive: true },
-    });
+    const freeze = await initiateStateFreeze(
+      `[IRONLOCK_PRIORITY_INTERRUPT] TAS §4.3 | zone=${input.incidentZone} | health=${input.healthBarPercent}% | lockedAt=${input.lockTimestamp} | DMZ ingress hold armed for tenant ${input.tenantId}.`,
+    );
+    if (!freeze.ok) return false;
     await logThreatActivity(
       input.threadId,
       "AUTONOMOUS_STATE_FREEZE_TRIGGERED",

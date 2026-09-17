@@ -9,6 +9,7 @@ import {
   getScopedTenantUuidFromCookies,
   resolveTenantUuidForThreatScope,
 } from "@/app/utils/serverTenantContext";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
 import type { ChaosClientAttribution } from "@/app/utils/chaosClientAttribution";
 import { ingressGateway, ingressUsesRiskEventTable } from "@/app/lib/security/ingressGateway";
@@ -680,15 +681,17 @@ export async function injectChaosThreatAction(
     } as const;
 
     const useRiskEventTable = await ingressUsesRiskEventTable();
-    const row = useRiskEventTable
-      ? await prisma.riskEvent.findFirst({
-          where: { id: threatId },
-          select: rowSelect,
-        })
-      : await prisma.threatEvent.findUnique({
-          where: { id: threatId },
-          select: rowSelect,
-        });
+    const row = await withIronguardTenant(tenantId, (tx) =>
+      useRiskEventTable
+        ? tx.riskEvent.findFirst({
+            where: { id: threatId, tenantId },
+            select: rowSelect,
+          })
+        : tx.threatEvent.findFirst({
+            where: { id: threatId, tenantId, tenantCompanyId: company.id },
+            select: rowSelect,
+          }),
+    );
     if (!row) {
       return { ok: false, error: "Threat row missing after chaos inject." };
     }
@@ -756,6 +759,7 @@ function openSystemIntegrityDrillWhere(
     };
   }
   return {
+    tenantId: tenantUuid,
     tenantCompanyId: companyId,
     status: { in: OPEN_INTEGRITY_DRILL_STATUSES },
     ...titleClause,
@@ -777,9 +781,12 @@ async function countOpenSystemIntegrityDrillsForBot(
     companyId,
     useRiskEventTable,
   );
-  return useRiskEventTable
-    ? prisma.riskEvent.count({ where: where as Prisma.RiskEventWhereInput })
-    : prisma.threatEvent.count({ where: where as Prisma.ThreatEventWhereInput });
+  const tid = tenantUuid.trim();
+  return withIronguardTenant(tid, (tx) =>
+    useRiskEventTable
+      ? tx.riskEvent.count({ where: where as Prisma.RiskEventWhereInput })
+      : tx.threatEvent.count({ where: where as Prisma.ThreatEventWhereInput }),
+  );
 }
 
 async function resolveOpenSystemIntegrityDrillRow(
@@ -795,21 +802,25 @@ async function resolveOpenSystemIntegrityDrillRow(
     chaosDrillResolutionAt: resolvedAt,
   };
   if (useRiskEventTable) {
-    const existing = await prisma.riskEvent.findFirst({
-      where: { id: threatId, tenantId: tenantUuid },
-      select: { ingestionDetails: true },
-    });
-    const merged = mergeIngestionDetailsPatch(existing?.ingestionDetails ?? null, patch);
-    await prisma.riskEvent.update({
-      where: { tenantId_id: { tenantId: tenantUuid, id: threatId } },
-      data: { status: ThreatState.RESOLVED, ingestionDetails: merged },
+    await withIronguardTenant(tenantUuid, async (tx) => {
+      const existing = await tx.riskEvent.findFirst({
+        where: { id: threatId, tenantId: tenantUuid },
+        select: { ingestionDetails: true },
+      });
+      const merged = mergeIngestionDetailsPatch(existing?.ingestionDetails ?? null, patch);
+      await tx.riskEvent.update({
+        where: { tenantId_id: { tenantId: tenantUuid, id: threatId } },
+        data: { status: ThreatState.RESOLVED, ingestionDetails: merged },
+      });
     });
     return;
   }
-  const existing = await prisma.threatEvent.findFirst({
-    where: { id: threatId, tenantCompanyId: companyId },
-    select: { ingestionDetails: true },
-  });
+  const existing = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.threatEvent.findFirst({
+      where: { id: threatId, tenantId: tenantUuid, tenantCompanyId: companyId },
+      select: { ingestionDetails: true },
+    }),
+  );
   const merged = mergeIngestionDetailsPatch(existing?.ingestionDetails ?? null, patch);
   await updateThreatWithIntegrity({
     threatId,
@@ -844,17 +855,20 @@ export async function standDownAllSystemIntegrityDrillsAction(
     companyId,
     useRiskEventTable,
   );
-  const rows = useRiskEventTable
-    ? await prisma.riskEvent.findMany({
-        where: where as Prisma.RiskEventWhereInput,
-        select: { id: true },
-        orderBy: { createdAt: "asc" },
-      })
-    : await prisma.threatEvent.findMany({
-        where: where as Prisma.ThreatEventWhereInput,
-        select: { id: true },
-        orderBy: { createdAt: "asc" },
-      });
+  const tid = tenantUuid.trim();
+  const rows = await withIronguardTenant(tid, (tx) =>
+    useRiskEventTable
+      ? tx.riskEvent.findMany({
+          where: where as Prisma.RiskEventWhereInput,
+          select: { id: true },
+          orderBy: { createdAt: "asc" },
+        })
+      : tx.threatEvent.findMany({
+          where: where as Prisma.ThreatEventWhereInput,
+          select: { id: true },
+          orderBy: { createdAt: "asc" },
+        }),
+  );
   if (rows.length === 0) {
     return { ok: false, error: `No active ${drillId.toUpperCase()} system integrity drills.` };
   }
@@ -1025,18 +1039,24 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
   if (companyId == null) {
     return { ok: false, error: "Missing company context for tenant isolation." };
   }
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantUuid) {
+    return { ok: false, error: "Missing company context for tenant isolation." };
+  }
 
   const useRiskEventTable = await ingressUsesRiskEventTable();
 
-  const row = useRiskEventTable
-    ? await prisma.riskEvent.findFirst({
-        where: { id, tenantCompanyId: companyId },
-        select: { ingestionDetails: true, status: true },
-      })
-    : await prisma.threatEvent.findFirst({
-        where: { id, tenantCompanyId: companyId },
-        select: { ingestionDetails: true, status: true },
-      });
+  const row = await withIronguardTenant(tenantUuid, (tx) =>
+    useRiskEventTable
+      ? tx.riskEvent.findFirst({
+          where: { id, tenantId: tenantUuid, tenantCompanyId: companyId },
+          select: { ingestionDetails: true, status: true },
+        })
+      : tx.threatEvent.findFirst({
+          where: { id, tenantId: tenantUuid, tenantCompanyId: companyId },
+          select: { ingestionDetails: true, status: true },
+        }),
+  );
 
   if (!row) return { ok: false, error: "Threat not found or access denied." };
 
@@ -1163,6 +1183,10 @@ export async function runChaosDrillIrontechLifecycleGatedAction(
   if (companyId == null) {
     return { ok: false, error: "Missing company context for tenant isolation." };
   }
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantUuid) {
+    return { ok: false, error: "Missing company context for tenant isolation." };
+  }
   const useRiskEventTable = await ingressUsesRiskEventTable();
 
   for (let s = 1; s <= 4; s++) {
@@ -1173,15 +1197,17 @@ export async function runChaosDrillIrontechLifecycleGatedAction(
     if (!next.ok) return next;
   }
 
-  const row = useRiskEventTable
-    ? await prisma.riskEvent.findFirst({
-        where: { id, tenantCompanyId: companyId },
-        select: { financialRisk_cents: true },
-      })
-    : await prisma.threatEvent.findFirst({
-        where: { id, tenantCompanyId: companyId },
-        select: { financialRisk_cents: true },
-      });
+  const row = await withIronguardTenant(tenantUuid, (tx) =>
+    useRiskEventTable
+      ? tx.riskEvent.findFirst({
+          where: { id, tenantId: tenantUuid, tenantCompanyId: companyId },
+          select: { financialRisk_cents: true },
+        })
+      : tx.threatEvent.findFirst({
+          where: { id, tenantId: tenantUuid, tenantCompanyId: companyId },
+          select: { financialRisk_cents: true },
+        }),
+  );
 
   const cents =
     row?.financialRisk_cents != null ? Number(row.financialRisk_cents) : 0;
@@ -1223,21 +1249,27 @@ export async function applyChaosShadowDrillTelemetryStepAction(
   if (companyId == null) {
     return { ok: false, error: "Missing company context for tenant isolation." };
   }
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantUuid) {
+    return { ok: false, error: "Missing company context for tenant isolation." };
+  }
 
   const useRiskEventTable = await ingressUsesRiskEventTable();
   const at = new Date().toISOString();
   const tone = step.terminalTone ?? "amber";
 
   try {
-    const row = useRiskEventTable
-      ? await prisma.riskEvent.findFirst({
-          where: { id, tenantCompanyId: companyId },
-          select: { ingestionDetails: true },
-        })
-      : await prisma.threatEvent.findFirst({
-          where: { id, tenantCompanyId: companyId },
-          select: { ingestionDetails: true },
-        });
+    const row = await withIronguardTenant(tenantUuid, (tx) =>
+      useRiskEventTable
+        ? tx.riskEvent.findFirst({
+            where: { id, tenantId: tenantUuid, tenantCompanyId: companyId },
+            select: { ingestionDetails: true },
+          })
+        : tx.threatEvent.findFirst({
+            where: { id, tenantId: tenantUuid, tenantCompanyId: companyId },
+            select: { ingestionDetails: true },
+          }),
+    );
 
     if (!row) {
       return { ok: false, error: "Threat not found or access denied." };
@@ -1431,16 +1463,38 @@ export async function applyChaosScenario4AutomatedPhaseAction(
   const id = threatId.trim();
   if (!id) return { ok: false, error: "Missing threat id." };
 
-  const simRow = await prisma.riskEvent.findFirst({
-    where: { id },
-    select: { ingestionDetails: true, tenantCompanyId: true },
+  const activeTenantUuid = tenantUuidOverride?.trim()
+    ? await resolveTenantUuidForThreatScope(tenantUuidOverride.trim())
+    : await getScopedTenantUuidFromCookies();
+  if (!activeTenantUuid) {
+    return {
+      ok: false,
+      error: "IRONGATE_SHIELD: Mandatory tenant context execution token missing.",
+    };
+  }
+  validateIngressContext(activeTenantUuid);
+
+  const companyIdForScope = await getCompanyIdForTenantUuid(activeTenantUuid);
+  const { simRow, prodRow } = await withIronguardTenant(activeTenantUuid, async (tx) => {
+    const sim = await tx.riskEvent.findFirst({
+      where: {
+        id,
+        tenantId: activeTenantUuid,
+        ...(companyIdForScope != null ? { tenantCompanyId: companyIdForScope } : {}),
+      },
+      select: { ingestionDetails: true, tenantCompanyId: true },
+    });
+    if (sim) return { simRow: sim, prodRow: null as null };
+    const prod = await tx.threatEvent.findFirst({
+      where: {
+        id,
+        tenantId: activeTenantUuid,
+        ...(companyIdForScope != null ? { tenantCompanyId: companyIdForScope } : {}),
+      },
+      select: { ingestionDetails: true, tenantCompanyId: true },
+    });
+    return { simRow: null as null, prodRow: prod };
   });
-  const prodRow = simRow
-    ? null
-    : await prisma.threatEvent.findUnique({
-        where: { id },
-        select: { ingestionDetails: true, tenantCompanyId: true },
-      });
   const row = simRow ?? prodRow;
   if (!row?.tenantCompanyId) {
     return { ok: false, error: "Threat not found." };
@@ -1454,16 +1508,12 @@ export async function applyChaosScenario4AutomatedPhaseAction(
   const base = parseIngestionDetailsForMerge(existingRaw);
   const tenantFromRow =
     typeof base.tenantScopeUuid === "string" ? base.tenantScopeUuid.trim() : "";
-  const activeTenantUuid = tenantUuidOverride?.trim()
-    ? await resolveTenantUuidForThreatScope(tenantUuidOverride.trim())
-    : tenantFromRow || (await getScopedTenantUuidFromCookies());
-  if (!activeTenantUuid) {
+  if (tenantFromRow && tenantFromRow !== activeTenantUuid) {
     return {
       ok: false,
       error: "IRONGATE_SHIELD: Mandatory tenant context execution token missing.",
     };
   }
-  validateIngressContext(activeTenantUuid);
 
   const companyId = row.tenantCompanyId;
   const s4Patch = buildChaosScenario4InitialIngestion(activeTenantUuid, companyId);
@@ -1566,16 +1616,32 @@ export async function grantRemoteAccessAction(
     return { ok: false, error: "Missing threat id." };
   }
 
-  const simRow = await prisma.riskEvent.findFirst({
-    where: { id },
-    select: { status: true, ingestionDetails: true, tenantCompanyId: true },
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantUuid) {
+    return { ok: false, error: "Threat not found." };
+  }
+  const companyId = await getCompanyIdForActiveTenant();
+
+  const { simRow, prodRow } = await withIronguardTenant(tenantUuid, async (tx) => {
+    const sim = await tx.riskEvent.findFirst({
+      where: {
+        id,
+        tenantId: tenantUuid,
+        ...(companyId != null ? { tenantCompanyId: companyId } : {}),
+      },
+      select: { status: true, ingestionDetails: true, tenantCompanyId: true },
+    });
+    if (sim) return { simRow: sim, prodRow: null as null };
+    const prod = await tx.threatEvent.findFirst({
+      where: {
+        id,
+        tenantId: tenantUuid,
+        ...(companyId != null ? { tenantCompanyId: companyId } : {}),
+      },
+      select: { status: true, ingestionDetails: true },
+    });
+    return { simRow: null as null, prodRow: prod };
   });
-  const prodRow = simRow
-    ? null
-    : await prisma.threatEvent.findUnique({
-        where: { id },
-        select: { status: true, ingestionDetails: true },
-      });
   const row = simRow ?? prodRow;
   if (!row) {
     return { ok: false, error: "Threat not found." };
@@ -1650,16 +1716,30 @@ export async function claimRemoteSupportTechAction(
   const id = threatId?.trim();
   if (!id) return { ok: false, error: "Missing threat id." };
 
-  const simRow = await prisma.riskEvent.findFirst({
-    where: { id },
-    select: { ingestionDetails: true },
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantUuid) return { ok: false, error: "Missing tenant context." };
+  const companyId = await getCompanyIdForActiveTenant();
+
+  const { simRow, prodRow } = await withIronguardTenant(tenantUuid, async (tx) => {
+    const sim = await tx.riskEvent.findFirst({
+      where: {
+        id,
+        tenantId: tenantUuid,
+        ...(companyId != null ? { tenantCompanyId: companyId } : {}),
+      },
+      select: { ingestionDetails: true },
+    });
+    if (sim) return { simRow: sim, prodRow: null as null };
+    const prod = await tx.threatEvent.findFirst({
+      where: {
+        id,
+        tenantId: tenantUuid,
+        ...(companyId != null ? { tenantCompanyId: companyId } : {}),
+      },
+      select: { ingestionDetails: true },
+    });
+    return { simRow: null as null, prodRow: prod };
   });
-  const prodRow = simRow
-    ? null
-    : await prisma.threatEvent.findUnique({
-        where: { id },
-        select: { ingestionDetails: true },
-      });
   const row = simRow ?? prodRow;
   if (!row) return { ok: false, error: "Threat not found." };
 
@@ -1709,16 +1789,30 @@ export async function resolveRemoteSupportTechWorkAction(
     };
   }
 
-  const simRow = await prisma.riskEvent.findFirst({
-    where: { id },
-    select: { ingestionDetails: true },
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantUuid) return { ok: false, error: "Threat not found." };
+  const companyId = await getCompanyIdForActiveTenant();
+
+  const { simRow, prodRow } = await withIronguardTenant(tenantUuid, async (tx) => {
+    const sim = await tx.riskEvent.findFirst({
+      where: {
+        id,
+        tenantId: tenantUuid,
+        ...(companyId != null ? { tenantCompanyId: companyId } : {}),
+      },
+      select: { ingestionDetails: true },
+    });
+    if (sim) return { simRow: sim, prodRow: null as null };
+    const prod = await tx.threatEvent.findFirst({
+      where: {
+        id,
+        tenantId: tenantUuid,
+        ...(companyId != null ? { tenantCompanyId: companyId } : {}),
+      },
+      select: { ingestionDetails: true },
+    });
+    return { simRow: null as null, prodRow: prod };
   });
-  const prodRow = simRow
-    ? null
-    : await prisma.threatEvent.findUnique({
-        where: { id },
-        select: { ingestionDetails: true },
-      });
   const row = simRow ?? prodRow;
   if (!row) return { ok: false, error: "Threat not found." };
 

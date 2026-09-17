@@ -5,6 +5,8 @@ import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { ThreatState } from "@prisma/client";
 import { sendEscalationEmail } from "@/app/actions/email";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { transitionThreatStatus } from "@/src/services/threatStateService";
 
 export type PhoneHomeDiagnosticPacket = {
@@ -45,18 +47,26 @@ export async function commitPhoneHome(threatId: string): Promise<PhoneHomeDiagno
     return packet;
   }
 
+  const tenantId = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantId) {
+    console.warn("[IRONTECH] CRITICAL: Phone Home committed without tenant scope.");
+    return packet;
+  }
+
   const [threat, ops] = await Promise.all([
-    prisma.threatEvent.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        sourceAgent: true,
-        score: true,
-        targetEntity: true,
-      },
-    }),
+    withIronguardTenant(tenantId, (tx) =>
+      tx.threatEvent.findFirst({
+        where: { id, tenantId },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          sourceAgent: true,
+          score: true,
+          targetEntity: true,
+        },
+      }),
+    ),
     prisma.agentOperation.findMany({
       where: { threatId: id },
       orderBy: { updatedAt: "desc" },
@@ -219,19 +229,26 @@ export async function dispatchRemoteSupportAction(
     return { success: false, error: "Missing threat id." };
   }
 
-  const threat = await prisma.threatEvent.findUnique({
-    where: { id: tid },
-    select: {
-      id: true,
-      title: true,
-      status: true,
-      sourceAgent: true,
-      score: true,
-      targetEntity: true,
-      isRemoteAccessAuthorized: true,
-      remoteTechId: true,
-    },
-  });
+  const tenantId = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantId) {
+    return { success: false, error: "No active tenant." };
+  }
+
+  const threat = await withIronguardTenant(tenantId, (tx) =>
+    tx.threatEvent.findFirst({
+      where: { id: tid, tenantId },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        sourceAgent: true,
+        score: true,
+        targetEntity: true,
+        isRemoteAccessAuthorized: true,
+        remoteTechId: true,
+      },
+    }),
+  );
   if (!threat) {
     return { success: false, error: "Threat not found." };
   }

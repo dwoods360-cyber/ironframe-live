@@ -1,17 +1,17 @@
 "use server";
 
-import prisma, { primeThreatEventWormEnforcement } from "@/lib/prisma";
+import { primeThreatEventWormEnforcement } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { ThreatState } from "@prisma/client";
 import { subHours } from "date-fns";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { THREAT_ASSIGNEE_AUDIT_ACTIONS } from "@/app/utils/assignmentChainOfCustody";
 import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
 import { incrementSentinelDeepMonitoringLabor } from "@/app/actions/sentinelLaborActions";
-import { fetchTenantAuditLedgerRows } from "@/app/actions/auditActions";
 import { reasoningLogIndicatesControlMapped } from "@/app/utils/reasoningLogControlMapping";
 import { calculateBudgetJustification } from "@/app/utils/grcMath";
 import { fetchInsuranceModelForTenant } from "@/app/utils/insuranceTenantModel";
@@ -52,11 +52,14 @@ const NULL_TELEMETRY: GlobalTelemetry = {
 
 async function getCompanyIdForActiveTenant(tenantUuidOverride?: string): Promise<bigint | null> {
   const tenantUuid = tenantUuidOverride ?? (await getActiveTenantUuidFromCookies());
+  if (!tenantUuid?.trim()) return null;
   try {
-    const company = await prisma.company.findFirst({
-      where: { tenantId: tenantUuid },
-      select: { id: true },
-    });
+    const company = await withIronguardTenant(tenantUuid, (tx) =>
+      tx.company.findFirst({
+        where: { tenantId: tenantUuid },
+        select: { id: true },
+      }),
+    );
     return company?.id ?? null;
   } catch (err) {
     // Control-first: tenant mismatch / DB errors should not crash the component tree.
@@ -83,58 +86,62 @@ const validClearanceStatuses = CLEARANCE_QUEUE_STATUSES.filter(
  * (not `Company.industry_avg_loss_cents`).
  */
 export async function getGlobalTelemetry(tenantUuidOverride?: string): Promise<GlobalTelemetry> {
-  const companyId = await getCompanyIdForActiveTenant(tenantUuidOverride);
+  const tenantUuid = tenantUuidOverride ?? (await getActiveTenantUuidFromCookies());
+  if (!tenantUuid?.trim()) return NULL_TELEMETRY;
+  const companyId = await getCompanyIdForActiveTenant(tenantUuid);
   if (companyId == null) return NULL_TELEMETRY;
 
   const tenantWhere = { tenantCompanyId: companyId };
   const slaThreshold = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
   try {
-    const activeAgg = await prisma.threatEvent.aggregate({
-      where: { ...tenantWhere, status: ThreatState.CONFIRMED },
-      _sum: { financialRisk_cents: true },
-    });
-    const pipelineAgg = await prisma.threatEvent.aggregate({
-      where: { ...tenantWhere, status: { in: validClearanceStatuses } },
-      _sum: { financialRisk_cents: true },
-    });
-    const mitigatedAgg = await prisma.threatEvent.aggregate({
-      where: {
-        ...tenantWhere,
-        status: {
-          in: MITIGATED_STATUSES.filter((s): s is ThreatState => s != null),
+    return await withIronguardTenant(tenantUuid, async (tx) => {
+      const activeAgg = await tx.threatEvent.aggregate({
+        where: { ...tenantWhere, status: ThreatState.CONFIRMED },
+        _sum: { financialRisk_cents: true },
+      });
+      const pipelineAgg = await tx.threatEvent.aggregate({
+        where: { ...tenantWhere, status: { in: validClearanceStatuses } },
+        _sum: { financialRisk_cents: true },
+      });
+      const mitigatedAgg = await tx.threatEvent.aggregate({
+        where: {
+          ...tenantWhere,
+          status: {
+            in: MITIGATED_STATUSES.filter((s): s is ThreatState => s != null),
+          },
         },
-      },
-      _sum: { financialRisk_cents: true },
-    });
-    const activeCount = await prisma.threatEvent.count({
-      where: { ...tenantWhere, status: ThreatState.CONFIRMED },
-    });
-    const pipelineCount = await prisma.threatEvent.count({
-      where: { ...tenantWhere, status: { in: validClearanceStatuses } },
-    });
-    const slaBreachCount = await prisma.threatEvent.count({
-      where: {
-        ...tenantWhere,
-        status: { in: validClearanceStatuses },
-        createdAt: { lt: slaThreshold },
-      },
-    });
-    const oldestThreat = await prisma.threatEvent.findFirst({
-      where: { ...tenantWhere, status: { in: validClearanceStatuses } },
-      orderBy: { createdAt: "asc" },
-      select: { createdAt: true },
-    });
+        _sum: { financialRisk_cents: true },
+      });
+      const activeCount = await tx.threatEvent.count({
+        where: { ...tenantWhere, status: ThreatState.CONFIRMED },
+      });
+      const pipelineCount = await tx.threatEvent.count({
+        where: { ...tenantWhere, status: { in: validClearanceStatuses } },
+      });
+      const slaBreachCount = await tx.threatEvent.count({
+        where: {
+          ...tenantWhere,
+          status: { in: validClearanceStatuses },
+          createdAt: { lt: slaThreshold },
+        },
+      });
+      const oldestThreat = await tx.threatEvent.findFirst({
+        where: { ...tenantWhere, status: { in: validClearanceStatuses } },
+        orderBy: { createdAt: "asc" },
+        select: { createdAt: true },
+      });
 
-    return {
-      activeExposureUsd: centsBigIntToUsd(activeAgg._sum.financialRisk_cents),
-      pipelineExposureUsd: centsBigIntToUsd(pipelineAgg._sum.financialRisk_cents),
-      mitigatedExposureUsd: centsBigIntToUsd(mitigatedAgg._sum.financialRisk_cents),
-      activeCount,
-      pipelineCount,
-      slaBreachCount,
-      oldestPipelineThreatAt: oldestThreat?.createdAt ?? null,
-    };
+      return {
+        activeExposureUsd: centsBigIntToUsd(activeAgg._sum.financialRisk_cents),
+        pipelineExposureUsd: centsBigIntToUsd(pipelineAgg._sum.financialRisk_cents),
+        mitigatedExposureUsd: centsBigIntToUsd(mitigatedAgg._sum.financialRisk_cents),
+        activeCount,
+        pipelineCount,
+        slaBreachCount,
+        oldestPipelineThreatAt: oldestThreat?.createdAt ?? null,
+      };
+    });
   } catch (err) {
     console.error("[dashboardActions] telemetry_query_error:", err);
     return NULL_TELEMETRY;
@@ -160,27 +167,31 @@ export type ActiveThreatSummary = {
 export async function getActiveThreats(
   tenantUuidOverride?: string,
 ): Promise<ActiveThreatSummary[]> {
-  const companyId = await getCompanyIdForActiveTenant(tenantUuidOverride);
+  const tenantUuid = tenantUuidOverride ?? (await getActiveTenantUuidFromCookies());
+  if (!tenantUuid?.trim()) return [];
+  const companyId = await getCompanyIdForActiveTenant(tenantUuid);
   if (companyId == null) return [];
 
   try {
-    const rows = await prisma.threatEvent.findMany({
-      where: {
-        tenantCompanyId: companyId,
-        status: { notIn: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] },
-      },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        sourceAgent: true,
-        targetEntity: true,
-        score: true,
-        financialRisk_cents: true,
-        updatedAt: true,
-      },
-    });
+    const rows = await withIronguardTenant(tenantUuid, (tx) =>
+      tx.threatEvent.findMany({
+        where: {
+          tenantCompanyId: companyId,
+          status: { notIn: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] },
+        },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          sourceAgent: true,
+          targetEntity: true,
+          score: true,
+          financialRisk_cents: true,
+          updatedAt: true,
+        },
+      }),
+    );
 
     return rows.map((r) => ({
       id: r.id,
@@ -335,7 +346,8 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
   const dashboardThreatsFromRiskTable = simPlane && !envShadowPlane;
   const oneHourAgo = subHours(new Date(), 1);
 
-  const companies = await prisma.company.findMany({
+  return withIronguardTenant(activeTenantUuid, async (tx) => {
+  const companies = await tx.company.findMany({
     where: { tenantId: activeTenantUuid },
     include: {
       policies: true,
@@ -413,7 +425,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
   };
 
   const [serverAuditLogs, risks, threatEvents] = await (async () => {
-    const serverAuditLogs = await prisma.auditLog.findMany({
+    const serverAuditLogs = await tx.auditLog.findMany({
       where: { tenantId: activeTenantUuid },
       orderBy: { createdAt: "desc" },
       take: 100,
@@ -427,7 +439,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
         justification: true,
       },
     });
-    const risks = await prisma.activeRisk.findMany({
+    const risks = await tx.activeRisk.findMany({
       where: {
         company: { tenantId: activeTenantUuid },
         /** Active canvas: simulation-flagged ingress only — excludes GRC program baselines. */
@@ -448,14 +460,14 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
       orderBy: { score_cents: "desc" },
     });
     const threatEvents = dashboardThreatsFromRiskTable
-      ? await prisma.riskEvent.findMany({
+      ? await tx.riskEvent.findMany({
           where: openRiskWhere,
           select: riskEventSelect,
           orderBy: { updatedAt: "desc" },
         })
       : tenantCompanyIdsEarly.length === 0
         ? []
-        : await prisma.threatEvent.findMany({
+        : await tx.threatEvent.findMany({
             where: {
               AND: [{ tenantCompanyId: { in: tenantCompanyIdsEarly } }, openWhere],
             },
@@ -471,7 +483,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
    */
   let mergedThreatStripRows = threatEvents as unknown[];
   if (envShadowPlane && simPlane && !dashboardThreatsFromRiskTable) {
-    const bridgeCandidates = await prisma.riskEvent.findMany({
+    const bridgeCandidates = await tx.riskEvent.findMany({
       where: {
         tenantId: activeTenantUuid,
         status: { notIn: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] },
@@ -597,7 +609,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
 
   const scrutinyHeatmap: Record<string, { total: number; agents: Record<string, number> }> = {};
   if (tenantCompanyIds.length > 0) {
-    const scrutinyRows = await prisma.reasoningLog.groupBy({
+    const scrutinyRows = await tx.reasoningLog.groupBy({
       by: ["agentName", "targetAsset", "threatId"],
       where: {
         createdAt: { gte: oneHourAgo },
@@ -607,7 +619,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
     });
 
     const threatIds = [...new Set(scrutinyRows.map((r) => r.threatId))];
-    const threatAssets = await prisma.riskEvent.findMany({
+    const threatAssets = await tx.riskEvent.findMany({
       where: { id: { in: threatIds } },
       select: { id: true, targetEntity: true },
     });
@@ -632,7 +644,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
   let finalConflictDetected = false;
   let finalIronwatchAlerts: string[] = [];
   if (simPlane && tenantCompanyIds.length > 0) {
-    const activeSims = await prisma.riskEvent.findMany({
+    const activeSims = await tx.riskEvent.findMany({
       where: {
         tenantCompanyId: { in: tenantCompanyIds },
         status: { not: ThreatState.CLOSED_ARCHIVED },
@@ -655,7 +667,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
     }
     const communityPredictiveHeat: Record<string, number> = {};
     // Community intelligence weighted contribution: Wc * credibilityScore * heatValue
-    const communityPatterns = await prisma.communityIntelligence.findMany({
+    const communityPatterns = await tx.communityIntelligence.findMany({
       where: { active: true },
       select: { patternData: true, credibilityScore: true },
       orderBy: { createdAt: "desc" },
@@ -711,7 +723,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
     }
 
     if (anomalyLogs.length > 0) {
-      await prisma.reasoningLog.createMany({
+      await tx.reasoningLog.createMany({
         data: anomalyLogs.map((log) => ({
           threatId: log.threatId,
           agentName: "Ironwatch",
@@ -731,7 +743,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
         })),
       });
       for (const log of anomalyLogs) {
-        await incrementSentinelDeepMonitoringLabor(log.threatId, "Ironwatch", 1);
+        await incrementSentinelDeepMonitoringLabor(log.threatId, "Ironwatch", 1, activeTenantUuid);
       }
     }
 
@@ -756,14 +768,14 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
   let aleExposureByAssetCents: Record<string, string> = {};
   if (tenantCompanyIds.length > 0) {
     const aleRows = simPlane
-      ? await prisma.riskEvent.findMany({
+      ? await tx.riskEvent.findMany({
           where: {
             tenantCompanyId: { in: tenantCompanyIds },
             status: { not: ThreatState.CLOSED_ARCHIVED },
           },
           select: { targetEntity: true, financialRisk_cents: true },
         })
-      : await prisma.threatEvent.findMany({
+      : await tx.threatEvent.findMany({
           where: {
             tenantCompanyId: { in: tenantCompanyIds },
             status: { not: ThreatState.CLOSED_ARCHIVED },
@@ -781,13 +793,13 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
   let complianceVelocity: number | null = null;
   let avgHoursToControlMapping: number | null = null;
   if (simPlane && tenantCompanyIds.length > 0) {
-    const reForVelocity = await prisma.riskEvent.findMany({
+    const reForVelocity = await tx.riskEvent.findMany({
       where: { tenantCompanyId: { in: tenantCompanyIds } },
       select: { id: true, createdAt: true },
     });
     if (reForVelocity.length > 0) {
       const ids = reForVelocity.map((e) => e.id);
-      const velocityLogs = await prisma.reasoningLog.findMany({
+      const velocityLogs = await tx.reasoningLog.findMany({
         where: { threatId: { in: ids } },
         orderBy: { createdAt: "asc" },
         select: {
@@ -826,7 +838,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
     const ytdStart = new Date();
     ytdStart.setUTCMonth(0, 1);
     ytdStart.setUTCHours(0, 0, 0, 0);
-    const closedYtd = await prisma.riskEvent.findMany({
+    const closedYtd = await tx.riskEvent.findMany({
       where: {
         tenantCompanyId: { in: tenantCompanyIds },
         status: { in: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] },
@@ -845,7 +857,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
     totalValueMitigatedYtdCents = ytdAcc.toString();
   }
 
-  const insuranceModel = await fetchInsuranceModelForTenant(activeTenantUuid);
+  const insuranceModel = await fetchInsuranceModelForTenant(activeTenantUuid, tx);
 
   const threatEventsPayload = threatEventsSorted.map((t) => {
     /** `RiskEvent` strip rows (sim shadow / merged chaos bridge) vs production `ThreatEvent`. */
@@ -937,4 +949,5 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
     insuranceDefaultPremiumCents: insuranceModel.incentive.basePremium_cents.toString(),
     insuranceTotalDiscountBps: insuranceModel.incentive.totalDiscountBps,
   });
+  }, { timeout: 20_000 });
 }

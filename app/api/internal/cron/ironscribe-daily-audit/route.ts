@@ -4,8 +4,12 @@ import {
   checkCronBearerAuth,
   cronBearerUnauthorizedResponse,
 } from "@/app/api/internal/cron/cronAuth";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
-import prisma from "@/lib/prisma";
+import { flattenCronTenantRuns } from "@/app/api/internal/cron/cronRouteShell";
+import {
+  readExplicitCronTenantId,
+  recordCronJobArtifact,
+  resolveCronTenantIds,
+} from "@/app/lib/server/cronTenantScope";
 
 /**
  * Ironscribe — daily 24h audit synthesis to `storage/forensics/audits/DAILY_AUDIT_REPORT_<timestamp>.md`.
@@ -17,18 +21,17 @@ async function handleCron(request: Request) {
   }
   console.info("[CRON_ACTIVATION_TRACE] Ironscribe daily audit execution initiated successfully.");
 
-  const url = new URL(request.url);
-  const tenantId =
-    request.headers.get("x-tenant-id")?.trim() ||
-    url.searchParams.get("tenantId")?.trim() ||
-    process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
-    TENANT_UUIDS.medshield;
+  const explicitTenantId = readExplicitCronTenantId(request);
+  let artifactTenantId = explicitTenantId;
 
   try {
+    const tenantIds = await resolveCronTenantIds(explicitTenantId);
+    artifactTenantId = tenantIds[0] ?? artifactTenantId;
     const result = await runIronscribeDailyAuditSynthesis();
-    const prismaAny = prisma as any;
-    const artifact = await prismaAny.cronJobArtifact.create({
-      data: {
+    const runs: Array<Record<string, unknown>> = [];
+
+    for (const tenantId of tenantIds) {
+      const artifact = await recordCronJobArtifact({
         tenantId,
         agentName: "ironscribe-daily-audit",
         payloadJson: {
@@ -36,22 +39,23 @@ async function handleCron(request: Request) {
           degraded: false,
           source: "cron-ironscribe-daily-audit",
         },
-      },
-      select: { id: true },
-    });
+      });
+      runs.push({
+        ...result,
+        ok: true,
+        degraded: false,
+        tenantId,
+        artifactId: artifact.id,
+      });
+    }
 
-    return NextResponse.json({
-      ...result,
-      degraded: false,
-      artifactId: artifact.id,
-    });
+    return NextResponse.json({ ok: true, degraded: false, ...flattenCronTenantRuns(runs) });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    try {
-      const prismaAny = prisma as any;
-      await prismaAny.cronJobArtifact.create({
-        data: {
-          tenantId,
+    if (artifactTenantId) {
+      try {
+        await recordCronJobArtifact({
+          tenantId: artifactTenantId,
           agentName: "ironscribe-daily-audit",
           payloadJson: {
             degraded: true,
@@ -59,10 +63,10 @@ async function handleCron(request: Request) {
             details: message,
             source: "cron-ironscribe-daily-audit",
           },
-        },
-      });
-    } catch {
-      // Best-effort only.
+        });
+      } catch {
+        // Best-effort only.
+      }
     }
 
     return NextResponse.json(

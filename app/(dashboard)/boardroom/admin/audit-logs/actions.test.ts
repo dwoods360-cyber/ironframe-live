@@ -33,6 +33,13 @@ vi.mock("@/app/lib/auth/platformAdminAccess", () => ({
   isPlatformAdministratorIdentity: vi.fn(),
 }));
 
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: async (
+    _tenantId: string,
+    run: (tx: { auditLog: { findMany: typeof prisma.auditLog.findMany } }) => unknown,
+  ) => run({ auditLog: { findMany: prisma.auditLog.findMany } }),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   default: {
     tenant: {

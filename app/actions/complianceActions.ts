@@ -2,6 +2,7 @@
 
 import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
 import { fetchInsuranceModelForTenant } from "@/app/utils/insuranceTenantModel";
 import { resolveGovernanceMultiplierBpsForTenantUuid } from "@/app/utils/tenantGovernanceBps";
@@ -106,16 +107,46 @@ export async function getFrameworkCoverage(
 
   const requiredControls = FRAMEWORK_REQUIRED_CONTROLS[fw];
 
-  const validatedRows = await prisma.riskEvent.findMany({
-    where: {
-      tenantCompanyId: { in: companyIds },
-      complianceFramework: fw,
-      status: { in: VALIDATED_LIFECYCLE_STATES },
-      updatedAt: { gte: yearStart },
-    },
-    select: {
-      mappedControls: true,
-    },
+  const { validatedRows, gaps, gapsTotalExposure } = await withIronguardTenant(tid, async (tx) => {
+    const validatedRows = await tx.riskEvent.findMany({
+      where: {
+        tenantId: tid,
+        tenantCompanyId: { in: companyIds },
+        complianceFramework: fw,
+        status: { in: VALIDATED_LIFECYCLE_STATES },
+        updatedAt: { gte: yearStart },
+      },
+      select: {
+        mappedControls: true,
+      },
+    });
+
+    let gapsTotalExposure = 0n;
+    const gaps: FrameworkGap[] = [];
+    for (const controlId of requiredControls) {
+      const validationCount = validatedRows.filter((r) => r.mappedControls.includes(controlId)).length;
+      if (validationCount > 0) continue;
+
+      const exposureAgg = await tx.riskEvent.aggregate({
+        where: {
+          tenantId: tid,
+          tenantCompanyId: { in: companyIds },
+          complianceFramework: fw,
+          status: { in: OPEN_RISK_STATES },
+          OR: [{ mappedControls: { isEmpty: true } }, { NOT: { mappedControls: { has: controlId } } }],
+        },
+        _sum: { financialRisk_cents: true },
+      });
+      const potentialAle = exposureAgg._sum.financialRisk_cents ?? 0n;
+      gapsTotalExposure += potentialAle;
+      gaps.push({
+        controlId,
+        validationCount: 0,
+        potentialAleExposureCents: potentialAle.toString(),
+      });
+    }
+
+    return { validatedRows, gaps, gapsTotalExposure };
   });
 
   const validatedControlsSet = new Set<string>();
@@ -123,30 +154,6 @@ export async function getFrameworkCoverage(
     for (const c of row.mappedControls) {
       if (requiredControls.includes(c)) validatedControlsSet.add(c);
     }
-  }
-
-  let gapsTotalExposure = 0n;
-  const gaps: FrameworkGap[] = [];
-  for (const controlId of requiredControls) {
-    const validationCount = validatedRows.filter((r) => r.mappedControls.includes(controlId)).length;
-    if (validationCount > 0) continue;
-
-    const exposureAgg = await prisma.riskEvent.aggregate({
-      where: {
-        tenantCompanyId: { in: companyIds },
-        complianceFramework: fw,
-        status: { in: OPEN_RISK_STATES },
-        OR: [{ mappedControls: { isEmpty: true } }, { NOT: { mappedControls: { has: controlId } } }],
-      },
-      _sum: { financialRisk_cents: true },
-    });
-    const potentialAle = exposureAgg._sum.financialRisk_cents ?? 0n;
-    gapsTotalExposure += potentialAle;
-    gaps.push({
-      controlId,
-      validationCount: 0,
-      potentialAleExposureCents: potentialAle.toString(),
-    });
   }
 
   gaps.sort((a, b) => {
@@ -210,8 +217,10 @@ function gapExposureWhereClause(
   fw: CoverageFramework,
   controlId: string,
   companyId: bigint,
+  tenantId: string,
 ): Parameters<typeof prisma.riskEvent.aggregate>[0]["where"] {
   return {
+    tenantId,
     tenantCompanyId: companyId,
     complianceFramework: fw,
     status: { in: OPEN_RISK_STATES },
@@ -252,38 +261,40 @@ export async function getRankedRemediationTasks(
 
   const tasks: RankedRemediationTask[] = [];
   let rank = 1;
-  for (const gap of coverageRes.coverage.gaps) {
-    const slices: RemediationCompanySlice[] = [];
-    for (const co of companies) {
-      const agg = await prisma.riskEvent.aggregate({
-        where: gapExposureWhereClause(fw, gap.controlId, co.id),
-        _sum: { financialRisk_cents: true },
+  await withIronguardTenant(tid, async (tx) => {
+    for (const gap of coverageRes.coverage.gaps) {
+      const slices: RemediationCompanySlice[] = [];
+      for (const co of companies) {
+        const agg = await tx.riskEvent.aggregate({
+          where: gapExposureWhereClause(fw, gap.controlId, co.id, tid),
+          _sum: { financialRisk_cents: true },
+        });
+        const cents = agg._sum.financialRisk_cents ?? 0n;
+        if (cents <= 0n) continue;
+        slices.push({
+          companyId: co.id.toString(),
+          companyName: co.name.trim() || `Company ${co.id}`,
+          aleContributionCents: cents.toString(),
+        });
+      }
+      slices.sort((a, b) => {
+        const av = BigInt(a.aleContributionCents);
+        const bv = BigInt(b.aleContributionCents);
+        return av === bv ? 0 : bv > av ? 1 : -1;
       });
-      const cents = agg._sum.financialRisk_cents ?? 0n;
-      if (cents <= 0n) continue;
-      slices.push({
-        companyId: co.id.toString(),
-        companyName: co.name.trim() || `Company ${co.id}`,
-        aleContributionCents: cents.toString(),
+      const primary = slices[0];
+      const primaryAssetLabel = primary?.companyName ?? "tenant workload";
+
+      tasks.push({
+        rank: rank++,
+        controlId: gap.controlId,
+        potentialAleExposureCents: gap.potentialAleExposureCents,
+        financialWeightLabel: formatCentsToUSD(gap.potentialAleExposureCents),
+        contributionByCompany: slices,
+        primaryAssetLabel,
       });
     }
-    slices.sort((a, b) => {
-      const av = BigInt(a.aleContributionCents);
-      const bv = BigInt(b.aleContributionCents);
-      return av === bv ? 0 : bv > av ? 1 : -1;
-    });
-    const primary = slices[0];
-    const primaryAssetLabel = primary?.companyName ?? "tenant workload";
-
-    tasks.push({
-      rank: rank++,
-      controlId: gap.controlId,
-      potentialAleExposureCents: gap.potentialAleExposureCents,
-      financialWeightLabel: formatCentsToUSD(gap.potentialAleExposureCents),
-      contributionByCompany: slices,
-      primaryAssetLabel,
-    });
-  }
+  });
 
   tasks.sort((a, b) => {
     const av = BigInt(a.potentialAleExposureCents);

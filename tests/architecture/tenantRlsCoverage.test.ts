@@ -25,6 +25,13 @@ const THREAT_TENANT_MIGRATION_PATH = join(
   "20260911120000_threat_event_direct_tenant_scope",
   "migration.sql",
 );
+const CHECKPOINT_TENANT_MIGRATION_PATH = join(
+  REPO_ROOT,
+  "prisma",
+  "migrations",
+  "20260917120000_langgraph_checkpoint_tenant_key",
+  "migration.sql",
+);
 
 /**
  * Excluded in the rollout script for stated reasons: `user_role_assignments` is the authorization
@@ -59,6 +66,7 @@ describe("tenant RLS rollout coverage", () => {
   const prismaClient = readFileSync(PRISMA_CLIENT_PATH, "utf8");
   const threatActions = readFileSync(THREAT_ACTIONS_PATH, "utf8");
   const threatTenantMigration = readFileSync(THREAT_TENANT_MIGRATION_PATH, "utf8");
+  const checkpointTenantMigration = readFileSync(CHECKPOINT_TENANT_MIGRATION_PATH, "utf8");
 
   it("keeps a rollout script that discovers tenant tables dynamically", () => {
     // Dynamic discovery is what lets new tables be covered without editing a list.
@@ -136,9 +144,19 @@ describe("tenant RLS rollout coverage", () => {
       threatActions.indexOf("export type AcknowledgeThreatActionResult"),
     );
     expect(transactionWrapper).toContain("select: { tenantId: true }");
-    expect(transactionWrapper).toContain("await bindIronguardTenant");
+    expect(transactionWrapper).toContain("withIronguardTenant");
+    expect(transactionWrapper).toContain("IRONGUARD_SESSION_TENANT_UUID_REQUIRED");
     expect(transactionWrapper).not.toMatch(
       /set_config\('app\.current_tenant_id',\s*\$\{tenantCompanyId\.toString\(\)\}/,
     );
+  });
+
+  it("gives LangGraph checkpoint tables a database tenant key", () => {
+    expect(checkpointTenantMigration).toContain("ironguard_arm_langgraph_checkpoint_tenant_keys");
+    expect(checkpointTenantMigration).toContain("LANGGRAPH_CHECKPOINT_TENANT_REQUIRED");
+    expect(checkpointTenantMigration).toContain("checkpoint_blobs");
+    expect(checkpointTenantMigration).toContain("checkpoint_writes");
+    expect(checkpointTenantMigration).toContain("ironguard_stamp_langgraph_checkpoint_tenant");
+    expect(rollout).toContain("ironguard_arm_langgraph_checkpoint_tenant_keys");
   });
 });

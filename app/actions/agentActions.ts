@@ -10,6 +10,7 @@ import { getIndustryTrendData } from "@/app/actions/benchmarkActions";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { hasClearance, resolveEffectiveEvidenceChapter } from "@/app/utils/clearanceLogic";
 import { ironwatchSignShredReceiptPayloadSync } from "@/app/utils/ironwatchShredReceipt";
 import {
@@ -87,10 +88,7 @@ export async function triggerMarketVolatilityAutoHardening(
   const createdIds: string[] = [];
 
   const co = companies[0]!;
-  const existing = await prisma.riskEvent.findUnique({
-    where: { tenantId_id: { tenantId: tid, id: MARKET_VOLATILITY_RISK_ID } },
-    select: { id: true, status: true },
-  });
+  const monitoringExpiryIso = monitoringExpiry.toISOString();
   const ingestionDetails = {
     marketVolatilityHardening: {
       episodeKey: ep,
@@ -101,7 +99,7 @@ export async function triggerMarketVolatilityAutoHardening(
       crownJewelAsset: co.name,
       assignedAgents: [...MARKET_VOLATILITY_ASSIGNED_AGENTS],
       remediationPath: "/api/grc/irontally",
-      verificationDeadlineUtc: monitoringExpiry.toISOString(),
+      verificationDeadlineUtc: monitoringExpiryIso,
       acceleratedValidationHours: 4,
       standardValidationHoursBypassed: 24,
       criticalControls: ["Access Control (CC6.1)", "Encryption-at-rest / in-transit (CC6.7)"],
@@ -124,59 +122,66 @@ export async function triggerMarketVolatilityAutoHardening(
       pollingProfile: "MARKET_VOLATILITY_ACCELERATED_4H",
       ttlBound: true,
       startedAt,
-      monitoringExpiry: monitoringExpiry.toISOString(),
+      monitoringExpiry: monitoringExpiryIso,
       asset: co.name,
       bypassStandard24hWindow: true,
     },
   } satisfies Prisma.InputJsonValue;
 
-  const threat = await prisma.riskEvent.upsert({
-    where: { tenantId_id: { tenantId: tid, id: MARKET_VOLATILITY_RISK_ID } },
-    create: {
-      id: MARKET_VOLATILITY_RISK_ID,
-      title: "Insurance Market Hardening — Volatility Spike Detected",
-      sourceAgent: "SYSTEM_VOLATILITY_TRIGGER",
-      source: SimThreatSource.SYSTEM,
-      status: ThreatState.IDENTIFIED,
-      severity: "CRITICAL",
-      category: "FINANCIAL_RISK",
-      score: 95,
-      priority_score: 100,
-      targetEntity: co.name,
-      tenantCompanyId: co.id,
-      tenantId: tid,
-      financialRisk_cents: MARKET_VOLATILITY_RISK_CENTS,
-      baseImpactCents: MARKET_VOLATILITY_RISK_CENTS,
-      governanceImpactMultiplier: 100n,
-      complianceFramework: ComplianceFramework.SOC2,
-      mappedControls: [...PRIORITY_MAPPED_CONTROLS_SOC2],
-      remediation_status: "PENDING",
-      monitoringExpiry,
-      ttlSeconds: MARKET_VOLATILITY_TTL_SECONDS,
-      ingestionDetails,
-    },
-    update: {
-      title: "Insurance Market Hardening — Volatility Spike Detected",
-      sourceAgent: "SYSTEM_VOLATILITY_TRIGGER",
-      source: SimThreatSource.SYSTEM,
-      status: ThreatState.IDENTIFIED,
-      severity: "CRITICAL",
-      category: "FINANCIAL_RISK",
-      score: 95,
-      priority_score: 100,
-      targetEntity: co.name,
-      tenantCompanyId: co.id,
-      financialRisk_cents: MARKET_VOLATILITY_RISK_CENTS,
-      baseImpactCents: MARKET_VOLATILITY_RISK_CENTS,
-      governanceImpactMultiplier: 100n,
-      complianceFramework: ComplianceFramework.SOC2,
-      mappedControls: [...PRIORITY_MAPPED_CONTROLS_SOC2],
-      remediation_status: "PENDING",
-      monitoringExpiry,
-      ttlSeconds: MARKET_VOLATILITY_TTL_SECONDS,
-      ingestionDetails,
-    },
-    select: { id: true },
+  const { threat, existing } = await withIronguardTenant(tid, async (tx) => {
+    const existingRow = await tx.riskEvent.findUnique({
+      where: { tenantId_id: { tenantId: tid, id: MARKET_VOLATILITY_RISK_ID } },
+      select: { id: true, status: true },
+    });
+    const threatRow = await tx.riskEvent.upsert({
+      where: { tenantId_id: { tenantId: tid, id: MARKET_VOLATILITY_RISK_ID } },
+      create: {
+        id: MARKET_VOLATILITY_RISK_ID,
+        title: "Insurance Market Hardening — Volatility Spike Detected",
+        sourceAgent: "SYSTEM_VOLATILITY_TRIGGER",
+        source: SimThreatSource.SYSTEM,
+        status: ThreatState.IDENTIFIED,
+        severity: "CRITICAL",
+        category: "FINANCIAL_RISK",
+        score: 95,
+        priority_score: 100,
+        targetEntity: co.name,
+        tenantCompanyId: co.id,
+        tenantId: tid,
+        financialRisk_cents: MARKET_VOLATILITY_RISK_CENTS,
+        baseImpactCents: MARKET_VOLATILITY_RISK_CENTS,
+        governanceImpactMultiplier: 100n,
+        complianceFramework: ComplianceFramework.SOC2,
+        mappedControls: [...PRIORITY_MAPPED_CONTROLS_SOC2],
+        remediation_status: "PENDING",
+        monitoringExpiry,
+        ttlSeconds: MARKET_VOLATILITY_TTL_SECONDS,
+        ingestionDetails,
+      },
+      update: {
+        title: "Insurance Market Hardening — Volatility Spike Detected",
+        sourceAgent: "SYSTEM_VOLATILITY_TRIGGER",
+        source: SimThreatSource.SYSTEM,
+        status: ThreatState.IDENTIFIED,
+        severity: "CRITICAL",
+        category: "FINANCIAL_RISK",
+        score: 95,
+        priority_score: 100,
+        targetEntity: co.name,
+        tenantCompanyId: co.id,
+        financialRisk_cents: MARKET_VOLATILITY_RISK_CENTS,
+        baseImpactCents: MARKET_VOLATILITY_RISK_CENTS,
+        governanceImpactMultiplier: 100n,
+        complianceFramework: ComplianceFramework.SOC2,
+        mappedControls: [...PRIORITY_MAPPED_CONTROLS_SOC2],
+        remediation_status: "PENDING",
+        monitoringExpiry,
+        ttlSeconds: MARKET_VOLATILITY_TTL_SECONDS,
+        ingestionDetails,
+      },
+      select: { id: true },
+    });
+    return { threat: threatRow, existing: existingRow };
   });
 
   createdIds.push(threat.id);
@@ -332,14 +337,17 @@ export async function irongateInterceptRestrictedEvidenceChapterAccess(params: {
   }
 
   const companyId = await getCompanyIdForActiveTenant();
-  if (companyId == null) {
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (companyId == null || !tenantUuid) {
     return { ok: false, httpStatus: 401, message: "Unauthorized." };
   }
 
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: tid, tenantCompanyId: companyId },
-    select: { id: true, title: true, tenantCompanyId: true, tenantId: true },
-  });
+  const row = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: tid, tenantId: tenantUuid, tenantCompanyId: companyId },
+      select: { id: true, title: true, tenantCompanyId: true, tenantId: true },
+    }),
+  );
   if (!row || row.tenantCompanyId == null) {
     return { ok: false, httpStatus: 404, message: "Not found." };
   }

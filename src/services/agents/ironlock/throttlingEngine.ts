@@ -3,10 +3,11 @@ import "server-only";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import prisma from "@/lib/prisma";
 import {
-  readCarbonPulseState,
+  readCarbonPulseStateForTenantBundle,
   writeCarbonPulseState,
   type IronlockThrottleTenantRecord,
 } from "@/app/lib/ironbloom/carbonPulseState";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { getTenantCarbonIntensityThresholdGco2 } from "@/app/config/tenantCarbonZones";
 import { tenantKeyFromUuid, type TenantKey } from "@/app/utils/tenantIsolation";
 import type { DirtyGridMonitorResult } from "./dirtyGridMonitor";
@@ -49,7 +50,7 @@ export async function reconcileIronlockThrottleFromMonitor(
     tenantKey?: TenantKey | null;
   },
 ): Promise<IronlockThrottleEvaluation> {
-  const state = await readCarbonPulseState();
+  const state = await readCarbonPulseStateForTenantBundle(tenantId);
   const tenantKey = monitor.tenantKey ?? tenantKeyFromUuid(tenantId) ?? "medshield";
   const thresholdGco2PerKwh = getTenantCarbonIntensityThresholdGco2(tenantKey);
   const intensityGco2PerKwh = monitor.currentIntensityGco2PerKwh;
@@ -84,7 +85,8 @@ export async function reconcileIronlockThrottleFromMonitor(
             operatorId: "IRONLOCK_AGENT_6",
             threatId: null,
             isSimulation: false,
-            tenant_id: tenantId,
+            tenantId,
+            governance_tenant_uuid: tenantId,
           },
         });
       } catch {
@@ -138,7 +140,9 @@ export function getIronlockThrottlePayloadSync(tenantId: string): IronlockThrott
 }
 
 export async function getIronlockThrottlePayload(tenantId: string): Promise<IronlockThrottlePayload> {
-  const rec = await prisma.ironlockCarbonThrottle.findUnique({ where: { tenantId } });
+  const rec = await withIronguardTenant(tenantId, (tx) =>
+    tx.ironlockCarbonThrottle.findUnique({ where: { tenantId } }),
+  );
   const dirtyWindowForThrottle = rec
     ? rec.intensityGco2PerKwh > rec.thresholdGco2PerKwh
     : false;
@@ -156,10 +160,12 @@ export async function getIronlockThrottlePayload(tenantId: string): Promise<Iron
 /** LangGraph governance_delay for non-critical background agents (ms). */
 export async function getIronlockGovernanceDelayMsForTenant(tenantId: string): Promise<number> {
   if (!tenantId?.trim() || tenantId === "00000000-0000-0000-0000-000000000000") return 0;
-  const rec = await prisma.ironlockCarbonThrottle.findUnique({
-    where: { tenantId },
-    select: { active: true },
-  });
+  const rec = await withIronguardTenant(tenantId, (tx) =>
+    tx.ironlockCarbonThrottle.findUnique({
+      where: { tenantId },
+      select: { active: true },
+    }),
+  );
   if (!rec?.active) return 0;
   return randomGovernanceDelayMs();
 }

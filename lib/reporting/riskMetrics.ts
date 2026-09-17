@@ -213,23 +213,21 @@ export async function recordReadinessHistoricalLowIfNeeded(currentScore: number)
   }
 
   if (score < row.historicalLowestScore) {
-    await prisma.$transaction([
-      prisma.simulationConfig.update({
-        where: { id: SIMULATION_CONFIG_ID },
-        data: ({
-          historicalLowestScore: score,
-          historicalLowestRecordedAt: new Date(),
-        } as any),
-      }),
-      auditLogCreateLoose({
-        data: {
-          action: "READINESS_HISTORICAL_LOW",
-          justification: `New Historical Vulnerability Low reached: ${score}`,
-          operatorId: READINESS_HISTORICAL_AUDIT_OPERATOR,
-          threatId: null,
-          isSimulation: true,
-        },
-      }),
-    ]);
+    await prisma.simulationConfig.update({
+      where: { id: SIMULATION_CONFIG_ID },
+      data: ({
+        historicalLowestScore: score,
+        historicalLowestRecordedAt: new Date(),
+      } as any),
+    });
+    await auditLogCreateLoose({
+      data: {
+        action: "READINESS_HISTORICAL_LOW",
+        justification: `New Historical Vulnerability Low reached: ${score}`,
+        operatorId: READINESS_HISTORICAL_AUDIT_OPERATOR,
+        threatId: null,
+        isSimulation: true,
+      },
+    });
   }
 }

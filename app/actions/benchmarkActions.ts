@@ -3,6 +3,7 @@
 import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getTenantUnderwriterReadinessScore } from "@/app/actions/complianceActions";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { resolveTenantIndustryForBenchmarks } from "@/app/utils/tenantIndustryBenchmark";
 import { OMNI_BENCHMARK_INDUSTRIES } from "@/app/utils/omniBenchmarkIndustries";
 
@@ -223,13 +224,16 @@ export async function getIndustryTrendData(
   const companyIds = companies.map((c) => c.id);
   let localCurrentAle = 0n;
   if (companyIds.length > 0) {
-    const agg = await prisma.riskEvent.aggregate({
-      where: {
-        tenantCompanyId: { in: companyIds },
-        status: { not: ThreatState.CLOSED_ARCHIVED },
-      },
-      _sum: { financialRisk_cents: true },
-    });
+    const agg = await withIronguardTenant(tid, (tx) =>
+      tx.riskEvent.aggregate({
+        where: {
+          tenantId: tid,
+          tenantCompanyId: { in: companyIds },
+          status: { not: ThreatState.CLOSED_ARCHIVED },
+        },
+        _sum: { financialRisk_cents: true },
+      }),
+    );
     localCurrentAle = agg._sum.financialRisk_cents ?? 0n;
   }
 

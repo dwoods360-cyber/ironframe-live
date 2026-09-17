@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
 import { listBriefingArchiveEntries } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
-import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
+import { fetchPublishedBriefingsForRequest } from "@/app/lib/governanceFrame/briefingLoader";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ function formatPublishedDate(iso: string): string {
  * Overflow archive lives on the research home preview.
  */
 export default async function ResearchBriefingsIndexPage() {
-  const ledger = await fetchPublishedBriefings();
+  const ledger = await fetchPublishedBriefingsForRequest();
   const briefings = listBriefingArchiveEntries(ledger);
 
   return (

@@ -5,6 +5,8 @@
 import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { AgentOperationStatus } from "@prisma/client";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { recordResilienceIntelStreamLine } from "@/app/actions/resilienceIntelStreamActions";
 
 const CHAOS_GLOBAL_ID = "global";
@@ -29,17 +31,26 @@ export async function isChaosActive(): Promise<boolean> {
 
 /** Chaos drill threats: `ingestionDetails` JSON includes `{ "isChaosTest": true }`. */
 export async function threatIsChaosTest(threatId: string): Promise<boolean> {
-  const t = await prisma.threatEvent.findUnique({
-    where: { id: threatId.trim() },
-    select: { ingestionDetails: true },
-  });
-  if (!t?.ingestionDetails?.trim()) return false;
-  try {
-    const j = JSON.parse(t.ingestionDetails) as { isChaosTest?: boolean };
-    return j.isChaosTest === true;
-  } catch {
-    return false;
+  const id = threatId.trim();
+  if (!id) return false;
+
+  for (const tenantId of await listCatalogTenantIds()) {
+    const t = await withIronguardTenant(tenantId, (tx) =>
+      tx.threatEvent.findFirst({
+        where: { id, tenantId },
+        select: { ingestionDetails: true },
+      }),
+    );
+    if (!t) continue;
+    if (!t.ingestionDetails?.trim()) return false;
+    try {
+      const j = JSON.parse(t.ingestionDetails) as { isChaosTest?: boolean };
+      return j.isChaosTest === true;
+    } catch {
+      return false;
+    }
   }
+  return false;
 }
 
 /**

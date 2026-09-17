@@ -6,6 +6,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { ironwatchEmitForensicShredIntel, ironwatchSignShredReceiptPayload } from "@/app/actions/agentActions";
 import {
   EPIC_12_SHRED_BLOCK_MESSAGE,
@@ -69,21 +70,28 @@ export async function executeDigitalShred(chapterId: string, userUuid: string): 
   }
 
   const chapterRow = await prisma.evidenceChapter.findFirst({
-    where: { OR: [{ id: cid }, { riskEventId: cid }] },
+    where: {
+      OR: [
+        { id: cid, riskEventTenantId: tenantUuid },
+        { riskEventId: cid, riskEventTenantId: tenantUuid },
+      ],
+    },
     select: { id: true, riskEventId: true },
   });
   const riskEventId = chapterRow?.riskEventId ?? cid;
 
-  const risk = await prisma.riskEvent.findFirst({
-    where: { id: riskEventId, tenantCompanyId: { in: companyIds } },
-    select: {
-      id: true,
-      title: true,
-      financialRisk_cents: true,
-      postMortemReportPath: true,
-      tenantCompanyId: true,
-    },
-  });
+  const risk = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: riskEventId, tenantId: tenantUuid, tenantCompanyId: { in: companyIds } },
+      select: {
+        id: true,
+        title: true,
+        financialRisk_cents: true,
+        postMortemReportPath: true,
+        tenantCompanyId: true,
+      },
+    }),
+  );
   if (!risk || risk.tenantCompanyId == null) {
     return { ok: false, error: "Chapter not found for this tenant." };
   }
@@ -149,15 +157,15 @@ export async function executeDigitalShred(chapterId: string, userUuid: string): 
 
   const receiptHashSha256 = await ironwatchSignShredReceiptPayload(canonicalPayload);
 
-  await prisma.$transaction([
-    prisma.riskEvent.updateMany({
-      where: { id: risk.id },
+  await withIronguardTenant(tenantUuid, async (tx) => {
+    await tx.riskEvent.updateMany({
+      where: { id: risk.id, tenantId: tenantUuid },
       data: { postMortemReportPath: null },
-    }),
-    prisma.evidenceChapter.deleteMany({
+    });
+    await tx.evidenceChapter.deleteMany({
       where: { riskEventTenantId: tenantUuid, riskEventId: risk.id },
-    }),
-    prisma.auditReceipt.create({
+    });
+    await tx.auditReceipt.create({
       data: {
         tenantId: tenantUuid,
         riskEventId: risk.id,
@@ -171,8 +179,8 @@ export async function executeDigitalShred(chapterId: string, userUuid: string): 
         shreddedAt,
       },
       select: { id: true },
-    }),
-  ]);
+    });
+  });
 
   await deleteVaultArtifact(artifactPath);
 

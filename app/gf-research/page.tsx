@@ -2,7 +2,7 @@ import GovernanceFrameBrandLockup from "@/app/components/governanceFrame/Governa
 import BriefingArchiveDirectory from "@/app/components/governanceFrame/BriefingArchiveDirectory";
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
 import { listBriefingArchiveEntries, partitionHomeBriefings } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
-import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
+import { fetchPublishedBriefingsForRequest } from "@/app/lib/governanceFrame/briefingLoader";
 import {
   classifyPublishedLedgerItem,
   isDeskNoteLedgerItem,
@@ -18,7 +18,7 @@ export default async function GovernanceFrameResearchHomePage() {
   const [papers, series, ledger] = await Promise.all([
     Promise.resolve(listPublicResearchPapers()),
     Promise.resolve(listResearchSeries()),
-    fetchPublishedBriefings(),
+    fetchPublishedBriefingsForRequest(),
   ]);
 
   const industryResearch = ledger.filter(

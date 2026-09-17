@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { AgentOperationStatus, ThreatState } from "@prisma/client";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { recordSustainabilityImpact } from "@/app/actions/sustainabilityActions";
 import { recordResilienceIntelStreamLine } from "@/app/actions/resilienceIntelStreamActions";
 import { poisonAgentOperationWithChaos, threatIsChaosTest } from "@/app/utils/ironchaos";
@@ -35,6 +36,7 @@ import {
 } from "@/app/utils/chaosL4Lifecycle";
 import { writeChaosL4ComplianceTimelineTransaction } from "@/app/utils/chaosL4ComplianceTimeline";
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
 import { logThreatActivity } from "@/app/actions/auditActions";
 
@@ -637,21 +639,36 @@ type RemoteSupportDrillCtx = {
 async function resolveRemoteSupportDrillCtx(
   threatId: string,
 ): Promise<RemoteSupportDrillCtx | null> {
-  const sim = await prisma.riskEvent.findFirst({
-    where: { id: threatId },
-    select: { tenantCompanyId: true, tenantId: true },
+  const id = threatId.trim();
+  if (!id) return null;
+  const tenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+  if (!tenantUuid) return null;
+
+  return withIronguardTenant(tenantUuid, async (tx) => {
+    const sim = await tx.riskEvent.findFirst({
+      where: { id, tenantId: tenantUuid },
+      select: { tenantCompanyId: true, tenantId: true },
+    });
+    if (sim?.tenantCompanyId != null) {
+      return {
+        plane: "shadow" as const,
+        tenantCompanyId: sim.tenantCompanyId,
+        tenantId: sim.tenantId,
+      };
+    }
+    const prod = await tx.threatEvent.findFirst({
+      where: { id, tenantId: tenantUuid },
+      select: { tenantCompanyId: true, tenantId: true },
+    });
+    if (prod?.tenantCompanyId != null) {
+      return {
+        plane: "prod" as const,
+        tenantCompanyId: prod.tenantCompanyId,
+        tenantId: prod.tenantId,
+      };
+    }
+    return null;
   });
-  if (sim?.tenantCompanyId != null) {
-    return { plane: "shadow", tenantCompanyId: sim.tenantCompanyId, tenantId: sim.tenantId };
-  }
-  const prod = await prisma.threatEvent.findUnique({
-    where: { id: threatId },
-    select: { tenantCompanyId: true, tenantId: true },
-  });
-  if (prod?.tenantCompanyId != null) {
-    return { plane: "prod", tenantCompanyId: prod.tenantCompanyId, tenantId: prod.tenantId };
-  }
-  return null;
 }
 
 /** Public alias — all chaos drill I/O is keyed by unique thread id (`ThreatEvent.id` / `RiskEvent.id`). */
@@ -676,9 +693,33 @@ async function fetchChaosDrillOperationalRow(
   ctx: RemoteSupportDrillCtx,
   threatId: string,
 ): Promise<ChaosDrillOperationalRow | null> {
+  const tenantId = ctx.tenantId;
   if (ctx.plane === "prod") {
-    const raw = await prisma.threatEvent.findUnique({
-      where: { id: threatId },
+    const raw = await withIronguardTenant(tenantId, (tx) =>
+      tx.threatEvent.findFirst({
+        where: { id: threatId, tenantId },
+        select: {
+          ingestionDetails: true,
+          createdAt: true,
+          tenantCompanyId: true,
+          tenantId: true,
+          score: true,
+          targetEntity: true,
+          sourceAgent: true,
+          financialRisk_cents: true,
+        },
+      }),
+    );
+    if (!raw) return null;
+    return {
+      ...raw,
+      tenantCompanyId: raw.tenantCompanyId ?? ctx.tenantCompanyId,
+      tenantId: raw.tenantId,
+    };
+  }
+  const raw = await withIronguardTenant(tenantId, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: threatId, tenantId, tenantCompanyId: ctx.tenantCompanyId },
       select: {
         ingestionDetails: true,
         createdAt: true,
@@ -689,27 +730,8 @@ async function fetchChaosDrillOperationalRow(
         sourceAgent: true,
         financialRisk_cents: true,
       },
-    });
-    if (!raw) return null;
-    return {
-      ...raw,
-      tenantCompanyId: raw.tenantCompanyId ?? ctx.tenantCompanyId,
-      tenantId: raw.tenantId,
-    };
-  }
-  const raw = await prisma.riskEvent.findFirst({
-    where: { id: threatId, tenantCompanyId: ctx.tenantCompanyId },
-    select: {
-      ingestionDetails: true,
-      createdAt: true,
-      tenantCompanyId: true,
-      tenantId: true,
-      score: true,
-      targetEntity: true,
-      sourceAgent: true,
-      financialRisk_cents: true,
-    },
-  });
+    }),
+  );
   if (!raw) return null;
   return {
     ...raw,
@@ -803,11 +825,14 @@ async function persistRemoteSupportLivePatch(
     ...metadataPatch,
   };
 
+  const tenantId = ctx.tenantId;
   if (ctx.plane === "prod") {
-    const row = await prisma.threatEvent.findUnique({
-      where: { id: threatId },
-      select: { ingestionDetails: true },
-    });
+    const row = await withIronguardTenant(tenantId, (tx) =>
+      tx.threatEvent.findFirst({
+        where: { id: threatId, tenantId },
+        select: { ingestionDetails: true },
+      }),
+    );
     await updateThreatWithIntegrity({
       threatId,
       changes: {
@@ -819,10 +844,12 @@ async function persistRemoteSupportLivePatch(
     return;
   }
 
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: threatId, tenantCompanyId: ctx.tenantCompanyId },
-    select: { ingestionDetails: true },
-  });
+  const row = await withIronguardTenant(tenantId, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: threatId, tenantId, tenantCompanyId: ctx.tenantCompanyId },
+      select: { ingestionDetails: true },
+    }),
+  );
   const merged = mergeIngestionDetailsPatchJson(row?.ingestionDetails ?? null, patch);
   const result = await executeAgentAction({
     plane: "shadow",
@@ -850,11 +877,14 @@ async function applyRemoteSupportDrillStatus(
     shadow?: Omit<Prisma.RiskEventUpdateInput, "status" | "ingestionDetails">;
   },
 ): Promise<void> {
+  const tenantId = ctx.tenantId;
   if (ctx.plane === "prod") {
-    const row = await prisma.threatEvent.findUnique({
-      where: { id: threatId },
-      select: { ingestionDetails: true },
-    });
+    const row = await withIronguardTenant(tenantId, (tx) =>
+      tx.threatEvent.findFirst({
+        where: { id: threatId, tenantId },
+        select: { ingestionDetails: true },
+      }),
+    );
     await transitionThreatStatus({
       threatId,
       newStatus,
@@ -868,10 +898,12 @@ async function applyRemoteSupportDrillStatus(
     return;
   }
 
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: threatId, tenantCompanyId: ctx.tenantCompanyId },
-    select: { ingestionDetails: true },
-  });
+  const row = await withIronguardTenant(tenantId, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: threatId, tenantId, tenantCompanyId: ctx.tenantCompanyId },
+      select: { ingestionDetails: true },
+    }),
+  );
   const merged = mergeIngestionDetailsPatchJson(row?.ingestionDetails ?? null, ingestionPatch);
   const result = await executeAgentAction({
     plane: "shadow",
@@ -907,17 +939,22 @@ export async function patchRemoteSupportDrillIngestion(
 
   let status = newStatus;
   if (!status) {
+    const tenantId = ctx.tenantId;
     if (ctx.plane === "prod") {
-      const row = await prisma.threatEvent.findUnique({
-        where: { id: tid },
-        select: { status: true },
-      });
+      const row = await withIronguardTenant(tenantId, (tx) =>
+        tx.threatEvent.findFirst({
+          where: { id: tid, tenantId },
+          select: { status: true },
+        }),
+      );
       status = row?.status ?? ThreatState.MITIGATED;
     } else {
-      const row = await prisma.riskEvent.findFirst({
-        where: { id: tid, tenantCompanyId: ctx.tenantCompanyId },
-        select: { status: true },
-      });
+      const row = await withIronguardTenant(tenantId, (tx) =>
+        tx.riskEvent.findFirst({
+          where: { id: tid, tenantId, tenantCompanyId: ctx.tenantCompanyId },
+          select: { status: true },
+        }),
+      );
       status = row?.status ?? ThreatState.MITIGATED;
     }
   }
@@ -1033,17 +1070,22 @@ async function fetchRemoteSupportDrillIngestion(
   ctx: RemoteSupportDrillCtx,
   threatId: string,
 ): Promise<string | null> {
+  const tenantId = ctx.tenantId;
   if (ctx.plane === "prod") {
-    const row = await prisma.threatEvent.findUnique({
-      where: { id: threatId },
-      select: { ingestionDetails: true },
-    });
+    const row = await withIronguardTenant(tenantId, (tx) =>
+      tx.threatEvent.findFirst({
+        where: { id: threatId, tenantId },
+        select: { ingestionDetails: true },
+      }),
+    );
     return row?.ingestionDetails ?? null;
   }
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: threatId, tenantCompanyId: ctx.tenantCompanyId },
-    select: { ingestionDetails: true },
-  });
+  const row = await withIronguardTenant(tenantId, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: threatId, tenantId, tenantCompanyId: ctx.tenantCompanyId },
+      select: { ingestionDetails: true },
+    }),
+  );
   return normalizeIngestionDetailsToString(row?.ingestionDetails) ?? null;
 }
 
@@ -1093,17 +1135,22 @@ async function fetchRemoteSupportDrillCreatedAt(
   ctx: RemoteSupportDrillCtx,
   threatId: string,
 ): Promise<Date> {
+  const tenantId = ctx.tenantId;
   if (ctx.plane === "prod") {
-    const row = await prisma.threatEvent.findUnique({
-      where: { id: threatId },
-      select: { createdAt: true },
-    });
+    const row = await withIronguardTenant(tenantId, (tx) =>
+      tx.threatEvent.findFirst({
+        where: { id: threatId, tenantId },
+        select: { createdAt: true },
+      }),
+    );
     return row?.createdAt ?? new Date();
   }
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: threatId, tenantCompanyId: ctx.tenantCompanyId },
-    select: { createdAt: true },
-  });
+  const row = await withIronguardTenant(tenantId, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: threatId, tenantId, tenantCompanyId: ctx.tenantCompanyId },
+      select: { createdAt: true },
+    }),
+  );
   return row?.createdAt ?? new Date();
 }
 
@@ -1764,7 +1811,7 @@ export async function runIsolatedCascadeDrill(
     let newLedgerRow: { id: string } | null = null;
     try {
       if (ctx.plane === "prod") {
-        const created = await prisma.$transaction(async (tx) => {
+        const created = await withIronguardTenant(row.tenantId, async (tx) => {
           const createdRow = await tx.threatEvent.create({
             data: {
               title: ledgerTitle,
@@ -1904,10 +1951,15 @@ export async function executeWithRetry(
           lastError: null,
         },
       });
-      const teRow = await prisma.threatEvent.findUnique({
-        where: { id: tid },
-        select: { ingestionDetails: true, createdAt: true },
-      });
+      const drillCtx = await resolveRemoteSupportDrillCtx(tid);
+      const teRow = drillCtx
+        ? await withIronguardTenant(drillCtx.tenantId, (tx) =>
+            tx.threatEvent.findFirst({
+              where: { id: tid, tenantId: drillCtx.tenantId },
+              select: { ingestionDetails: true, createdAt: true },
+            }),
+          )
+        : null;
       const recoveredAt = new Date().toISOString();
       const forensic = await integrityForensicIngestionFields(recoveredAt);
       let chaosLedgerExtra: Record<string, Prisma.InputJsonValue> = {};
@@ -1978,9 +2030,15 @@ export async function executeWithRetry(
           lastError,
         },
       });
-      await prisma.threatEvent
-        .update({ where: { id: tid }, data: { status: ThreatState.MITIGATED } })
-        .catch(() => {});
+      const failCtx = await resolveRemoteSupportDrillCtx(tid);
+      if (failCtx) {
+        await withIronguardTenant(failCtx.tenantId, (tx) =>
+          tx.threatEvent.updateMany({
+            where: { id: tid, tenantId: failCtx.tenantId },
+            data: { status: ThreatState.MITIGATED },
+          }),
+        ).catch(() => {});
+      }
       return { ok: false, escalated: true, error: lastError };
     }
   }

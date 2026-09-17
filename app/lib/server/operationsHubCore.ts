@@ -45,7 +45,9 @@ import {
   type OpsScheduleSnapshot,
 } from "@/app/lib/server/opsScheduleCore";
 import { readDeskReview, type DeskReviewChecklist } from "@/lib/governanceFrame/publicationDesk";
-import prisma from "@/lib/prisma";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 export type WorkforceServiceId =
   | "ironboard"
@@ -235,9 +237,18 @@ async function listBriefingQueueDrafts(docsRoot: string): Promise<BriefingQueueD
   if (!fs.existsSync(queueDir)) return [];
 
   const denied = await listDeniedBriefingFilenames();
-  const publishedRows = await prisma.publishedBriefing.findMany({
-    select: { slug: true },
-  });
+  const publishedRows = (
+    await Promise.all(
+      (await listCatalogTenantIds()).map((tenantId) =>
+        withIronguardTenant(tenantId, (tx) =>
+          tx.publishedBriefing.findMany({
+            where: { tenantId },
+            select: { slug: true },
+          }),
+        ),
+      ),
+    )
+  ).flat();
   const publishedSlugs = new Set(publishedRows.map((row) => row.slug.toLowerCase()));
 
   /** Exact promote-path slug: 2026-08-20-draft-briefing-foo → 2026-08-20-briefing-foo */
@@ -393,13 +404,19 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
   const [drafts, dealGroups, contactCount, recentSuspectsRaw, publishedRows, workforce] =
     await Promise.all([
       fetchPendingApprovalDrafts(),
-      prisma.ironboardCrmDeal.groupBy({
+      withProspectPoolTenant((tx, tenantId) =>
+        tx.ironboardCrmDeal.groupBy({
         by: ["stage"],
+        where: { tenantId },
         _count: { _all: true },
       }),
-      prisma.ironboardCrmContact.count(),
-      prisma.ironboardCrmContact.findMany({
-        where: { primaryDeals: { some: { stage: "SUSPECT" } } },
+      ),
+      withProspectPoolTenant((tx, tenantId) =>
+        tx.ironboardCrmContact.count({ where: { tenantId } }),
+      ),
+      withProspectPoolTenant((tx, tenantId) =>
+        tx.ironboardCrmContact.findMany({
+        where: { tenantId, primaryDeals: { some: { stage: "SUSPECT" } } },
         orderBy: [{ priorityScore: "desc" }, { createdAt: "desc" }],
         take: 40,
         select: {
@@ -417,16 +434,32 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
           },
         },
       }),
-      prisma.publishedBriefing.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 12,
-        select: {
-          slug: true,
-          title: true,
-          createdAt: true,
-          tenantId: true,
-        },
-      }),
+      ),
+      (async () => {
+        const ids = await listCatalogTenantIds();
+        const rows = (
+          await Promise.all(
+            ids.map((tenantId) =>
+              withIronguardTenant(tenantId, (tx) =>
+                tx.publishedBriefing.findMany({
+                  where: { tenantId },
+                  orderBy: { createdAt: "desc" },
+                  take: 12,
+                  select: {
+                    slug: true,
+                    title: true,
+                    createdAt: true,
+                    tenantId: true,
+                  },
+                }),
+              ),
+            ),
+          )
+        ).flat();
+        return rows
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, 12);
+      })(),
       Promise.all([
         probeWorkerHealth(
           "ironboard",

@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { getCompanyIdForTenantUuid } from "@/app/lib/grc/clearanceThreatResolve";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 /** Extract ActiveRisk id (BigInt) from pipeline card id (e.g. "center-risk-1", "risk-1", "1"). */
@@ -58,10 +58,12 @@ export async function POST(request: NextRequest) {
 
     if (activeRiskIds.length > 0) {
       const riskIds = activeRiskIds.map((s) => BigInt(s));
-      const found = await prisma.activeRisk.findMany({
-        where: { id: { in: riskIds }, company_id: companyId },
-        select: { id: true },
-      });
+      const found = await withIronguardTenant(guard.tenantUuid, (tx) =>
+        tx.activeRisk.findMany({
+          where: { id: { in: riskIds }, company_id: companyId },
+          select: { id: true },
+        }),
+      );
       const existingRiskIds = new Set(found.map((r) => r.id.toString()));
       for (const id of ids) {
         const riskId = parseActiveRiskId(id);
@@ -70,16 +72,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (threatEventIds.length > 0) {
-      const [prodRows, simRows] = await Promise.all([
-        prisma.threatEvent.findMany({
-          where: { id: { in: threatEventIds }, tenantCompanyId: companyId },
-          select: { id: true },
-        }),
-        prisma.riskEvent.findMany({
-          where: { id: { in: threatEventIds }, tenantCompanyId: companyId },
-          select: { id: true },
-        }),
-      ]);
+      const [prodRows, simRows] = await withIronguardTenant(guard.tenantUuid, async (tx) =>
+        Promise.all([
+          tx.threatEvent.findMany({
+            where: { id: { in: threatEventIds }, tenantCompanyId: companyId },
+            select: { id: true },
+          }),
+          tx.riskEvent.findMany({
+            where: { id: { in: threatEventIds }, tenantCompanyId: companyId },
+            select: { id: true },
+          }),
+        ]),
+      );
       const existing = new Set([
         ...prodRows.map((r) => r.id),
         ...simRows.map((r) => r.id),

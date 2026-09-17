@@ -1,7 +1,10 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
-import { auditLogCreateLoose } from "@/lib/auditLogLoose";
+import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { getPrismaPrivileged } from "@/lib/prismaPrivileged";
 
 function normLedgerKey(raw: string): string {
   return raw.trim().toLowerCase();
@@ -39,24 +42,33 @@ function modeTenantUuid(candidates: string[]): string | null {
  */
 export async function resolvePrimaryTenantTargetUuidForLedgerKey(identifier: string): Promise<string | null> {
   const id = normLedgerKey(identifier);
-  const fromAudit = await prisma.auditLog.findMany({
-    where: { justification: { contains: id, mode: "insensitive" } },
-    orderBy: { createdAt: "desc" },
-    take: 5,
-    select: { governance_tenant_uuid: true, tenantId: true },
-  });
+  const tenantIds = await listCatalogTenantIds();
   const auditUuids: string[] = [];
-  for (const row of fromAudit) {
-    const g = row.governance_tenant_uuid?.trim();
-    if (g) auditUuids.push(g);
-    else if (row.tenantId?.trim()) auditUuids.push(row.tenantId.trim());
+  for (const tenantId of tenantIds) {
+    const fromAudit = await withIronguardTenant(tenantId, (tx) =>
+      tx.auditLog.findMany({
+        where: {
+          tenantId,
+          justification: { contains: id, mode: "insensitive" },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: { governance_tenant_uuid: true, tenantId: true },
+      }),
+    );
+    for (const row of fromAudit) {
+      const g = row.governance_tenant_uuid?.trim();
+      if (g) auditUuids.push(g);
+      else if (row.tenantId?.trim()) auditUuids.push(row.tenantId.trim());
+    }
+    if (auditUuids.length >= 5) break;
   }
   const fromAuditMode = modeTenantUuid(auditUuids);
   if (fromAuditMode) return fromAuditMode;
 
   const { ip, userId } = parseIpUserFromLedgerKey(id);
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const violations = await prisma.ironguardViolation.findMany({
+  const violations = await getPrismaPrivileged().ironguardViolation.findMany({
     where: { createdAt: { gte: since } },
     orderBy: { createdAt: "desc" },
     take: 800,
@@ -97,20 +109,22 @@ export async function applyIronlockHardBanTargetedSiege(params: {
     where: { id: tid },
     data: { isUnderTargetedSiege: true },
   });
-  await auditLogCreateLoose({
-    data: {
-      action: "LEDGER_HARD_BAN_TENANT_SIEGE",
-      justification: JSON.stringify({
-        identifier: normLedgerKey(params.identifier),
-        primaryTargetTenantUuid: tid,
-        message: "Ironlock: hard ban correlated to tenant — is_under_targeted_siege armed.",
-      }),
-      operatorId: "IRONLOCK_AGENT_6",
-      threatId: null,
-      isSimulation: false,
-      governance_tenant_uuid: tid,
-    },
-  });
+  await withIronguardTenant(tid, (tx) =>
+    auditLogCreateLooseTx(tx, {
+      data: {
+        action: "LEDGER_HARD_BAN_TENANT_SIEGE",
+        justification: JSON.stringify({
+          identifier: normLedgerKey(params.identifier),
+          primaryTargetTenantUuid: tid,
+          message: "Ironlock: hard ban correlated to tenant — is_under_targeted_siege armed.",
+        }),
+        operatorId: "IRONLOCK_AGENT_6",
+        threatId: null,
+        isSimulation: false,
+        governance_tenant_uuid: tid,
+      },
+    }),
+  );
 }
 
 export async function markTenantChaosForensicHardeningComplete(tenantId: string): Promise<void> {

@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
-import prisma from "@/lib/prisma";
 import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { calculateComponentHealth } from "@/app/lib/opsupport/componentHealth";
 import {
@@ -28,15 +28,17 @@ export async function GET(request: NextRequest) {
   if (!guard.ok) return guard.response;
   const tenantUuid = guard.tenantUuid;
 
-  const logs = await prisma.simulationDiagnosticLog.findMany({
-    where: {
-      tenantUuid,
-      action: { in: [OPERATIONAL_DEFICIENCY_REPORT, OPERATIONAL_SELF_TEST_PASS] },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 2500,
-    select: { id: true, createdAt: true, action: true, payload: true, resolvedAt: true },
-  });
+  const logs = await withIronguardTenant(tenantUuid, (tx) =>
+    tx.simulationDiagnosticLog.findMany({
+      where: {
+        tenantUuid,
+        action: { in: [OPERATIONAL_DEFICIENCY_REPORT, OPERATIONAL_SELF_TEST_PASS] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 2500,
+      select: { id: true, createdAt: true, action: true, payload: true, resolvedAt: true },
+    }),
+  );
 
   const components = calculateComponentHealth(logs);
 

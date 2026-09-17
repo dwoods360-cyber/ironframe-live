@@ -1,5 +1,7 @@
 import prisma from "@/lib/prisma";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { SIMULATION_CONFIG_ID } from "@/app/utils/simulationConfigConstants";
 
 type SimulationConfigCertificationRow = {
@@ -177,16 +179,24 @@ export async function verifyAndUpdateResilienceCertification(
 
   const now = new Date();
   const minDate = snapshots.length > 0 ? snapshots[snapshots.length - 1].date : new Date(now.getTime() - 30 * MS_DAY);
-  const vipBreachRows = await prisma.auditLog.findMany({
-    where: {
-      createdAt: { gte: minDate, lte: now },
-      OR: [
-        { action: { contains: "VIP_BREACH", mode: "insensitive" } },
-        { justification: { contains: "VIP_BREACH", mode: "insensitive" } },
-      ],
-    },
-    select: { createdAt: true },
-  });
+  const tenantIds = await listCatalogTenantIds();
+  const vipBreachRows: Array<{ createdAt: Date }> = [];
+  for (const tenantId of tenantIds) {
+    const slice = await withIronguardTenant(tenantId, (tx) =>
+      tx.auditLog.findMany({
+        where: {
+          tenantId,
+          createdAt: { gte: minDate, lte: now },
+          OR: [
+            { action: { contains: "VIP_BREACH", mode: "insensitive" } },
+            { justification: { contains: "VIP_BREACH", mode: "insensitive" } },
+          ],
+        },
+        select: { createdAt: true },
+      }),
+    );
+    vipBreachRows.push(...slice);
+  }
   const vipBreachDays = new Set(vipBreachRows.map((r) => utcDayKey(r.createdAt)));
   const todayUtcKey = utcDayKey(now);
   const hasVipBreachToday = vipBreachDays.has(todayUtcKey);

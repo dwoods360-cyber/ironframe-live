@@ -4,7 +4,9 @@ import prisma from "@/lib/prisma";
 import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import {
   pruneSamplesOlderThan24h,
-  readCarbonPulseState,
+  readCarbonPulseStateForTenant,
+  countAcknowledgedDirtyGridAlerts,
+  listDirtyGridAlertsForTenant,
 } from "@/app/lib/ironbloom/carbonPulseState";
 import { TENANT_INDUSTRY_BASELINE_ALE_CENTS } from "@/app/constants/devTenantRoster";
 import { getTenantCarbonIntensityThresholdGco2 } from "@/app/config/tenantCarbonZones";
@@ -85,7 +87,7 @@ async function aggregateMitigatedCents(tenantId: string): Promise<bigint> {
     });
     if (!companies.length) return 0n;
     const threats = await tx.threatEvent.findMany({
-      where: { tenantCompanyId: { in: companies.map((c) => c.id) } },
+      where: { tenantId, tenantCompanyId: { in: companies.map((c) => c.id) } },
       select: { id: true },
       take: 500,
     });
@@ -114,7 +116,7 @@ async function findLatestSustainabilityMetricForTenant(tenantId: string): Promis
     if (!companies.length) return null;
     const companyIds = companies.map((c) => c.id);
     return tx.sustainabilityMetric.findFirst({
-      where: { threat: { tenantCompanyId: { in: companyIds } } },
+      where: { threat: { tenantId, tenantCompanyId: { in: companyIds } } },
       orderBy: { createdAt: "desc" },
       select: {
         threatId: true,
@@ -224,8 +226,8 @@ export async function buildCarbonPulsePayload(tenantId: string): Promise<CarbonP
     tenantKey: key,
   });
 
-  const state = await readCarbonPulseState();
-  const sparkline24h = pruneSamplesOlderThan24h(state.samplesByTenant[tenantId] ?? []).map((s) => ({
+  const stateSamples = await readCarbonPulseStateForTenant(tenantId);
+  const sparkline24h = pruneSamplesOlderThan24h(stateSamples).map((s) => ({
     at: s.at,
     gco2PerKwh: s.gco2PerKwh,
     dirty: s.dirty,
@@ -234,9 +236,7 @@ export async function buildCarbonPulsePayload(tenantId: string): Promise<CarbonP
   const mitigatedAgg = await aggregateMitigatedCents(tenantId);
   const forensic = await latestForensicSeal(tenantId);
 
-  const alertsResponded = state.dirtyGridAlerts.filter(
-    (a) => a.tenantId === tenantId && a.acknowledged,
-  ).length;
+  const alertsResponded = await countAcknowledgedDirtyGridAlerts(tenantId);
 
   const penaltyPerAlertCents = ale.mitigatedValueCents / 10n;
   const penaltyAvoided = penaltyPerAlertCents * BigInt(Math.max(0, alertsResponded));
@@ -319,8 +319,8 @@ export async function buildCarbonPulseLkgPayload(tenantId: string): Promise<{
   const tenantKey = tenantKeyFromUuid(tenantId);
   const key = tenantKey ?? "medshield";
 
-  const state = await readCarbonPulseState();
-  const sparkline24h = pruneSamplesOlderThan24h(state.samplesByTenant[tenantId] ?? []).map((s) => ({
+  const stateSamples = await readCarbonPulseStateForTenant(tenantId);
+  const sparkline24h = pruneSamplesOlderThan24h(stateSamples).map((s) => ({
     at: s.at,
     gco2PerKwh: s.gco2PerKwh,
     dirty: s.dirty,
@@ -344,7 +344,7 @@ export async function buildCarbonPulseLkgPayload(tenantId: string): Promise<{
       ? `Offline bundle: last sample ${lastSample.at}`
       : "Offline bundle: ledger row + Ironlock state file";
 
-  const tenantAlerts = state.dirtyGridAlerts.filter((a) => a.tenantId === tenantId);
+  const tenantAlerts = await listDirtyGridAlertsForTenant(tenantId);
   const pendingAlert = [...tenantAlerts].reverse().find((a) => !a.acknowledged);
 
   const alertsResponded = tenantAlerts.filter((a) => a.acknowledged).length;

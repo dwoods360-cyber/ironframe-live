@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
-import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
+import { fetchPublishedBriefingsForRequest } from "@/app/lib/governanceFrame/briefingLoader";
 import { classifyPublishedLedgerItem } from "@/app/lib/governanceFrame/publishedLedgerKind";
 import { listPublicResearchPapers } from "@/app/lib/governanceFrame/researchCatalog";
 
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default async function ResearchPapersIndexPage() {
   const [papers, ledger] = await Promise.all([
     Promise.resolve(listPublicResearchPapers()),
-    fetchPublishedBriefings(),
+    fetchPublishedBriefingsForRequest(),
   ]);
 
   const industryResearch = ledger.filter(

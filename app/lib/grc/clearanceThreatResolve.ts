@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { ThreatState, type DeAckReason } from "@prisma/client";
-import prisma from "@/lib/prisma";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
 
@@ -59,18 +59,20 @@ export async function getCompanyIdForTenantUuid(
 ): Promise<bigint | null> {
   const tid = tenantUuid?.trim();
   if (!tid) return null;
-  const primary = await prisma.company.findFirst({
-    where: { tenantId: tid, isTestRecord: false },
-    orderBy: { id: "asc" },
-    select: { id: true },
+  return withIronguardTenant(tid, async (tx) => {
+    const primary = await tx.company.findFirst({
+      where: { tenantId: tid, isTestRecord: false },
+      orderBy: { id: "asc" },
+      select: { id: true },
+    });
+    if (primary) return primary.id;
+    const fallback = await tx.company.findFirst({
+      where: { tenantId: tid },
+      orderBy: { id: "asc" },
+      select: { id: true },
+    });
+    return fallback?.id ?? null;
   });
-  if (primary) return primary.id;
-  const fallback = await prisma.company.findFirst({
-    where: { tenantId: tid },
-    orderBy: { id: "asc" },
-    select: { id: true },
-  });
-  return fallback?.id ?? null;
 }
 
 /** All company ids bound to a tenant (Active board reads may span bootstrap + prod rows). */
@@ -79,11 +81,13 @@ export async function getCompanyIdsForTenantUuid(
 ): Promise<bigint[]> {
   const tid = tenantUuid?.trim();
   if (!tid) return [];
-  const companies = await prisma.company.findMany({
-    where: { tenantId: tid },
-    select: { id: true },
-    orderBy: { id: "asc" },
-  });
+  const companies = await withIronguardTenant(tid, (tx) =>
+    tx.company.findMany({
+      where: { tenantId: tid },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    }),
+  );
   return companies.map((c) => c.id);
 }
 
@@ -102,7 +106,7 @@ export async function resolveClearanceThreatForActiveTenant(
 ): Promise<ResolvedClearanceThreat> {
   const tenantUuid = await getActiveTenantUuidFromCookies();
   const companyId = await getCompanyIdForActiveTenant();
-  if (companyId == null) {
+  if (!tenantUuid || companyId == null) {
     throw new Error("No company boundary for active tenant.");
   }
   const sim = await readSimulationPlaneEnabled();
@@ -111,9 +115,11 @@ export async function resolveClearanceThreatForActiveTenant(
     tenantCompanyId: companyId,
     status: { in: CLEARANCE_QUEUE_STATUSES },
   };
-  const threat = sim
-    ? await prisma.riskEvent.findFirst({ where, select: clearanceThreatSelect })
-    : await prisma.threatEvent.findFirst({ where, select: clearanceThreatSelect });
+  const threat = await withIronguardTenant(tenantUuid, (tx) =>
+    sim
+      ? tx.riskEvent.findFirst({ where, select: clearanceThreatSelect })
+      : tx.threatEvent.findFirst({ where, select: clearanceThreatSelect }),
+  );
   if (!threat) {
     throw new Error("Threat not found, not in clearance queue, or tenant isolation denied.");
   }
@@ -139,14 +145,16 @@ export async function resolveThreatForReceiptForActiveTenant(
 ): Promise<ResolvedReceiptThreat> {
   const tenantUuid = await getActiveTenantUuidFromCookies();
   const companyId = await getCompanyIdForActiveTenant();
-  if (companyId == null) {
+  if (!tenantUuid || companyId == null) {
     throw new Error("No company boundary for active tenant.");
   }
   const sim = await readSimulationPlaneEnabled();
   const where = { id: threatId, tenantCompanyId: companyId };
-  const threat = sim
-    ? await prisma.riskEvent.findFirst({ where, select: receiptThreatSelect })
-    : await prisma.threatEvent.findFirst({ where, select: receiptThreatSelect });
+  const threat = await withIronguardTenant(tenantUuid, (tx) =>
+    sim
+      ? tx.riskEvent.findFirst({ where, select: receiptThreatSelect })
+      : tx.threatEvent.findFirst({ where, select: receiptThreatSelect }),
+  );
   if (!threat) {
     throw new Error("Threat not found or tenant isolation denied.");
   }

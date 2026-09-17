@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
 import type { Prisma, ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { getPrismaPrivileged } from "@/lib/prismaPrivileged";
 import { SIMULATION_SOURCE_AGENTS } from "@/app/config/simulationAgents";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import {
   resolveGovernanceMultiplierBpsForTenantUuid,
   TENANT_UUID_REGEX,
@@ -20,6 +22,32 @@ import {
   mergeAgentIngressIntoIngestionJson,
   parseAgentIngressFromIngestion,
 } from "@/app/utils/agentIngressJustification";
+
+/** Cross-tenant id → tenant discovery for updates/fetches before the GUC can be bound. */
+async function lookupIngressThreatTenantId(
+  id: string,
+  useRiskEventTable: boolean,
+): Promise<string> {
+  const readers: Array<{
+    riskEvent: { findFirst: typeof prisma.riskEvent.findFirst };
+    threatEvent: { findFirst: typeof prisma.threatEvent.findFirst };
+  }> = [];
+  try {
+    readers.push(getPrismaPrivileged());
+  } catch {
+    /* PRIVILEGED_DATABASE_URL may be unset while still on BYPASSRLS. */
+  }
+  readers.push(prisma);
+
+  for (const client of readers) {
+    const row = useRiskEventTable
+      ? await client.riskEvent.findFirst({ where: { id }, select: { tenantId: true } })
+      : await client.threatEvent.findFirst({ where: { id }, select: { tenantId: true } });
+    const tenantId = row?.tenantId?.trim() ?? "";
+    if (tenantId && TENANT_UUID_REGEX.test(tenantId)) return tenantId;
+  }
+  throw new Error(`Ingress: threat tenant scope not found (id=${id}).`);
+}
 
 /** Must match client `SIMULATION_MODE_COOKIE` / `syncSimulationModeCookie` values (`1` / `0`). */
 export const INGRESS_SIMULATION_COOKIE = "ironframe-simulation-mode";
@@ -311,42 +339,44 @@ async function writeThreatEvent(payload: IngressPayload): Promise<IngressBotThre
       throw new Error(`Ingress: governance multiplier — ${gov.error}`);
     }
     const governanceImpactMultiplier = BigInt(gov.bps);
-    const row = await prisma.riskEvent.create({
-      data: {
-        ...(payloadWithCategory as Prisma.RiskEventUncheckedCreateInput),
+    return withIronguardTenant(tenantId, async (tx) => {
+      const row = await tx.riskEvent.create({
+        data: {
+          ...(payloadWithCategory as Prisma.RiskEventUncheckedCreateInput),
+          tenantId,
+          governanceImpactMultiplier,
+        },
+        select: {
+          ...BOT_THREAT_WRITE_SELECT,
+          governanceImpactMultiplier: true,
+        },
+      });
+      console.log(
+        "SUCCESS: Row written to DB for Tenant:",
         tenantId,
-        governanceImpactMultiplier,
-      },
-      select: {
-        ...BOT_THREAT_WRITE_SELECT,
-        governanceImpactMultiplier: true,
-      },
+        "with ID:",
+        row.id,
+      );
+      const multBps = row.governanceImpactMultiplier ?? 100n;
+      const tenantBindingSeal = computeSimThreatTenantBindingHash({
+        tenantId,
+        riskEventId: row.id,
+        governanceImpactMultiplierBps: multBps,
+      });
+      await tx.riskEvent.updateMany({
+        where: { tenantId, id: row.id },
+        data: { governanceHash: tenantBindingSeal },
+      });
+      return {
+        id: row.id,
+        title: row.title,
+        sourceAgent: row.sourceAgent,
+        score: row.score,
+        targetEntity: row.targetEntity,
+        financialRisk_cents: row.financialRisk_cents,
+        status: row.status,
+      };
     });
-    console.log(
-      "SUCCESS: Row written to DB for Tenant:",
-      tenantId,
-      "with ID:",
-      row.id,
-    );
-    const multBps = row.governanceImpactMultiplier ?? 100n;
-    const tenantBindingSeal = computeSimThreatTenantBindingHash({
-      tenantId,
-      riskEventId: row.id,
-      governanceImpactMultiplierBps: multBps,
-    });
-    await prisma.riskEvent.updateMany({
-      where: { tenantId, id: row.id },
-      data: { governanceHash: tenantBindingSeal },
-    });
-    return {
-      id: row.id,
-      title: row.title,
-      sourceAgent: row.sourceAgent,
-      score: row.score,
-      targetEntity: row.targetEntity,
-      financialRisk_cents: row.financialRisk_cents,
-      status: row.status,
-    };
   }
   const cookieTenantUuid = (await getActiveTenantUuidFromCookies()).trim();
   const payloadCompanyRaw = payloadWithCategory.tenantCompanyId;
@@ -378,10 +408,12 @@ async function writeThreatEvent(payload: IngressPayload): Promise<IngressBotThre
     throw new Error("Ingress: ThreatEvent tenant does not match the active session tenant.");
   }
 
-  return prisma.threatEvent.create({
-    data: { ...payloadWithCategory, tenantId },
-    select: BOT_THREAT_WRITE_SELECT,
-  });
+  return withIronguardTenant(tenantId, (tx) =>
+    tx.threatEvent.create({
+      data: { ...payloadWithCategory, tenantId },
+      select: BOT_THREAT_WRITE_SELECT,
+    }),
+  );
 }
 
 /** Same cookie routing as `writeThreatEvent` (e.g. GRC finalize + Attbot second-phase update). */
@@ -399,47 +431,58 @@ async function updateThreatEvent(
       useRiskEventTable,
     ),
   };
-  if (useRiskEventTable) {
-    const scope = await prisma.riskEvent.findFirst({
-      where: { id },
-      select: { tenantId: true },
-    });
-    if (!scope?.tenantId) {
-      throw new Error(`Ingress: SimThreatEvent missing tenant scope for update (id=${id}).`);
+  const tenantId = await lookupIngressThreatTenantId(id, useRiskEventTable);
+  return withIronguardTenant(tenantId, async (tx) => {
+    if (useRiskEventTable) {
+      const scope = await tx.riskEvent.findFirst({
+        where: { id, tenantId },
+        select: { tenantId: true },
+      });
+      if (!scope?.tenantId) {
+        throw new Error(`Ingress: SimThreatEvent missing tenant scope for update (id=${id}).`);
+      }
+      await tx.riskEvent.updateMany({
+        where: { id, tenantId },
+        data: updateWithCategory as Prisma.RiskEventUncheckedUpdateInput,
+      });
+      const row = await tx.riskEvent.findFirst({
+        where: { id, tenantId },
+        select: BOT_THREAT_WRITE_SELECT,
+      });
+      if (!row) throw new Error(`Ingress: SimThreatEvent not found after update (id=${id}).`);
+      return row;
     }
-    await prisma.riskEvent.updateMany({
-      where: { id, tenantId: scope.tenantId },
-      data: updateWithCategory as Prisma.RiskEventUncheckedUpdateInput,
-    });
-    const row = await prisma.riskEvent.findFirst({
-      where: { id, tenantId: scope.tenantId },
+    return updateThreatWithIntegrity<IngressBotThreatCreated>({
+      threatId: id,
+      changes: updateWithCategory as Prisma.ThreatEventUpdateInput,
+      actorUserId: "irongate-ingress",
+      eventType: "INGRESS_GATEWAY_UPDATE",
       select: BOT_THREAT_WRITE_SELECT,
+      tx,
     });
-    if (!row) throw new Error(`Ingress: SimThreatEvent not found after update (id=${id}).`);
-    return row;
-  }
-  return updateThreatWithIntegrity<IngressBotThreatCreated>({
-    threatId: id,
-    changes: updateWithCategory as Prisma.ThreatEventUpdateInput,
-    actorUserId: "irongate-ingress",
-    eventType: "INGRESS_GATEWAY_UPDATE",
-    select: BOT_THREAT_WRITE_SELECT,
   });
 }
 
 /** Fetch a single bot row by id on the same plane as create/update for this request. */
 async function findThreatEventByIdForBots(id: string): Promise<IngressAttbotThreatRow | null> {
   const useRiskEventTable = await ingressUsesRiskEventTable();
-  if (useRiskEventTable) {
-    return prisma.riskEvent.findFirst({
-      where: { id },
-      select: ATT_FETCH_SELECT,
-    });
+  let tenantId: string;
+  try {
+    tenantId = await lookupIngressThreatTenantId(id, useRiskEventTable);
+  } catch {
+    return null;
   }
-  return prisma.threatEvent.findUnique({
-    where: { id },
-    select: ATT_FETCH_SELECT,
-  });
+  return withIronguardTenant(tenantId, (tx) =>
+    useRiskEventTable
+      ? tx.riskEvent.findFirst({
+          where: { id, tenantId },
+          select: ATT_FETCH_SELECT,
+        })
+      : tx.threatEvent.findFirst({
+          where: { id, tenantId },
+          select: ATT_FETCH_SELECT,
+        }),
+  );
 }
 
 export const ingressGateway = {

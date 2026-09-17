@@ -1,7 +1,13 @@
 import { subHours } from "date-fns";
-import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { calculateInsuranceIncentive, type InsuranceIncentiveResult } from "@/app/utils/insuranceMath";
+
+type InsuranceDb = Pick<
+  Prisma.TransactionClient,
+  "tenant" | "company" | "riskEvent" | "reasoningLog"
+>;
 
 export type InsuranceTenantModel = {
   framework: string;
@@ -16,15 +22,30 @@ export type InsuranceTenantModel = {
  * Loads dominant framework, Ironwatch activity (last hour), and due-diligence artifact presence
  * for the dashboard tenant. Used by HUD, Budget Justification, and actuarial PDF export.
  */
-export async function fetchInsuranceModelForTenant(activeTenantUuid: string): Promise<InsuranceTenantModel> {
+export async function fetchInsuranceModelForTenant(
+  activeTenantUuid: string,
+  db?: InsuranceDb,
+): Promise<InsuranceTenantModel> {
   const simPlane = await readSimulationPlaneEnabled();
+  if (db) {
+    return loadInsuranceModelForTenant(activeTenantUuid, simPlane, db);
+  }
+  return withIronguardTenant(activeTenantUuid, (tx) =>
+    loadInsuranceModelForTenant(activeTenantUuid, simPlane, tx),
+  );
+}
 
+async function loadInsuranceModelForTenant(
+  activeTenantUuid: string,
+  simPlane: boolean,
+  db: InsuranceDb,
+): Promise<InsuranceTenantModel> {
   const [tenantRow, companies] = await Promise.all([
-    prisma.tenant.findUnique({
+    db.tenant.findUnique({
       where: { id: activeTenantUuid },
       select: { industry: true },
     }),
-    prisma.company.findMany({
+    db.company.findMany({
       where: { tenantId: activeTenantUuid },
       select: { id: true },
     }),
@@ -50,19 +71,19 @@ export async function fetchInsuranceModelForTenant(activeTenantUuid: string): Pr
   const oneHourAgo = subHours(new Date(), 1);
 
   const [fwRows, ironwatchRecent, ddCount] = await Promise.all([
-    prisma.riskEvent.findMany({
+    db.riskEvent.findMany({
       where: { tenantCompanyId: { in: tenantCompanyIds } },
       select: { complianceFramework: true },
       take: 600,
     }),
-    prisma.reasoningLog.count({
+    db.reasoningLog.count({
       where: {
         createdAt: { gte: oneHourAgo },
         agentName: "Ironwatch",
         threat: { tenantCompanyId: { in: tenantCompanyIds } },
       },
     }),
-    prisma.riskEvent.count({
+    db.riskEvent.count({
       where: {
         tenantCompanyId: { in: tenantCompanyIds },
         postMortemReportPath: { not: null },

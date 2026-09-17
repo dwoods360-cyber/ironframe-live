@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
 import { logThreatActivity } from "@/app/actions/auditActions";
 import {
@@ -9,6 +10,15 @@ import {
   type ExpertAgentCanonicalName,
 } from "@/app/config/expertAgentPersona";
 import { ironscribeClerkFormat } from "@/app/utils/ironscribeNarrative";
+
+async function tenantUuidForCompany(tenantCompanyId: bigint): Promise<string | null> {
+  const company = await prisma.company.findUnique({
+    where: { id: tenantCompanyId },
+    select: { tenantId: true },
+  });
+  const tid = company?.tenantId?.trim() ?? "";
+  return tid || null;
+}
 
 export type TelemetryPivotAnalysis = {
   shouldPivot: boolean;
@@ -73,11 +83,16 @@ export async function fetchThreatPingForObservation(
   score: number;
   priority_score: number | null;
 } | null> {
+  const tenantId = await tenantUuidForCompany(tenantCompanyId);
+  if (!tenantId) return null;
+
   if (isSim) {
-    const r = await prisma.riskEvent.findFirst({
-      where: { id: threatId, tenantCompanyId },
-      select: { ingestionDetails: true, score: true, priority_score: true },
-    });
+    const r = await withIronguardTenant(tenantId, (tx) =>
+      tx.riskEvent.findFirst({
+        where: { id: threatId, tenantId, tenantCompanyId },
+        select: { ingestionDetails: true, score: true, priority_score: true },
+      }),
+    );
     if (!r) return null;
     return {
       ingestionDetails: normalizeIngestionDetailsToString(r.ingestionDetails) ?? null,
@@ -85,10 +100,12 @@ export async function fetchThreatPingForObservation(
       priority_score: r.priority_score ?? null,
     };
   }
-  const r = await prisma.threatEvent.findFirst({
-    where: { id: threatId, tenantCompanyId },
-    select: { ingestionDetails: true, score: true },
-  });
+  const r = await withIronguardTenant(tenantId, (tx) =>
+    tx.threatEvent.findFirst({
+      where: { id: threatId, tenantId, tenantCompanyId },
+      select: { ingestionDetails: true, score: true },
+    }),
+  );
   if (!r) return null;
   return {
     ingestionDetails: r.ingestionDetails,

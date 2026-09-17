@@ -10,6 +10,7 @@ env:
   REGION: us-central1
   DATABASE_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
   DIRECT_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
+  PRIVILEGED_DATABASE_URL: postgresql://ironframe_privileged:postgres_password@127.0.0.1:5432/ironframe_test
   NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
   NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.placeholder
   GOOGLE_API_KEY: ci-vitest-compile-placeholder
@@ -62,6 +63,7 @@ jobs:
           {
             echo "DATABASE_URL=${{ env.DATABASE_URL }}"
             echo "DIRECT_URL=${{ env.DIRECT_URL }}"
+            echo "PRIVILEGED_DATABASE_URL=${{ env.PRIVILEGED_DATABASE_URL }}"
             echo "SHADOW_PLANE_ACTIVE=0"
             echo "NEXT_PUBLIC_SHADOW_PLANE_ACTIVE=0"
             echo "NEXT_PUBLIC_SUPABASE_URL=${{ env.NEXT_PUBLIC_SUPABASE_URL }}"

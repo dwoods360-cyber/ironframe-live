@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
-import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
+import { fetchPublishedBriefingsForRequest } from "@/app/lib/governanceFrame/briefingLoader";
 import { isNewsletterLedgerItem } from "@/app/lib/governanceFrame/publishedLedgerKind";
 import { listNewsletterPlaceholders } from "@/app/lib/governanceFrame/researchCatalog";
 
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default async function ResearchNewslettersPage() {
   const [briefings, placeholders] = await Promise.all([
-    fetchPublishedBriefings(),
+    fetchPublishedBriefingsForRequest(),
     Promise.resolve(listNewsletterPlaceholders()),
   ]);
   const editions = briefings.filter((briefing) =>

@@ -1,6 +1,6 @@
 import "server-only";
 
-import prisma from "@/lib/prisma";
+import { getPrismaPrivileged } from "@/lib/prismaPrivileged";
 import { initiateStateFreeze } from "@/src/services/ironlock/freezeEngine";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
 import { escalateQuarantineSecondStrikersAfterSystemFreeze } from "@/app/lib/security/quarantineLedgerGuard";
@@ -17,7 +17,7 @@ export async function runIronwatchSecurityMonitor(): Promise<{
   freezeTriggered: boolean;
 }> {
   const since = new Date(Date.now() - WINDOW_MS);
-  const violations1h = await prisma.ironguardViolation.count({
+  const violations1h = await getPrismaPrivileged().ironguardViolation.count({
     where: { createdAt: { gte: since } },
   });
 

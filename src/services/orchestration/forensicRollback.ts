@@ -4,6 +4,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import type { CheckpointTuple } from "@langchain/langgraph-checkpoint";
 import { TRANSACTION_ABORTED } from "@/src/services/orchestration/forensicFaultInjection";
 import { getPostgresCheckpointer } from "@/src/services/orchestration/checkpointer";
+import { tenantIdFromCheckpointValues } from "@/src/services/orchestration/checkpointTenant";
 
 export const EPIC_15_ROLLBACK_LOG_PREFIX = "[epic15-forensic-rollback]";
 
@@ -30,11 +31,6 @@ export type CheckpointedGraphLike = {
 };
 
 const DEFAULT_BLOCKLISTED_NEXT = ["persist"] as const;
-
-function tenantFromValues(values: Record<string, unknown> | undefined): string | null {
-  const raw = values?.tenant_id ?? values?.tenantId;
-  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
-}
 
 function checkpointAssignee(values: Record<string, unknown> | undefined): string {
   const raw = values?.currentAssignee ?? values?.current_agent;
@@ -68,10 +64,13 @@ export function selectForensicRollbackAnchor(
   return null;
 }
 
-export async function listThreadCheckpointTuples(threadId: string): Promise<CheckpointTuple[]> {
+export async function listThreadCheckpointTuples(
+  threadId: string,
+  tenantId: string,
+): Promise<CheckpointTuple[]> {
   const cp = await getPostgresCheckpointer();
   const config: RunnableConfig = {
-    configurable: { thread_id: threadId.trim(), checkpoint_ns: "" },
+    configurable: { thread_id: threadId.trim(), checkpoint_ns: "", tenant_id: tenantId.trim() },
   };
   const tuples: CheckpointTuple[] = [];
   for await (const tuple of cp.list(config, { limit: 32 })) {
@@ -92,11 +91,8 @@ export async function executeForensicCheckpointRollback(args: {
 }): Promise<ForensicRollbackResult> {
   const threadId = args.threadId.trim();
   const tenantId = args.tenantId.trim();
-  const config: RunnableConfig = {
-    configurable: { thread_id: threadId, checkpoint_ns: "" },
-  };
 
-  const tuples = await listThreadCheckpointTuples(threadId);
+  const tuples = await listThreadCheckpointTuples(threadId, tenantId);
   const anchor = selectForensicRollbackAnchor(tuples, {
     blocklistedNext: args.blocklistedNext,
   });
@@ -123,8 +119,13 @@ export async function executeForensicCheckpointRollback(args: {
   }
 
   const anchorValues = (anchor.checkpoint.channel_values ?? {}) as Record<string, unknown>;
-  const stampedTenant = tenantFromValues(anchorValues);
-  if (stampedTenant && stampedTenant !== tenantId) {
+  const stampedTenant = tenantIdFromCheckpointValues(anchorValues);
+  if (!stampedTenant) {
+    throw new Error(
+      `CRITICAL_TENANT_VIOLATION: Rollback anchor for ${threadId} is missing a checkpoint tenant stamp.`,
+    );
+  }
+  if (stampedTenant !== tenantId.trim().toLowerCase()) {
     throw new Error(
       `CRITICAL_TENANT_VIOLATION: Rollback anchor tenant ${stampedTenant} != ${tenantId}`,
     );
@@ -135,6 +136,7 @@ export async function executeForensicCheckpointRollback(args: {
       thread_id: threadId,
       checkpoint_ns: "",
       checkpoint_id: anchor.checkpoint.id,
+      tenant_id: tenantId,
     },
   };
 

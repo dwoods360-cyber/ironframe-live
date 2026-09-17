@@ -13,6 +13,7 @@ import { runIronsightRegulatoryPoll } from "@/app/services/ironsightMonitor";
 import { recalculateSystemMaturityScore } from "@/app/services/governanceScoring";
 import { GOVERNANCE_EXPOSURE_ENVELOPE_BILLIONS } from "@/app/utils/financialRisk";
 import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 const AMENDMENT_MODEL = resolveGeminiFlashModel(process.env.GEMINI_IRONSIGHT_MODEL);
 
@@ -26,8 +27,15 @@ function readTasMdExcerpt(maxChars = 12_000): string {
 }
 
 export async function pollRegulatoryFeedsAction() {
-  const poll = await runIronsightRegulatoryPoll();
-  const maturity = await recalculateSystemMaturityScore({ trigger: "MANUAL_REGULATORY_POLL" });
+  const tenantId = await getActiveTenantUuidFromCookies();
+  if (!tenantId) {
+    throw new Error("IRONGUARD_SESSION_TENANT_UUID_REQUIRED");
+  }
+  const poll = await runIronsightRegulatoryPoll(tenantId);
+  const maturity = await recalculateSystemMaturityScore({
+    tenantId,
+    trigger: "MANUAL_REGULATORY_POLL",
+  });
   return { poll, maturityScore: maturity.current.score };
 }
 
@@ -35,7 +43,9 @@ export async function generateTasAmendmentAction(alertId: string): Promise<
   | { ok: true; draftId: string; markdown: string }
   | { ok: false; error: string }
 > {
-  const state = await readComplianceDriftState();
+  const tenantId = await getActiveTenantUuidFromCookies();
+  if (!tenantId) return { ok: false, error: "No active tenant." };
+  const state = await readComplianceDriftState(tenantId);
   const alert = state.alerts.find((a) => a.id === alertId);
   if (!alert) return { ok: false, error: "Drift alert not found." };
 
@@ -80,7 +90,7 @@ ${tasExcerpt.slice(0, 8000)}`;
     const nextAlerts = state.alerts.map((a) =>
       a.id === alertId ? { ...a, amendmentDraftId: draftId, status: "ACKNOWLEDGED" as const } : a,
     );
-    await writeComplianceDriftState({ ...state, alerts: nextAlerts });
+    await writeComplianceDriftState(tenantId, { ...state, alerts: nextAlerts });
 
     return { ok: true, draftId, markdown };
   } catch (e) {
@@ -92,11 +102,15 @@ ${tasExcerpt.slice(0, 8000)}`;
 }
 
 export async function getComplianceDriftDashboardAction() {
-  const state = await readComplianceDriftState();
+  const tenantId = await getActiveTenantUuidFromCookies();
+  if (!tenantId) {
+    throw new Error("IRONGUARD_SESSION_TENANT_UUID_REQUIRED");
+  }
+  const state = await readComplianceDriftState(tenantId);
   const { getActiveComplianceDriftMaturityPenalty } = await import(
     "@/app/services/complianceDriftMaturityPenalty"
   );
-  const penalty = await getActiveComplianceDriftMaturityPenalty();
+  const penalty = await getActiveComplianceDriftMaturityPenalty(tenantId);
   return {
     state,
     activeDrifts: state.alerts.filter((a) => a.status === "ACTIVE" && a.isDriftDetected),

@@ -13,10 +13,15 @@ const mocks = vi.hoisted(() => ({
       update: vi.fn(),
     },
     tenant: {
-      findMany: vi.fn(async () => [
-        { id: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01" },
-        { id: "6d53106b-9f20-4ccf-a53e-8f9ee5cc7b02" },
-      ]),
+      findMany: vi.fn(async (args?: { where?: { id?: { not?: string } } }) => {
+        const all = [
+          { id: "00000000-0000-0000-0000-000000000000" },
+          { id: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01" },
+          { id: "6d53106b-9f20-4ccf-a53e-8f9ee5cc7b02" },
+        ];
+        const excluded = args?.where?.id?.not;
+        return excluded ? all.filter((row) => row.id !== excluded) : all;
+      }),
     },
     ironguardViolation: {
       count: vi.fn(async () => 4),
@@ -56,6 +61,11 @@ describe("Ironlock global freeze tenant audit", () => {
       alreadyActive: false,
     });
 
+    expect(mocks.privileged.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { not: "00000000-0000-0000-0000-000000000000" } },
+      }),
+    );
     expect(mocks.bind).toHaveBeenNthCalledWith(
       1,
       "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",

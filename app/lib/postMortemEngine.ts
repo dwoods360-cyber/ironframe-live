@@ -4,6 +4,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 export type PostMortemTopThreat = {
   threatId: string;
@@ -102,45 +103,48 @@ export async function getPostMortemSummary(
   });
   const companyIds = companies.map((c) => c.id);
 
-  const [auditRows, botRows, threatTitles] = await Promise.all([
-    prisma.auditLog.findMany({
-      where: {
-        tenantId: tenantUuid,
-        createdAt: { gte: start, lte: end },
-        OR: [
-          { isSimulation: true },
-          { operatorId: { contains: "BOT", mode: "insensitive" } },
-          { action: { contains: "THREAT", mode: "insensitive" } },
-        ],
-      },
-      select: {
-        id: true,
-        action: true,
-        threatId: true,
-        justification: true,
-        operatorId: true,
-        createdAt: true,
-      },
-      take: 400,
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.botAuditLog.findMany({
-      where: { tenantId: tenantUuid, createdAt: { gte: start, lte: end } },
-      select: { metadata: true },
-      take: 200,
-      orderBy: { createdAt: "desc" },
-    }),
-    companyIds.length === 0
-      ? Promise.resolve([] as { id: string; title: string }[])
-      : prisma.threatEvent.findMany({
-          where: {
-            tenantCompanyId: { in: companyIds },
-            updatedAt: { gte: start },
-          },
-          select: { id: true, title: true },
-          take: 300,
-        }),
-  ]);
+  const [auditRows, botRows, threatTitles] = await withIronguardTenant(tenantUuid, async (tx) => {
+    const [audits, bots, threats] = await Promise.all([
+      tx.auditLog.findMany({
+        where: {
+          tenantId: tenantUuid,
+          createdAt: { gte: start, lte: end },
+          OR: [
+            { isSimulation: true },
+            { operatorId: { contains: "BOT", mode: "insensitive" } },
+            { action: { contains: "THREAT", mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          action: true,
+          threatId: true,
+          justification: true,
+          operatorId: true,
+          createdAt: true,
+        },
+        take: 400,
+        orderBy: { createdAt: "desc" },
+      }),
+      tx.botAuditLog.findMany({
+        where: { tenantId: tenantUuid, createdAt: { gte: start, lte: end } },
+        select: { metadata: true },
+        take: 200,
+        orderBy: { createdAt: "desc" },
+      }),
+      companyIds.length === 0
+        ? Promise.resolve([] as { id: string; title: string }[])
+        : tx.threatEvent.findMany({
+            where: {
+              tenantCompanyId: { in: companyIds },
+              updatedAt: { gte: start },
+            },
+            select: { id: true, title: true },
+            take: 200,
+          }),
+    ]);
+    return [audits, bots, threats] as const;
+  });
 
   const vectorTally = new Map<string, number>();
   const threatTally = new Map<string, number>();

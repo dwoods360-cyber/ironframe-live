@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { verifyTenantBoundAsymmetricSignature } from "@/app/lib/crypto/pkiSignatureVerifier";
 import { parseIngestionDetailsForMerge } from "@/app/utils/ingestionDetailsMerge";
 import { isWormProtectedStoragePath } from "@/app/lib/evidence/wormStoragePolicy";
@@ -138,40 +139,44 @@ export async function riskEventHasSignedAttestationBlockingShred(args: {
     entityId: riskEventId,
   };
 
-  const [risk, threat, integrityHit, forensicLedger] = await Promise.all([
-    prisma.riskEvent.findFirst({
-      where: { id: riskEventId, tenantId: tenantUuid },
-      select: {
-        ingestionDetails: true,
-        dispositionStatus: true,
-        receiptHash: true,
-        forensicSeal: true,
-        governanceHash: true,
-        financialRisk_cents: true,
-      },
-    }),
-    prisma.threatEvent.findFirst({
-      where: { id: riskEventId, tenantCompanyId: { in: companyIds } },
-      select: {
-        ingestionDetails: true,
-        dispositionStatus: true,
-        receiptHash: true,
-        resolutionApprovalId: true,
-      },
-    }),
-    prisma.integrityEvent.findFirst({
-      where: {
-        tenantId: tenantUuid,
-        entityId: riskEventId,
-        eventType: { in: [...INTEGRITY_ATTESTATION_EVENT_TYPES] },
-      },
-      select: { id: true },
-    }),
-    prisma.forensicSealLedger.findFirst({
-      where: { tenantId: tenantUuid, riskEventId },
-      select: { id: true },
-    }),
-  ]);
+  const [risk, threat, integrityHit, forensicLedger] = await withIronguardTenant(
+    tenantUuid,
+    async (tx) =>
+      Promise.all([
+        tx.riskEvent.findFirst({
+          where: { id: riskEventId, tenantId: tenantUuid },
+          select: {
+            ingestionDetails: true,
+            dispositionStatus: true,
+            receiptHash: true,
+            forensicSeal: true,
+            governanceHash: true,
+            financialRisk_cents: true,
+          },
+        }),
+        tx.threatEvent.findFirst({
+          where: { id: riskEventId, tenantId: tenantUuid, tenantCompanyId: { in: companyIds } },
+          select: {
+            ingestionDetails: true,
+            dispositionStatus: true,
+            receiptHash: true,
+            resolutionApprovalId: true,
+          },
+        }),
+        tx.integrityEvent.findFirst({
+          where: {
+            tenantId: tenantUuid,
+            entityId: riskEventId,
+            eventType: { in: [...INTEGRITY_ATTESTATION_EVENT_TYPES] },
+          },
+          select: { id: true },
+        }),
+        tx.forensicSealLedger.findFirst({
+          where: { tenantId: tenantUuid, riskEventId },
+          select: { id: true },
+        }),
+      ]),
+  );
 
   if (integrityHit) return true;
   if (forensicLedger) return true;

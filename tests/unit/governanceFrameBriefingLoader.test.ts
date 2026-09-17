@@ -5,15 +5,39 @@ import {
   fetchPublishedBriefings,
   mapPublishedBriefingRecord,
 } from "@/app/lib/governanceFrame/briefingLoader";
-import prisma from "@/lib/prisma";
 
-vi.mock("@/lib/prisma", () => ({
-  default: {
-    publishedBriefing: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-    },
-  },
+const { findMany, findFirst } = vi.hoisted(() => ({
+  findMany: vi.fn(),
+  findFirst: vi.fn(),
+}));
+
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: vi.fn(
+    async (
+      _tenantId: string,
+      run: (tx: { publishedBriefing: { findMany: typeof findMany; findFirst: typeof findFirst } }) => unknown,
+    ) =>
+      run({
+        publishedBriefing: {
+          findMany,
+          findFirst,
+        },
+      }),
+  ),
+}));
+
+vi.mock("@/app/lib/governanceFrame/briefingFilesystemLedger", () => ({
+  BRIEFING_QUEUE_DIR: "queue",
+  PUBLISHED_BRIEFINGS_DIR: "published",
+  QUARANTINE_ALLOWLIST: [],
+  enforceBriefingQuarantine: vi.fn(),
+  loadBriefingBySlugFromFilesystem: vi.fn(),
+  loadPublishedBriefingsFromFilesystem: vi.fn(() => []),
+  resolveDocsRoot: () => "/tmp",
+}));
+
+vi.mock("@/app/utils/serverTenantContext", () => ({
+  getScopedTenantUuidFromCookies: vi.fn(async () => null),
 }));
 
 const SAMPLE_RECORD = {
@@ -30,8 +54,8 @@ const SAMPLE_RECORD = {
 
 describe("governanceFrame briefingLoader (Postgres ledger)", () => {
   beforeEach(() => {
-    vi.mocked(prisma.publishedBriefing.findMany).mockReset();
-    vi.mocked(prisma.publishedBriefing.findUnique).mockReset();
+    findMany.mockReset();
+    findFirst.mockReset();
   });
 
   it("maps Prisma rows to GovernanceBriefing view models", () => {
@@ -44,12 +68,13 @@ describe("governanceFrame briefingLoader (Postgres ledger)", () => {
     expect(briefing.sortKey).toBe(SAMPLE_RECORD.createdAt.getTime());
   });
 
-  it("fetchPublishedBriefings queries ascending createdAt", async () => {
-    vi.mocked(prisma.publishedBriefing.findMany).mockResolvedValue([SAMPLE_RECORD]);
+  it("fetchPublishedBriefings queries ascending createdAt for the bound tenant", async () => {
+    findMany.mockResolvedValue([SAMPLE_RECORD]);
 
-    const briefings = await fetchPublishedBriefings();
+    const briefings = await fetchPublishedBriefings(SAMPLE_RECORD.tenantId);
 
-    expect(prisma.publishedBriefing.findMany).toHaveBeenCalledWith({
+    expect(findMany).toHaveBeenCalledWith({
+      where: { tenantId: SAMPLE_RECORD.tenantId },
       orderBy: { createdAt: "asc" },
     });
     expect(briefings).toHaveLength(1);
@@ -57,15 +82,15 @@ describe("governanceFrame briefingLoader (Postgres ledger)", () => {
   });
 
   it("fetchBriefingBySlug normalizes slug and returns null for path traversal", async () => {
-    vi.mocked(prisma.publishedBriefing.findUnique).mockResolvedValue(SAMPLE_RECORD);
+    findFirst.mockResolvedValue(SAMPLE_RECORD);
 
-    const hit = await fetchBriefingBySlug("Medshield-Sec-Update-01");
-    expect(prisma.publishedBriefing.findUnique).toHaveBeenCalledWith({
-      where: { slug: "medshield-sec-update-01" },
+    const hit = await fetchBriefingBySlug("Medshield-Sec-Update-01", SAMPLE_RECORD.tenantId);
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { slug: "medshield-sec-update-01", tenantId: SAMPLE_RECORD.tenantId },
     });
     expect(hit?.title).toBe("Medshield Governance Review");
 
-    expect(await fetchBriefingBySlug("../escape")).toBeNull();
-    expect(prisma.publishedBriefing.findUnique).toHaveBeenCalledTimes(1);
+    expect(await fetchBriefingBySlug("../escape", SAMPLE_RECORD.tenantId)).toBeNull();
+    expect(findFirst).toHaveBeenCalledTimes(1);
   });
 });

@@ -5,14 +5,14 @@ import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import {
   appendCarbonSample,
   pruneSamplesOlderThan24h,
-  readCarbonPulseState,
+  readCarbonPulseStateForTenantBundle,
   writeCarbonPulseState,
   type DirtyGridAlertRecord,
 } from "@/app/lib/ironbloom/carbonPulseState";
 import { fetchLiveCarbonIntensity } from "@/app/services/ironbloom/scoring";
 import { TENANT_ELECTRICITY_MAP_ZONES } from "@/app/config/tenantCarbonZones";
 import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 /** Top 25% regional intensity → dirty threshold (75th percentile of 24h window). */
 const DIRTY_PERCENTILE = 0.75;
@@ -37,24 +37,26 @@ export type DirtyGridMonitorResult = {
 };
 
 async function resolveTenantUsageKwh(tenantId: string): Promise<number> {
-  const companies = await prisma.company.findMany({
-    where: { tenantId },
-    select: { id: true },
+  return withIronguardTenant(tenantId, async (tx) => {
+    const companies = await tx.company.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+    if (!companies.length) return 0;
+    const companyIds = companies.map((c) => c.id);
+    const threats = await tx.threatEvent.findMany({
+      where: { tenantId, tenantCompanyId: { in: companyIds } },
+      select: { id: true },
+      take: 200,
+      orderBy: { updatedAt: "desc" },
+    });
+    if (!threats.length) return 0;
+    const metrics = await tx.sustainabilityMetric.aggregate({
+      where: { threatId: { in: threats.map((t) => t.id) } },
+      _sum: { kwhAverted: true },
+    });
+    return Number(metrics._sum.kwhAverted ?? 0n);
   });
-  if (!companies.length) return 0;
-  const companyIds = companies.map((c) => c.id);
-  const threats = await prisma.threatEvent.findMany({
-    where: { tenantCompanyId: { in: companyIds } },
-    select: { id: true },
-    take: 200,
-    orderBy: { updatedAt: "desc" },
-  });
-  if (!threats.length) return 0;
-  const metrics = await prisma.sustainabilityMetric.aggregate({
-    where: { threatId: { in: threats.map((t) => t.id) } },
-    _sum: { kwhAverted: true },
-  });
-  return Number(metrics._sum.kwhAverted ?? 0n);
 }
 
 /**
@@ -68,7 +70,7 @@ export async function runDirtyGridMonitorForTenant(
   const zone = TENANT_ELECTRICITY_MAP_ZONES[tenantKey];
   const quote = await fetchLiveCarbonIntensity(zone, tenantKey);
 
-  let state = await readCarbonPulseState();
+  let state = await readCarbonPulseStateForTenantBundle(tenantId);
   const samples = pruneSamplesOlderThan24h(state.samplesByTenant[tenantId] ?? []);
   const intensities = [...samples.map((s) => s.gco2PerKwh), quote.carbonIntensityGco2PerKwh].sort(
     (a, b) => a - b,
@@ -157,7 +159,8 @@ export async function runDirtyGridMonitorForTenant(
             operatorId: "IRONLOCK_AGENT_6",
             threatId: null,
             isSimulation: false,
-            tenant_id: tenantId,
+            tenantId,
+            governance_tenant_uuid: tenantId,
           },
         });
       } catch {

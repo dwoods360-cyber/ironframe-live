@@ -3,6 +3,7 @@ import "server-only";
 import { UserRole } from "@prisma/client";
 
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { buildTenantLoginRedirectUrl } from "@/app/lib/tenantSubdomain";
 import type {
   AssignedWorkspaceAccess,
@@ -18,15 +19,17 @@ async function wasOperatorRevokedFromTenant(
   userId: string,
   email: string | null,
 ): Promise<boolean> {
-  const rows = await prisma.auditLog.findMany({
-    where: {
-      tenantId,
-      action: "OPERATOR_WORKSPACE_ACCESS_REVOKED",
-    },
-    select: { justification: true },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
+  const rows = await withIronguardTenant(tenantId, (tx) =>
+    tx.auditLog.findMany({
+      where: {
+        tenantId,
+        action: "OPERATOR_WORKSPACE_ACCESS_REVOKED",
+      },
+      select: { justification: true },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+  );
 
   const needleUserId = userId.toLowerCase();
   const needleEmail = email?.trim().toLowerCase() ?? "";

@@ -3,7 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 
 import BriefingFrameContent from "@/app/components/governanceFrame/BriefingFrameContent";
 import EarlyEnclaveCta from "@/app/components/governanceFrame/EarlyEnclaveCta";
-import { briefingBodyMarkdown, fetchBriefingBySlug } from "@/app/lib/governanceFrame/briefingLoader";
+import { briefingBodyMarkdown, fetchBriefingBySlugForRequest } from "@/app/lib/governanceFrame/briefingLoader";
 import { PUBLISHED_BRIEFING_SLUG_REDIRECTS } from "@/app/lib/governanceFrame/publishedBriefingSlugRedirects";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export default async function GovernanceFrameBriefingPage({ params }: PageProps)
     permanentRedirect(`/governance-frame/${encodeURIComponent(redirectTarget)}`);
   }
 
-  const briefing = await fetchBriefingBySlug(slug);
+  const briefing = await fetchBriefingBySlugForRequest(slug);
   if (!briefing) notFound();
 
   return (

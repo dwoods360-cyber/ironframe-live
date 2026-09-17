@@ -22,4 +22,12 @@ describe("Carbon Pulse tenant binding", () => {
     expect(service).not.toContain("prisma.evidenceAttachment.findFirst");
     expect(service).not.toContain("prisma.sustainabilityMetric");
   });
+
+  it("binds the Carbon Pulse aggregator through the tenant catalog", () => {
+    const state = source("app/lib/ironbloom/carbonPulseState.ts");
+    expect(state).toContain("readCarbonPulseStateForTenantBundle");
+    expect(state).toContain("prisma.tenant.findMany");
+    expect(state).not.toMatch(/prisma\.carbonPulseSample\.findMany\(/);
+    expect(state).not.toMatch(/prisma\.dirtyGridAlert\.findMany\(/);
+  });
 });

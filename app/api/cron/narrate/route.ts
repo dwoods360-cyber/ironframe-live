@@ -7,7 +7,7 @@ import {
 import { evaluateAlertThresholds } from "@/app/lib/governanceFrame/briefingDraftValidation";
 import { getSharedBoardContextForTenant } from "@/app/lib/board/sharedBoardContext";
 import { runNightlyGovernanceNarrate } from "@/app/lib/reports/narrateGovernanceTriad";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import { resolveCronTenantIds } from "@/app/lib/server/cronTenantScope";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -33,59 +33,71 @@ async function handleNarrate(request: Request) {
   );
 
   const url = new URL(request.url);
-  const tenantId =
-    request.headers.get("x-tenant-id")?.trim() ||
-    url.searchParams.get("tenantId")?.trim() ||
-    process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
-    TENANT_UUIDS.medshield;
+  const explicitTenantId =
+    request.headers.get("x-tenant-id")?.trim() || url.searchParams.get("tenantId")?.trim() || null;
 
   let preflightSnapshot: Record<string, string> = {
-    tenantId,
     startedAt,
   };
 
   try {
-    const boardContext = await getSharedBoardContextForTenant(tenantId);
-    const currentExposureCents = parseExposureCentsFromPayload(boardContext);
-    const thresholdEval = evaluateAlertThresholds(currentExposureCents);
+    const tenantIds = await resolveCronTenantIds(explicitTenantId);
+    const runs: Array<Record<string, unknown>> = [];
 
-    preflightSnapshot = {
-      ...preflightSnapshot,
-      tenantSlug: boardContext.financials.display.activeTenant.slug || "tenant",
-      companyName: boardContext.financials.display.activeTenant.companyName,
-      currentExposureCents: thresholdEval.currentExposureCents.toString(),
-      thresholdCents: thresholdEval.thresholdCents.toString(),
-      requiresImmediatePromotion: String(thresholdEval.requiresImmediatePromotion),
-      systemStatus: boardContext.systemStatus,
-    };
+    for (const tenantId of tenantIds) {
+      const boardContext = await getSharedBoardContextForTenant(tenantId);
+      const currentExposureCents = parseExposureCentsFromPayload(boardContext);
+      const thresholdEval = evaluateAlertThresholds(currentExposureCents);
 
-    console.info(
-      "[CRON_HEALTH_TELEMETRY] narrate preflight validation snapshot",
-      JSON.stringify(preflightSnapshot),
-    );
+      preflightSnapshot = {
+        tenantId,
+        startedAt,
+        tenantSlug: boardContext.financials.display.activeTenant.slug || "tenant",
+        companyName: boardContext.financials.display.activeTenant.companyName,
+        currentExposureCents: thresholdEval.currentExposureCents.toString(),
+        thresholdCents: thresholdEval.thresholdCents.toString(),
+        requiresImmediatePromotion: String(thresholdEval.requiresImmediatePromotion),
+        systemStatus: boardContext.systemStatus,
+      };
 
-    const result = await runNightlyGovernanceNarrate(tenantId);
+      console.info(
+        "[CRON_HEALTH_TELEMETRY] narrate preflight validation snapshot",
+        JSON.stringify(preflightSnapshot),
+      );
+
+      const result = await runNightlyGovernanceNarrate(tenantId);
+      runs.push({ ...result, tenantId, healthTelemetry: preflightSnapshot });
+    }
 
     const completedAt = new Date().toISOString();
+    const primary = runs[0] ?? {};
     console.info(
       "[CRON_HEALTH_TELEMETRY] narrate execution completed",
       JSON.stringify({
-        ...preflightSnapshot,
+        startedAt,
         completedAt,
-        snapshotId: result.snapshotId,
-        artifactId: result.artifactId,
-        narrativeChars: result.narrativeChars,
-        briefingQueueDraft: result.briefingQueueDraft ?? null,
+        tenantCount: runs.length,
+        snapshotId: primary.snapshotId ?? null,
+        artifactId: primary.artifactId ?? null,
       }),
     );
 
+    if (runs.length === 1) {
+      return NextResponse.json({
+        ok: true,
+        ...primary,
+        healthTelemetry: {
+          ...(primary.healthTelemetry as Record<string, string>),
+          completedAt,
+        },
+      });
+    }
+
     return NextResponse.json({
       ok: true,
-      ...result,
-      healthTelemetry: {
-        ...preflightSnapshot,
-        completedAt,
-      },
+      tenantCount: runs.length,
+      tenants: runs,
+      healthTelemetry: { startedAt, completedAt, tenantCount: String(runs.length) },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Narrate cron failed.";

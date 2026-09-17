@@ -4,6 +4,8 @@ import { createHash } from "crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import prisma from "@/lib/prisma";
+import { listCatalogTenantIds } from "@/app/lib/server/cronTenantScope";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { TAS_CHAOS_COMPLIANCE_DIRECTIVES } from "@/app/config/tasChaosComplianceDirectives";
 import {
   eventTimestamp,
@@ -167,23 +169,47 @@ async function scanIsolationBleed(params: {
 }): Promise<IrontechPostMortemReport["isolation"]> {
   const bleedSamples: IrontechPostMortemReport["isolation"]["bleedSamples"] = [];
   const tid = params.tenantId.trim();
+  const tenantIds = await listCatalogTenantIds();
+  const rows: Array<{
+    id: string;
+    action: string;
+    justification: string | null;
+    createdAt: Date;
+    tenantId: string;
+    governance_tenant_uuid: string | null;
+  }> = [];
 
-  const rows = await prisma.auditLog.findMany({
-    where: {
-      createdAt: { gte: params.windowStart, lte: params.windowEnd },
-      OR: [
-        { justification: { contains: "CROSS-TENANT", mode: "insensitive" } },
-        { justification: { contains: "ISOLATION BREACH", mode: "insensitive" } },
-        { justification: { contains: "IRONGUARD", mode: "insensitive" } },
-        { action: { contains: "SENTINEL", mode: "insensitive" } },
-      ],
-    },
-    select: { id: true, action: true, justification: true, createdAt: true, tenantId: true, governance_tenant_uuid: true },
-    take: 100,
-    orderBy: { createdAt: "desc" },
-  });
+  for (const tenantId of tenantIds) {
+    const slice = await withIronguardTenant(tenantId, (tx) =>
+      tx.auditLog.findMany({
+        where: {
+          tenantId,
+          createdAt: { gte: params.windowStart, lte: params.windowEnd },
+          OR: [
+            { justification: { contains: "CROSS-TENANT", mode: "insensitive" } },
+            { justification: { contains: "ISOLATION BREACH", mode: "insensitive" } },
+            { justification: { contains: "IRONGUARD", mode: "insensitive" } },
+            { action: { contains: "SENTINEL", mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          action: true,
+          justification: true,
+          createdAt: true,
+          tenantId: true,
+          governance_tenant_uuid: true,
+        },
+        take: 100,
+        orderBy: { createdAt: "desc" },
+      }),
+    );
+    rows.push(...slice);
+  }
 
-  for (const row of rows) {
+  rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  for (const row of rows.slice(0, 100)) {
     const rowTenant = row.tenantId?.trim() || row.governance_tenant_uuid?.trim() || "";
     const crossTenant =
       (rowTenant && rowTenant !== tid) ||

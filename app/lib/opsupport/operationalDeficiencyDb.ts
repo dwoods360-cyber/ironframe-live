@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import {
   OPERATIONAL_DEFICIENCY_REPORT,
   OPERATIONAL_DEFICIENCY_RESOLVED,
@@ -20,8 +20,10 @@ export type OperationalDeficiencyQueueItem = {
  * Shadow-plane simulation diagnostic log only (`SimulationDiagnosticLog`).
  * Production `AuditLog` / `ThreatEvent` must never carry self-test rows.
  */
+type OperationalDeficiencyDb = Pick<Prisma.TransactionClient, "simulationDiagnosticLog">;
+
 export async function loadOperationalDeficiencyQueueState(
-  prisma: PrismaClient,
+  prisma: OperationalDeficiencyDb,
   tenantUuid: string,
   _companyIds: bigint[],
 ): Promise<{ unresolved: OperationalDeficiencyQueueItem[]; unresolvedCount: number }> {

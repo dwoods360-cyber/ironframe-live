@@ -121,6 +121,20 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: async (
+    _tenantId: string,
+    run: (tx: {
+      cronJobArtifact: { create: typeof createArtifact };
+      auditLog: { create: typeof mockAuditLogCreateLoose };
+    }) => unknown,
+  ) =>
+    run({
+      cronJobArtifact: { create: createArtifact },
+      auditLog: { create: mockAuditLogCreateLoose },
+    }),
+}));
+
 vi.mock("@/app/services/ironsight/crawler", () => ({
   runIndustryScoutWorker: mockScoutRun,
 }));
@@ -155,6 +169,7 @@ vi.mock("@/app/services/ironbloom/rateEngine", () => ({
 
 vi.mock("@/lib/auditLogLoose", () => ({
   auditLogCreateLoose: mockAuditLogCreateLoose,
+  auditLogCreateLooseTx: (_tx: unknown, args: unknown) => mockAuditLogCreateLoose(args),
 }));
 
 vi.mock("@/app/utils/parseCronRequestBody", () => ({

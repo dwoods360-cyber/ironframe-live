@@ -38,7 +38,7 @@ import {
   resolveFootprintDomain,
   type DomainMailFootprint,
 } from "@/app/lib/server/domainMailFootprint";
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 export { looksLikeOsintTitleNoise };
 export type { DomainMailFootprint };
@@ -201,8 +201,9 @@ export async function buildIronleadsSuspectReport(
   const id = contactId.trim();
   if (!id) return null;
 
-  const contact = await prisma.ironboardCrmContact.findUnique({
-    where: { id },
+  const contact = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findFirst({
+    where: { id, tenantId },
     select: {
       id: true,
       fullName: true,
@@ -232,7 +233,8 @@ export async function buildIronleadsSuspectReport(
         },
       },
     },
-  });
+    }),
+  );
 
   if (!contact) return null;
 
@@ -378,19 +380,22 @@ export async function buildIronleadsSuspectReport(
   // Persist gate/roster upgrades only — never clobber rich scrape findings with a thin
   // report-corpus rebuild when Email is still company-intake UNKNOWN.
   if (briefSelection.shouldPersist) {
-    const fresh = await prisma.ironboardCrmContact.findUnique({
-      where: { id: contact.id },
+    const fresh = await withProspectPoolTenant((tx, tenantId) =>
+      tx.ironboardCrmContact.findFirst({
+      where: { id: contact.id, tenantId },
       select: { metadata: true },
-    });
+    }),
+    );
     const freshMeta =
       fresh?.metadata &&
       typeof fresh.metadata === "object" &&
       !Array.isArray(fresh.metadata)
         ? (fresh.metadata as Record<string, unknown>)
         : (metaRecord ?? {});
-    await prisma.ironboardCrmContact
-      .update({
-        where: { id: contact.id },
+    await withProspectPoolTenant((tx, tenantId) =>
+      tx.ironboardCrmContact
+      .updateMany({
+        where: { id: contact.id, tenantId },
         data: {
           metadata: {
             ...freshMeta,
@@ -398,7 +403,8 @@ export async function buildIronleadsSuspectReport(
           } as Prisma.InputJsonValue,
         },
       })
-      .catch(() => undefined);
+      .catch(() => undefined),
+    );
   }
   const apolloRaw = metaRecord?.apolloEnrichment ?? null;
   const apolloEnrichment =

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { ingressGateway } from "@/app/lib/security/ingressGateway";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { ATTACK_SOURCE, ATTACK_THREAT_TITLE_PREFIX } from "@/app/config/agents";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { ThreatState } from "@prisma/client";
@@ -222,33 +223,38 @@ export async function clearShadowSimulatorPipeline(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const ctx = await resolveActiveTenantCompany();
   if (!ctx.ok) return ctx;
-  const { company } = ctx;
+  const { company, tenantId } = ctx;
   try {
-    const prodRows = await prisma.threatEvent.findMany({
-      where: {
-        tenantCompanyId: company.id,
-        sourceAgent,
-        status: { not: ThreatState.RESOLVED },
-      },
-      select: { id: true, resolutionApprovalId: true },
-    });
-    for (const row of prodRows) {
-      await transitionThreatStatus({
-        threatId: row.id,
-        newStatus: ThreatState.RESOLVED,
-        approvalId: row.resolutionApprovalId,
-        actorUserId: "system-attbot",
-        eventType: "SHADOW_SIMULATOR_CLEAR",
-      });
-    }
-    await prisma.riskEvent.updateMany({
+    await withIronguardTenant(tenantId, async (tx) => {
+      const prodRows = await tx.threatEvent.findMany({
         where: {
+          tenantId,
+          tenantCompanyId: company.id,
+          sourceAgent,
+          status: { not: ThreatState.RESOLVED },
+        },
+        select: { id: true, resolutionApprovalId: true },
+      });
+      for (const row of prodRows) {
+        await transitionThreatStatus({
+          threatId: row.id,
+          newStatus: ThreatState.RESOLVED,
+          approvalId: row.resolutionApprovalId,
+          actorUserId: "system-attbot",
+          eventType: "SHADOW_SIMULATOR_CLEAR",
+          tx,
+        });
+      }
+      await tx.riskEvent.updateMany({
+        where: {
+          tenantId,
           tenantCompanyId: company.id,
           sourceAgent,
           status: { not: ThreatState.RESOLVED },
         },
         data: { status: ThreatState.RESOLVED },
       });
+    });
     revalidatePath("/integrity");
     return { ok: true };
   } catch (e) {

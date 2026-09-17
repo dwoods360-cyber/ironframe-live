@@ -140,6 +140,17 @@ BEGIN
 END
 $$;
 
+-- LangGraph saver tables are not Prisma models. Re-arm their tenant_id key and
+-- restrictive policies whenever this script is applied (function is created by
+-- prisma/migrations/20260917120000_langgraph_checkpoint_tenant_key).
+DO $$
+BEGIN
+  IF to_regprocedure('public.ironguard_arm_langgraph_checkpoint_tenant_keys()') IS NOT NULL THEN
+    PERFORM public.ironguard_arm_langgraph_checkpoint_tenant_keys();
+  END IF;
+END
+$$;
+
 
 -- -----------------------------------------------------------------------------
 -- VERIFY after step 2 — expect one row per tenant-scoped table, and expect the
@@ -226,6 +237,8 @@ $$;
 -- GRANT SELECT ON TABLE public.tenants TO ironframe_privileged;
 -- GRANT SELECT ON TABLE public."BotAuditLog" TO ironframe_privileged;
 -- GRANT SELECT ON TABLE public.ironguard_violation TO ironframe_privileged;
+-- GRANT SELECT ON TABLE public."ThreatEvent" TO ironframe_privileged;
+-- GRANT SELECT ON TABLE public."SimThreatEvent" TO ironframe_privileged;
 -- GRANT SELECT, UPDATE ON TABLE public."SystemConfig" TO ironframe_privileged;
 -- ALTER POLICY "tenant_isolation_BotAuditLog" ON public."BotAuditLog"
 --   TO ironframe_app, anon, authenticated;

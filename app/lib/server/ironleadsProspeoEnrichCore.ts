@@ -13,7 +13,7 @@ import {
 } from "@/app/lib/server/prospeoEnrichmentClient";
 import { resolveSuspectLocationFields } from "@/app/lib/server/ironleadsSuspectLocation";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 export type { ProspeoEnrichSnapshot };
 
@@ -76,8 +76,9 @@ export async function enrichIronleadsSuspectWithProspeo(
     };
   }
 
-  const contact = await prisma.ironboardCrmContact.findUnique({
-    where: { id: contactId },
+  const contact = await withProspectPoolTenant((tx, tenantId) =>
+    tx.ironboardCrmContact.findFirst({
+    where: { id: contactId, tenantId },
     include: {
       primaryDeals: {
         where: { stage: "SUSPECT" },
@@ -85,7 +86,8 @@ export async function enrichIronleadsSuspectWithProspeo(
         take: 1,
       },
     },
-  });
+    }),
+  );
   if (!contact) {
     return { ok: false, error: "Contact not found", status: 404 };
   }
@@ -285,17 +287,19 @@ export async function enrichIronleadsSuspectWithProspeo(
   nextMeta.prospeoEnrichment = prospeo;
   contactUpdate.metadata = nextMeta as Prisma.InputJsonValue;
 
-  await prisma.ironboardCrmContact.update({
-    where: { id: contact.id },
-    data: contactUpdate,
-  });
-
-  if (!deal.accountDomain) {
-    await prisma.ironboardCrmDeal.update({
-      where: { id: deal.id },
-      data: { accountDomain: domain },
+  await withProspectPoolTenant(async (tx, tenantId) => {
+    await tx.ironboardCrmContact.updateMany({
+      where: { id: contact.id, tenantId },
+      data: contactUpdate,
     });
-  }
+
+    if (!deal.accountDomain) {
+      await tx.ironboardCrmDeal.updateMany({
+        where: { id: deal.id, tenantId },
+        data: { accountDomain: domain },
+      });
+    }
+  });
 
   const report = await buildIronleadsSuspectReport(contactId);
   if (!report) {

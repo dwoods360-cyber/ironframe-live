@@ -8,7 +8,7 @@ import {
   normalizeAccountDomain,
   normalizeSuspectCompanyKey,
 } from "@/app/lib/ingress/ironleadsSuspectIdentity";
-import { bindIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { websiteUrlFromDomainOrUrl } from "@/app/lib/server/ironleadsSuspectLocation";
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import {
@@ -120,8 +120,7 @@ export async function ingestIronleadsLead(input: IronleadsIngressPayload): Promi
   const priorityScore = priorityScoreFromSignals(qualification);
   const vulnerabilityClass = classifyVulnerability(qualification);
 
-  return prisma.$transaction(async (tx) => {
-    await bindIronguardTenant(tx, tenant.id);
+  return withIronguardTenant(tenant.id, async (tx) => {
 
     const existingByDomain = accountDomain
       ? await tx.ironboardCrmDeal.findFirst({

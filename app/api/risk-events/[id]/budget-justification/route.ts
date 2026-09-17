@@ -3,10 +3,10 @@ import { NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import { ThreatState } from "@prisma/client";
 import { getCompanyIdForTenantUuid } from "@/app/lib/grc/clearanceThreatResolve";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { loadIncidentReportPayload } from "@/app/utils/incidentReportData";
 import { buildDueDiligencePdfBytes } from "@/app/utils/generateDueDiligenceReport";
-import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +36,12 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ id: str
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const row = await prisma.riskEvent.findFirst({
-    where: { id: tid, tenantCompanyId: companyId },
-    select: { id: true, status: true },
-  });
+  const row = await withIronguardTenant(guard.tenantUuid, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: tid, tenantCompanyId: companyId, tenantId: guard.tenantUuid },
+      select: { id: true, status: true },
+    }),
+  );
   if (!row) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ id: str
     );
   }
 
-  const payload = await loadIncidentReportPayload(tid);
+  const payload = await loadIncidentReportPayload(tid, guard.tenantUuid);
   if (!payload) {
     return NextResponse.json({ error: "Could not load case payload" }, { status: 500 });
   }

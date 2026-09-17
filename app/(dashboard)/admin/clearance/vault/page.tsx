@@ -1,6 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
 import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import AdminClearanceClient, { type ClearanceThreatRow } from "./AdminClearanceClient";
@@ -26,20 +27,24 @@ export default async function AdminClearanceVaultPage() {
     select: { id: true },
   });
 
-  const queue = company
-    ? await prisma.threatEvent.findMany({
-        where: {
-          status: { in: CLEARANCE_QUEUE_STATUSES },
-          tenantCompanyId: company.id,
-        },
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          title: true,
-          status: true,
-        },
-      })
-    : [];
+  const queue =
+    company && tenantUuid
+      ? await withIronguardTenant(tenantUuid, (tx) =>
+          tx.threatEvent.findMany({
+            where: {
+              tenantId: tenantUuid,
+              status: { in: CLEARANCE_QUEUE_STATUSES },
+              tenantCompanyId: company.id,
+            },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              title: true,
+              status: true,
+            },
+          }),
+        )
+      : [];
 
   const initialThreats: ClearanceThreatRow[] = queue.map(
     (t: { id: string; title: string; status: string }) => ({

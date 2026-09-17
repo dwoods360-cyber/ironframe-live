@@ -4,7 +4,7 @@ export const fetchCache = "force-no-store";
 
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 export type IntelligenceDiagnosticRow = {
@@ -31,22 +31,24 @@ export async function GET(request: NextRequest) {
     Math.max(1, Number.parseInt(request.nextUrl.searchParams.get("limit") ?? "80", 10) || 80),
   );
 
-  const rows = await prisma.simulationDiagnosticLog.findMany({
-    where: {
-      tenantUuid,
-      ...(threatId ? { simThreatId: threatId } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take,
-    select: {
-      id: true,
-      createdAt: true,
-      action: true,
-      operatorId: true,
-      simThreatId: true,
-      payload: true,
-    },
-  });
+  const rows = await withIronguardTenant(tenantUuid, async (tx) =>
+    tx.simulationDiagnosticLog.findMany({
+      where: {
+        tenantUuid,
+        ...(threatId ? { simThreatId: threatId } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take,
+      select: {
+        id: true,
+        createdAt: true,
+        action: true,
+        operatorId: true,
+        simThreatId: true,
+        payload: true,
+      },
+    }),
+  );
 
   const body: IntelligenceDiagnosticRow[] = rows.map((r) => ({
     id: r.id,

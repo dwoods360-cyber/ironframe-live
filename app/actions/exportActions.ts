@@ -3,6 +3,7 @@
 import { createHash } from "crypto";
 import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { calculateBudgetJustification } from "@/app/utils/grcMath";
 import type { BulkEvidenceBundle, BulkEvidenceDateRange, BulkEvidenceRow } from "@/app/types/bulkEvidenceBundle";
@@ -13,6 +14,7 @@ import {
 } from "@/app/utils/brokerGateways";
 import { normalizeCarrierKey, type CarrierKey } from "@/app/utils/carrierTemplates";
 import { resolveEffectiveEvidenceChapter } from "@/app/utils/clearanceLogic";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 const TENANT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -111,26 +113,33 @@ export async function contributeAnonymizedLessonsAction(
   const tid = threatId.trim();
   if (!tid) return { ok: false, error: "Missing threat id." };
 
-  const sim = await prisma.riskEvent.findFirst({
-    where: { id: tid },
-    select: {
-      id: true,
-      reasoningLogs: {
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          agentName: true,
-          escalationLogic: true,
-          reasoning: true,
-          targetAsset: true,
-          confidence: true,
-          isCorrection: true,
-          createdAt: true,
+  const tenantId = await getActiveTenantUuidFromCookies();
+  if (!TENANT_UUID_RE.test(tenantId)) {
+    return { ok: false, error: "Invalid tenant context." };
+  }
+
+  const sim = await withIronguardTenant(tenantId, (tx) =>
+    tx.riskEvent.findFirst({
+      where: { id: tid, tenantId },
+      select: {
+        id: true,
+        reasoningLogs: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            agentName: true,
+            escalationLogic: true,
+            reasoning: true,
+            targetAsset: true,
+            confidence: true,
+            isCorrection: true,
+            createdAt: true,
+          },
         },
+        ingestionDetails: true,
       },
-      ingestionDetails: true,
-    },
-  });
+    }),
+  );
   if (!sim) return { ok: false, error: "Threat not found." };
 
   const { sanitized, assetClassesObserved } = await sanitizeReasoningLogSet(sim.reasoningLogs);
@@ -273,25 +282,28 @@ export async function getBulkEvidenceBundle(
   });
   const shreddedRiskIds = new Set(shreddedReceipts.map((r) => r.riskEventId));
 
-  const events = await prisma.riskEvent.findMany({
-    where: {
-      tenantCompanyId: { in: companyIds },
-      status: { in: closedOrValidated },
-      updatedAt: { gte: start, lte: end },
-    },
-    select: {
-      id: true,
-      title: true,
-      status: true,
-      updatedAt: true,
-      complianceFramework: true,
-      mappedControls: true,
-      financialRisk_cents: true,
-      ingestionDetails: true,
-      postMortemReportPath: true,
-    },
-    orderBy: { updatedAt: "desc" },
-  });
+  const events = await withIronguardTenant(tid, (tx) =>
+    tx.riskEvent.findMany({
+      where: {
+        tenantId: tid,
+        tenantCompanyId: { in: companyIds },
+        status: { in: closedOrValidated },
+        updatedAt: { gte: start, lte: end },
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        updatedAt: true,
+        complianceFramework: true,
+        mappedControls: true,
+        financialRisk_cents: true,
+        ingestionDetails: true,
+        postMortemReportPath: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+  );
 
   const chapterRows =
     events.length === 0

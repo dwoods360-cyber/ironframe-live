@@ -1,6 +1,7 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { assigneeKeyToDisplayName } from "@/app/utils/assignmentChainOfCustody";
 import {
@@ -86,33 +87,36 @@ async function fetchHistoricalHumanAssigneeKeys(
 ): Promise<string[]> {
   const keys = new Set<string>();
 
-  if (tenantCompanyIds.length > 0) {
-    const prodRows = await prisma.threatEvent.findMany({
+  await withIronguardTenant(tenantUuid, async (tx) => {
+    if (tenantCompanyIds.length > 0) {
+      const prodRows = await tx.threatEvent.findMany({
+        where: {
+          tenantId: tenantUuid,
+          tenantCompanyId: { in: tenantCompanyIds },
+          assigneeId: { not: null },
+        },
+        select: { assigneeId: true },
+        distinct: ["assigneeId"],
+      });
+      for (const row of prodRows) {
+        const key = row.assigneeId?.trim();
+        if (key && !isOpenThreatAssignee(key)) keys.add(key);
+      }
+    }
+
+    const simRows = await tx.riskEvent.findMany({
       where: {
-        tenantCompanyId: { in: tenantCompanyIds },
+        tenantId: tenantUuid,
         assigneeId: { not: null },
       },
       select: { assigneeId: true },
       distinct: ["assigneeId"],
     });
-    for (const row of prodRows) {
+    for (const row of simRows) {
       const key = row.assigneeId?.trim();
       if (key && !isOpenThreatAssignee(key)) keys.add(key);
     }
-  }
-
-  const simRows = await prisma.riskEvent.findMany({
-    where: {
-      tenantId: tenantUuid,
-      assigneeId: { not: null },
-    },
-    select: { assigneeId: true },
-    distinct: ["assigneeId"],
   });
-  for (const row of simRows) {
-    const key = row.assigneeId?.trim();
-    if (key && !isOpenThreatAssignee(key)) keys.add(key);
-  }
 
   return [...keys];
 }

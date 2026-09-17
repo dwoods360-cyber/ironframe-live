@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
 import prisma from "@/lib/prisma";
+import { getPrismaPrivileged } from "@/lib/prismaPrivileged";
 import { recalculateSystemMaturityScore } from "@/app/services/governanceScoring";
 import { IroncastService } from "@/services/ironcast.service";
 import {
@@ -17,6 +18,25 @@ import {
 } from "@/src/services/ironcast/stateFreezeCisoEscalation";
 import { runIrontechLkgSpawnProtocol } from "@/src/services/irontech/autonomousDecoupling";
 import { invokeTelemetryDropTriage } from "@/src/services/irontech/healthPostureMonitor";
+
+async function appendPlatformAuditForEveryTenant(data: Record<string, unknown>): Promise<void> {
+  const tenants = await getPrismaPrivileged().tenant.findMany({
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+  if (!tenants.length) {
+    throw new Error("No tenant rows available for platform audit fan-out.");
+  }
+  for (const tenant of tenants) {
+    await auditLogCreateLoose({
+      data: {
+        ...data,
+        tenantId: tenant.id,
+        governance_tenant_uuid: tenant.id,
+      },
+    });
+  }
+}
 
 /** Logged on each check; matches `SystemHealthLog.serviceKey`. */
 export const IRONWATCH_SERVICE_KEY_ELECTRICITY_MAPS = "ELECTRICITY_MAPS_LIVE";
@@ -152,7 +172,7 @@ export async function pingElectricityMapsLive(): Promise<ElectricityMapsPingResu
 }
 
 async function ironcastNotifyStaleData(): Promise<void> {
-  const adminRow = await prisma.systemConfig.findUnique({
+  const adminRow = await getPrismaPrivileged().systemConfig.findUnique({
     where: { id: "global" },
     select: { adminAlertEmail: true },
   });
@@ -193,7 +213,7 @@ async function ironcastNotifyStaleData(): Promise<void> {
 }
 
 async function ironcastNotifyFidelityRestored(): Promise<void> {
-  const adminRow = await prisma.systemConfig.findUnique({
+  const adminRow = await getPrismaPrivileged().systemConfig.findUnique({
     where: { id: "global" },
     select: { adminAlertEmail: true },
   });
@@ -235,7 +255,7 @@ async function ironcastNotifyFidelityRestored(): Promise<void> {
 }
 
 async function maybeEmitIrontechStaleLockdownWitness(): Promise<void> {
-  const row = await prisma.systemConfig.findUnique({
+  const row = await getPrismaPrivileged().systemConfig.findUnique({
     where: { id: "global" },
     select: {
       sustainabilityLiveApiDegraded: true,
@@ -264,25 +284,23 @@ async function maybeEmitIrontechStaleLockdownWitness(): Promise<void> {
   };
   const witnessSha256 = hashStaleLockdownWitnessPayload(witnessPayload);
 
-  await prisma.systemConfig.update({
+  await getPrismaPrivileged().systemConfig.update({
     where: { id: "global" },
     data: { sustainabilityStaleLockdownWitnessAt: new Date() },
   });
 
   try {
-    await auditLogCreateLoose({
-      data: {
-        action: "IRONTECH_SUSTAINABILITY_STALE_LOCKDOWN",
-        justification: JSON.stringify({
-          ...witnessPayload,
-          witnessSha256,
-          message:
-            "Irontech (Agent 12): cryptographic witness — sustainability live API degraded ≥24h consecutive wall-clock; system-wide mutation freeze engaged until heartbeat healthy or tripartite stale-data waiver. Linked to latest SystemHealthLog row for Ironwatch service key.",
-        }),
-        operatorId: "IRONTECH_AGENT_12",
-        threatId: null,
-        isSimulation: false,
-      },
+    await appendPlatformAuditForEveryTenant({
+      action: "IRONTECH_SUSTAINABILITY_STALE_LOCKDOWN",
+      justification: JSON.stringify({
+        ...witnessPayload,
+        witnessSha256,
+        message:
+          "Irontech (Agent 12): cryptographic witness — sustainability live API degraded ≥24h consecutive wall-clock; system-wide mutation freeze engaged until heartbeat healthy or tripartite stale-data waiver. Linked to latest SystemHealthLog row for Ironwatch service key.",
+      }),
+      operatorId: "IRONTECH_AGENT_12",
+      threatId: null,
+      isSimulation: false,
     });
   } catch (e) {
     console.error("[Ironwatch] stale lockdown witness audit failed", e);
@@ -324,11 +342,11 @@ export async function runIronwatchElectricityMapsHeartbeat(): Promise<IronwatchH
     },
   });
 
-  const cfg = await prisma.systemConfig.findUnique({ where: { id: "global" } });
+  const cfg = await getPrismaPrivileged().systemConfig.findUnique({ where: { id: "global" } });
   const wasDegraded = cfg?.sustainabilityLiveApiDegraded === true;
   const nowPre = new Date();
   if (wasDegraded && cfg && !cfg.sustainabilityApiDegradedSince) {
-    await prisma.systemConfig.update({
+    await getPrismaPrivileged().systemConfig.update({
       where: { id: "global" },
       data: {
         sustainabilityApiDegradedSince: cfg.ironwatchStaleDataNotifiedAt ?? nowPre,
@@ -347,7 +365,7 @@ export async function runIronwatchElectricityMapsHeartbeat(): Promise<IronwatchH
     if (wasDegraded) {
       isDegraded = false;
       recovered = true;
-      await prisma.systemConfig.update({
+      await getPrismaPrivileged().systemConfig.update({
         where: { id: "global" },
         data: {
           sustainabilityApiHeartbeatFailures: 0,
@@ -361,20 +379,18 @@ export async function runIronwatchElectricityMapsHeartbeat(): Promise<IronwatchH
       });
 
       try {
-        await auditLogCreateLoose({
-          data: {
-            action: "IRONWATCH_SUSTAINABILITY_API_RECOVERED",
-            justification: JSON.stringify({
-              event: "IRONWATCH_RECOVERY",
-              agent: "IRONWATCH_AGENT_15",
-              message:
-                "External sustainability live feed healthy — Stale Data mode cleared; Ironwatch self-healing witness (maturity penalty removed).",
-              ping: { latencyMs: ping.latencyMs, httpStatus: ping.httpStatus ?? null },
-            }),
-            operatorId: "IRONWATCH_AGENT_15",
-            threatId: null,
-            isSimulation: false,
-          },
+        await appendPlatformAuditForEveryTenant({
+          action: "IRONWATCH_SUSTAINABILITY_API_RECOVERED",
+          justification: JSON.stringify({
+            event: "IRONWATCH_RECOVERY",
+            agent: "IRONWATCH_AGENT_15",
+            message:
+              "External sustainability live feed healthy — Stale Data mode cleared; Ironwatch self-healing witness (maturity penalty removed).",
+            ping: { latencyMs: ping.latencyMs, httpStatus: ping.httpStatus ?? null },
+          }),
+          operatorId: "IRONWATCH_AGENT_15",
+          threatId: null,
+          isSimulation: false,
         });
       } catch (e) {
         console.error("[Ironwatch] recovery audit failed", e);
@@ -383,7 +399,7 @@ export async function runIronwatchElectricityMapsHeartbeat(): Promise<IronwatchH
       await recalculateSystemMaturityScore({ trigger: "IRONWATCH_RECOVERY" });
       await ironcastNotifyFidelityRestored();
     } else {
-      await prisma.systemConfig.update({
+      await getPrismaPrivileged().systemConfig.update({
         where: { id: "global" },
         data: {
           sustainabilityApiHeartbeatFailures: 0,
@@ -398,7 +414,7 @@ export async function runIronwatchElectricityMapsHeartbeat(): Promise<IronwatchH
     if (shouldDegrade && !wasDegraded) {
       isDegraded = true;
       enteredStaleMode = true;
-      await prisma.systemConfig.update({
+      await getPrismaPrivileged().systemConfig.update({
         where: { id: "global" },
         data: {
           sustainabilityApiHeartbeatFailures: failures,
@@ -414,20 +430,18 @@ export async function runIronwatchElectricityMapsHeartbeat(): Promise<IronwatchH
       });
 
       try {
-        await auditLogCreateLoose({
-          data: {
-            action: "IRONWATCH_STALE_DATA_MODE",
-            justification: JSON.stringify({
-              event: "IRONWATCH_STALE_DATA",
-              agent: "IRONWATCH_AGENT_15",
-              consecutiveFailures: failures,
-              thresholdFailures: IRONWATCH_MIN_CONSECUTIVE_FAILURES,
-              message: IRONWATCH_STALE_DATA_IRONCAST_BODY,
-            }),
-            operatorId: "IRONWATCH_AGENT_15",
-            threatId: null,
-            isSimulation: false,
-          },
+        await appendPlatformAuditForEveryTenant({
+          action: "IRONWATCH_STALE_DATA_MODE",
+          justification: JSON.stringify({
+            event: "IRONWATCH_STALE_DATA",
+            agent: "IRONWATCH_AGENT_15",
+            consecutiveFailures: failures,
+            thresholdFailures: IRONWATCH_MIN_CONSECUTIVE_FAILURES,
+            message: IRONWATCH_STALE_DATA_IRONCAST_BODY,
+          }),
+          operatorId: "IRONWATCH_AGENT_15",
+          threatId: null,
+          isSimulation: false,
         });
       } catch (e) {
         console.error("[Ironwatch] stale mode audit failed", e);
@@ -450,7 +464,7 @@ export async function runIronwatchElectricityMapsHeartbeat(): Promise<IronwatchH
         );
       }
     } else {
-      await prisma.systemConfig.update({
+      await getPrismaPrivileged().systemConfig.update({
         where: { id: "global" },
         data: {
           sustainabilityApiHeartbeatFailures: failures,

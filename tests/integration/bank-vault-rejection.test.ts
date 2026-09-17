@@ -4,11 +4,13 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+const MEDSHIELD_TENANT_UUID = "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01";
+
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     get: (name: string) => {
       if (name === "ironframe-tenant") {
-        return { value: "tenant-medshield-uuid" };
+        return { value: MEDSHIELD_TENANT_UUID };
       }
       return undefined;
     },
@@ -30,9 +32,10 @@ const { prismaMock } = vi.hoisted(() => ({
       findFirst: vi.fn(async () => ({ id: 100n })),
     },
     tenant: {
-      findUnique: vi.fn(async () => ({ id: "tenant-medshield-uuid" })),
-      findFirst: vi.fn(async () => ({ id: "tenant-medshield-uuid" })),
+      findUnique: vi.fn(async () => ({ id: MEDSHIELD_TENANT_UUID })),
+      findFirst: vi.fn(async () => ({ id: MEDSHIELD_TENANT_UUID })),
     },
+    $transaction: vi.fn(),
     threatApproval: {
       findUnique: vi.fn(),
     },
@@ -51,6 +54,11 @@ const { prismaMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({
   default: prismaMock,
+}));
+
+vi.mock("@/app/lib/server/ironguardSessionTenant", () => ({
+  withIronguardTenant: vi.fn(async (_tenant: string, fn: (tx: typeof prismaMock) => unknown) =>
+    fn(prismaMock)),
 }));
 
 import { resolveThreatAction } from "@/app/actions/threatActions";
@@ -72,10 +80,11 @@ describe("Epic 11 bank vault rejection gate", () => {
       assigneeId: "operator-001",
     });
     prismaMock.company.findUnique.mockResolvedValue({
-      tenantId: "tenant-medshield-uuid",
+      tenantId: MEDSHIELD_TENANT_UUID,
     });
+    prismaMock.company.findFirst.mockResolvedValue({ id: 100n });
     prismaMock.tenant.findUnique.mockResolvedValue({
-      id: "tenant-medshield-uuid",
+      id: MEDSHIELD_TENANT_UUID,
     });
     prismaMock.threatApproval.findUnique.mockResolvedValue(null);
 

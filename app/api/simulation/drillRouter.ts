@@ -1,6 +1,7 @@
 import { ThreatState } from "@prisma/client";
 import type { ChaosScenario } from "@/app/actions/chaosActions";
 import { getCompanyIdForTenantUuid } from "@/app/lib/grc/clearanceThreatResolve";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { validateIngressContext } from "@/app/middleware/irongateShield";
 import prisma from "@/lib/prisma";
 
@@ -93,20 +94,22 @@ export async function executeChaosDrill(
     requestedBy: payload.requestedBy,
   });
 
-  const created = await prisma.threatEvent.create({
-    data: {
-      title: `Ironframe Chaos Drill — Scenario ${payload.scenarioId}`,
-      sourceAgent: "CHAOS_SIMULATION",
-      score: 10,
-      targetEntity: "ChaosLab",
-      financialRisk_cents: 0n,
-      status: ThreatState.IDENTIFIED,
-      tenantCompanyId: companyId,
-      tenantId: tenantScopeUuid,
-      ingestionDetails,
-      ttlSeconds: 259_200,
-    },
-  });
+  const created = await withIronguardTenant(tenantScopeUuid, (tx) =>
+    tx.threatEvent.create({
+      data: {
+        title: `Ironframe Chaos Drill — Scenario ${payload.scenarioId}`,
+        sourceAgent: "CHAOS_SIMULATION",
+        score: 10,
+        targetEntity: "ChaosLab",
+        financialRisk_cents: 0n,
+        status: ThreatState.IDENTIFIED,
+        tenantCompanyId: companyId,
+        tenantId: tenantScopeUuid,
+        ingestionDetails,
+        ttlSeconds: 259_200,
+      },
+    }),
+  );
 
   return {
     id: created.id,

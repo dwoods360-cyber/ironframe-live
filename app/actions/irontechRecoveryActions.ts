@@ -19,23 +19,22 @@ export async function recoveryArchiveResolveAction(
     return { success: false, error: "Missing threat or agent context." };
   }
   try {
-    await prisma.$transaction([
-      auditLogCreateLoose({
-        data: {
-          action: "IRONTECH_RECOVERY_ARCHIVE",
-          justification: `GRC-approved archive & resolve (external resolution). Agent: ${agent}.`,
-          operatorId: "irontech-recovery",
-          threatId: tid,
-        },
-      }),
-      prisma.agentOperation.updateMany({
-        where: { threatId: tid, agentName: agent },
-        data: {
-          status: AgentOperationStatus.COMPLETED,
-          lastError: null,
-        },
-      }),
-    ]);
+    // auditLogCreateLoose opens its own tenant-bound transaction (not a PrismaPromise).
+    await auditLogCreateLoose({
+      data: {
+        action: "IRONTECH_RECOVERY_ARCHIVE",
+        justification: `GRC-approved archive & resolve (external resolution). Agent: ${agent}.`,
+        operatorId: "irontech-recovery",
+        threatId: tid,
+      },
+    });
+    await prisma.agentOperation.updateMany({
+      where: { threatId: tid, agentName: agent },
+      data: {
+        status: AgentOperationStatus.COMPLETED,
+        lastError: null,
+      },
+    });
     revalidatePath("/");
     return { success: true };
   } catch (e) {

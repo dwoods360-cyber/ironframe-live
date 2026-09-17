@@ -2,7 +2,7 @@
  * TAS Section 3 — Irontally Framework Mapping (Agent 19 Core Directive)
  * Epic 16 / Epic 8 — Continuous Auditor-Ready Evidence Compiler
  */
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 export type {
   FrameworkReadinessLabel,
@@ -51,22 +51,24 @@ export async function compileFrameworkReadiness(tenantId: string): Promise<Frame
   let activeLogs: AuditLogRow[];
 
   try {
-    const rows = await prisma.auditLog.findMany({
-      where: {
-        isSimulation: false,
-        action: { in: [...IRONTALLY_EVIDENCE_AUDIT_ACTIONS] },
-        OR: [{ tenantId: trimmedTenantId }, { governance_tenant_uuid: trimmedTenantId }],
-      },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: {
-        id: true,
-        action: true,
-        threatId: true,
-        justification: true,
-        createdAt: true,
-      },
-    });
+    const rows = await withIronguardTenant(trimmedTenantId, (tx) =>
+      tx.auditLog.findMany({
+        where: {
+          isSimulation: false,
+          action: { in: [...IRONTALLY_EVIDENCE_AUDIT_ACTIONS] },
+          OR: [{ tenantId: trimmedTenantId }, { governance_tenant_uuid: trimmedTenantId }],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          action: true,
+          threatId: true,
+          justification: true,
+          createdAt: true,
+        },
+      }),
+    );
     activeLogs = rows.map(normalizeAuditLogRow);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

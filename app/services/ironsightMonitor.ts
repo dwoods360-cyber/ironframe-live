@@ -134,8 +134,8 @@ export type IronsightPollResult = {
 /**
  * Ironsight (Agent 4 / tactical sentinel plane) — poll external regulatory feeds and hand off to Irontally.
  */
-export async function runIronsightRegulatoryPoll(): Promise<IronsightPollResult> {
-  const prev = await readComplianceDriftState();
+export async function runIronsightRegulatoryPoll(tenantId: string): Promise<IronsightPollResult> {
+  const prev = await readComplianceDriftState(tenantId);
   const collected: RegulatoryFeedItem[] = [];
   let sourcesPolled = 0;
 
@@ -161,7 +161,7 @@ export async function runIronsightRegulatoryPoll(): Promise<IronsightPollResult>
     return acc + (text.includes("breach") || text.includes("tenant") || text.includes("ai ") ? 1 : 0);
   }, 0) + mnBpsAlerts.length;
 
-  await writeComplianceDriftState({
+  await writeComplianceDriftState(tenantId, {
     ...prev,
     lastPollAt: new Date().toISOString(),
     alerts: merged,

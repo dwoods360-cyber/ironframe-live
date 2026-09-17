@@ -10,7 +10,7 @@
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
-import prisma from "@/lib/prisma";
+import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { resolveDispositionOperatorId } from "@/app/utils/serverAuth";
@@ -76,81 +76,87 @@ export async function submitOperationalDeficiencyReportAction(input: {
       return { success: false, error: "Gemini repair packet is required." };
     }
 
-    const company = await prisma.company.findFirst({
-      where: { tenantId: tenantUuid },
-      select: { id: true },
-    });
-    const companyId = company?.id ?? null;
-    if (companyId == null) {
-      return { success: false, error: "No company for active tenant." };
-    }
+    const created = await withIronguardTenant(tenantUuid, async (tx) => {
+      const company = await tx.company.findFirst({
+        where: { tenantId: tenantUuid },
+        select: { id: true },
+      });
+      const companyId = company?.id ?? null;
+      if (companyId == null) {
+        return { error: "No company for active tenant." as const };
+      }
 
-    const row = await prisma.riskEvent.findFirst({
-      where: { id: input.threatId, tenantCompanyId: companyId },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        score: true,
-        ingestionDetails: true,
-      },
-    });
+      const row = await tx.riskEvent.findFirst({
+        where: { id: input.threatId, tenantCompanyId: companyId },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          score: true,
+          ingestionDetails: true,
+        },
+      });
 
-    if (!row) {
-      return { success: false, error: "Sim threat not found for this tenant." };
-    }
+      if (!row) {
+        return { error: "Sim threat not found for this tenant." as const };
+      }
 
-    const likelihood = clampTriage(input.likelihood, 8);
-    const impact = clampTriage(input.impact, 9);
-    const residualScore = likelihood * impact;
-    const ingestionFull =
-      normalizeIngestionDetailsToString(row.ingestionDetails ?? null) ?? null;
-    const snapshot = {
-      threatId: row.id,
-      threatTitle: row.title,
-      status: String(row.status),
-      dbScore: row.score,
-      severityLabel: residualScoreToSeverityLabel(residualScore),
-      likelihood,
-      impact,
-      residualScore,
-      ingestionDetailsFull: ingestionFull,
-      ingestionDiagnostics: extractIngestionDiagnostics(ingestionFull),
-      capturedAt: new Date().toISOString(),
-    };
+      const likelihood = clampTriage(input.likelihood, 8);
+      const impact = clampTriage(input.impact, 9);
+      const residualScore = likelihood * impact;
+      const ingestionFull =
+        normalizeIngestionDetailsToString(row.ingestionDetails ?? null) ?? null;
+      const snapshot = {
+        threatId: row.id,
+        threatTitle: row.title,
+        status: String(row.status),
+        dbScore: row.score,
+        severityLabel: residualScoreToSeverityLabel(residualScore),
+        likelihood,
+        impact,
+        residualScore,
+        ingestionDetailsFull: ingestionFull,
+        ingestionDiagnostics: extractIngestionDiagnostics(ingestionFull),
+        capturedAt: new Date().toISOString(),
+      };
 
-    const reportId = randomUUID();
-    const gitRevision = getGitRevisionForDiagnostics();
-    const payload: OperationalDeficiencyReportJustificationV1 = {
-      schemaVersion: 1,
-      reportId,
-      priority: "HIGH",
-      tenantUuid,
-      comment,
-      snapshot,
-      sourceComponentPath,
-      gitRevision,
-      geminiRepairPacket,
-    };
-
-    const operatorId = await resolveDispositionOperatorId();
-
-    const created = await prisma.simulationDiagnosticLog.create({
-      data: {
+      const reportId = randomUUID();
+      const gitRevision = getGitRevisionForDiagnostics();
+      const payload: OperationalDeficiencyReportJustificationV1 = {
+        schemaVersion: 1,
+        reportId,
+        priority: "HIGH",
         tenantUuid,
-        simThreatId: row.id,
-        action: OPERATIONAL_DEFICIENCY_REPORT,
-        payload: payload as unknown as Prisma.InputJsonValue,
-        operatorId,
-      },
-      select: { id: true },
+        comment,
+        snapshot,
+        sourceComponentPath,
+        gitRevision,
+        geminiRepairPacket,
+      };
+
+      const operatorId = await resolveDispositionOperatorId();
+
+      const createdRow = await tx.simulationDiagnosticLog.create({
+        data: {
+          tenantUuid,
+          simThreatId: row.id,
+          action: OPERATIONAL_DEFICIENCY_REPORT,
+          payload: payload as unknown as Prisma.InputJsonValue,
+          operatorId,
+        },
+        select: { id: true },
+      });
+      return { reportId, auditLogId: createdRow.id };
     });
+    if ("error" in created) {
+      return { success: false, error: String(created.error) };
+    }
 
     revalidatePath("/opsupport");
     revalidatePath("/");
     revalidatePath("/", "layout");
 
-    return { success: true, reportId, auditLogId: created.id };
+    return { success: true, reportId: created.reportId, auditLogId: created.auditLogId };
   } catch (e) {
     console.error("[operationalDeficiencyActions] submit:", e);
     return {
@@ -178,56 +184,62 @@ export async function submitOperationalSelfTestPassAction(input: {
       return { success: false, error: "Source component path is required." };
     }
 
-    const company = await prisma.company.findFirst({
-      where: { tenantId: tenantUuid },
-      select: { id: true },
-    });
-    const companyId = company?.id ?? null;
-    if (companyId == null) {
-      return { success: false, error: "No company for active tenant." };
-    }
+    const bound = await withIronguardTenant(tenantUuid, async (tx) => {
+      const company = await tx.company.findFirst({
+        where: { tenantId: tenantUuid },
+        select: { id: true },
+      });
+      const companyId = company?.id ?? null;
+      if (companyId == null) {
+        return { error: "No company for active tenant." as const };
+      }
 
-    const row = await prisma.riskEvent.findFirst({
-      where: { id: input.threatId, tenantCompanyId: companyId },
-      select: { id: true, title: true, status: true, score: true, ingestionDetails: true },
-    });
+      const row = await tx.riskEvent.findFirst({
+        where: { id: input.threatId, tenantCompanyId: companyId },
+        select: { id: true, title: true, status: true, score: true, ingestionDetails: true },
+      });
 
-    if (!row) {
-      return { success: false, error: "Sim threat not found for this tenant." };
-    }
+      if (!row) {
+        return { error: "Sim threat not found for this tenant." as const };
+      }
 
-    const likelihood = clampTriage(input.likelihood, 8);
-    const impact = clampTriage(input.impact, 9);
-    const residualScore = likelihood * impact;
-    const gitRevision = getGitRevisionForDiagnostics();
-    const payload = {
-      schemaVersion: 1 as const,
-      kind: "SELF_TEST_PASS" as const,
-      tenantUuid,
-      threatId: row.id,
-      threatTitle: row.title,
-      status: String(row.status),
-      dbScore: row.score,
-      likelihood,
-      impact,
-      residualScore,
-      severityLabel: residualScoreToSeverityLabel(residualScore),
-      sourceComponentPath,
-      gitRevision,
-      capturedAt: new Date().toISOString(),
-    };
-
-    const operatorId = await resolveDispositionOperatorId();
-    await prisma.simulationDiagnosticLog.create({
-      data: {
+      const likelihood = clampTriage(input.likelihood, 8);
+      const impact = clampTriage(input.impact, 9);
+      const residualScore = likelihood * impact;
+      const gitRevision = getGitRevisionForDiagnostics();
+      const payload = {
+        schemaVersion: 1 as const,
+        kind: "SELF_TEST_PASS" as const,
         tenantUuid,
-        simThreatId: row.id,
-        action: OPERATIONAL_SELF_TEST_PASS,
-        payload: payload as unknown as Prisma.InputJsonValue,
-        operatorId,
-      },
-      select: { id: true },
+        threatId: row.id,
+        threatTitle: row.title,
+        status: String(row.status),
+        dbScore: row.score,
+        likelihood,
+        impact,
+        residualScore,
+        severityLabel: residualScoreToSeverityLabel(residualScore),
+        sourceComponentPath,
+        gitRevision,
+        capturedAt: new Date().toISOString(),
+      };
+
+      const operatorId = await resolveDispositionOperatorId();
+      await tx.simulationDiagnosticLog.create({
+        data: {
+          tenantUuid,
+          simThreatId: row.id,
+          action: OPERATIONAL_SELF_TEST_PASS,
+          payload: payload as unknown as Prisma.InputJsonValue,
+          operatorId,
+        },
+        select: { id: true },
+      });
+      return { ok: true as const };
     });
+    if ("error" in bound) {
+      return { success: false, error: String(bound.error) };
+    }
 
     revalidatePath("/opsupport");
     revalidatePath("/");
@@ -264,32 +276,34 @@ export async function resolveOperationalDeficiencyReportAction(
       resolvedAt: now.toISOString(),
       tenantUuid,
     };
-    await prisma.simulationDiagnosticLog.create({
-      data: {
-        tenantUuid,
-        simThreatId: null,
-        action: OPERATIONAL_DEFICIENCY_RESOLVED,
-        payload: resolved as unknown as Prisma.InputJsonValue,
-        operatorId,
-      },
-    });
-
-    const rid = reportId.trim();
-    const reportRows = await prisma.simulationDiagnosticLog.findMany({
-      where: {
-        tenantUuid,
-        action: OPERATIONAL_DEFICIENCY_REPORT,
-        resolvedAt: null,
-      },
-      select: { id: true, payload: true },
-    });
-    const target = reportRows.find((row) => parseReportPayloadFromJsonValue(row.payload)?.reportId === rid);
-    if (target) {
-      await prisma.simulationDiagnosticLog.update({
-        where: { id: target.id },
-        data: { resolvedAt: now },
+    await withIronguardTenant(tenantUuid, async (tx) => {
+      await tx.simulationDiagnosticLog.create({
+        data: {
+          tenantUuid,
+          simThreatId: null,
+          action: OPERATIONAL_DEFICIENCY_RESOLVED,
+          payload: resolved as unknown as Prisma.InputJsonValue,
+          operatorId,
+        },
       });
-    }
+
+      const rid = reportId.trim();
+      const reportRows = await tx.simulationDiagnosticLog.findMany({
+        where: {
+          tenantUuid,
+          action: OPERATIONAL_DEFICIENCY_REPORT,
+          resolvedAt: null,
+        },
+        select: { id: true, payload: true },
+      });
+      const target = reportRows.find((row) => parseReportPayloadFromJsonValue(row.payload)?.reportId === rid);
+      if (target) {
+        await tx.simulationDiagnosticLog.update({
+          where: { id: target.id },
+          data: { resolvedAt: now },
+        });
+      }
+    });
 
     revalidatePath("/opsupport");
     revalidatePath("/", "layout");

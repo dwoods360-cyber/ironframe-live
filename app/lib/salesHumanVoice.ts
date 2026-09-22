@@ -46,7 +46,10 @@ export function hasRunOnEconomics(text: string): boolean {
   return false;
 }
 
-export function lintSalesHumanVoice(body: string): {
+export function lintSalesHumanVoice(
+  body: string,
+  opts?: { allowMissingPeerCta?: boolean },
+): {
   ok: boolean;
   issues: HumanVoiceIssue[];
 } {
@@ -79,6 +82,7 @@ export function lintSalesHumanVoice(body: string): {
     // soft check — either form of CTA is fine
   }
   if (
+    !opts?.allowMissingPeerCta &&
     !/10[–-]15\s*min(ute)?\s+workflow review/i.test(text) &&
     !/workflow review/i.test(text)
   ) {

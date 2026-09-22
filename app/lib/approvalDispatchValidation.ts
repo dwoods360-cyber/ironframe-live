@@ -2,6 +2,10 @@
 
 import { hasC1FounderEmailSignature } from "@/app/lib/salesC1FounderSignature";
 import { lintSalesHumanVoice } from "@/app/lib/salesHumanVoice";
+import {
+  looksLikeTouch3ValueDropBody,
+  looksLikeTouchEconomicsBody,
+} from "@/app/lib/salesTouch3Body";
 
 export type ApprovalDispatchChannel = "EMAIL" | "SMS";
 
@@ -94,6 +98,11 @@ export type DispatchValidationInput = {
    * UI checkbox: “Acknowledge dry-run to my inbox”.
    */
   acknowledgeOperatorSelfDispatch?: boolean;
+  /**
+   * When TOUCH3 (Value Drop), skip T1/T2 economics CTA locks and require
+   * three-check body without $4,999 / workflow review.
+   */
+  expectedTouch?: "TOUCH1" | "TOUCH2" | "TOUCH3" | null;
 };
 
 export type DispatchValidationResult =
@@ -150,11 +159,25 @@ export function validateApprovalDispatch(
   }
 
   if (input.draftKind === "SALES" && input.channel === "EMAIL" && body) {
-    if (!/4,?999|\$4k|command\s+design\s+partner/i.test(body)) {
-      errors.push("Sales EMAIL must mention $4,999 or Command Design Partner (C1 lock).");
-    }
-    if (!/workflow\s*review/i.test(body)) {
-      errors.push("Sales EMAIL must include a workflow review CTA (C1 lock).");
+    const isTouch3 = input.expectedTouch === "TOUCH3";
+    if (isTouch3) {
+      if (looksLikeTouchEconomicsBody(body)) {
+        errors.push(
+          "Touch 3 Value Drop must not include $4,999 / GA / Command Design Partner / workflow review (use Touch 1–2 economics elsewhere).",
+        );
+      }
+      if (!looksLikeTouch3ValueDropBody(body)) {
+        errors.push(
+          "Touch 3 EMAIL must be the Value Drop three-check body (no pitch, numbered 1–3).",
+        );
+      }
+    } else {
+      if (!/4,?999|\$4k|command\s+design\s+partner/i.test(body)) {
+        errors.push("Sales EMAIL must mention $4,999 or Command Design Partner (C1 lock).");
+      }
+      if (!/workflow\s*review/i.test(body)) {
+        errors.push("Sales EMAIL must include a workflow review CTA (C1 lock).");
+      }
     }
     if (/free\s*(trial|poc|pilot)|proof\s*of\s*concept/i.test(body)) {
       errors.push("Sales EMAIL must not offer a free pilot / PoC / trial.");
@@ -167,7 +190,9 @@ export function validateApprovalDispatch(
     if (/ironframe\s+governance\s+frame/i.test(body)) {
       errors.push("Sales EMAIL must not use Governance Frame as the sales signature (C1 lock).");
     }
-    const voice = lintSalesHumanVoice(body);
+    const voice = lintSalesHumanVoice(body, {
+      allowMissingPeerCta: isTouch3,
+    });
     if (!voice.ok) {
       for (const issue of voice.issues) {
         errors.push(`Human voice: ${issue.message}`);

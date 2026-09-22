@@ -5,6 +5,7 @@ import {
   isPromoteReadyWorkEmail,
   mergeNamedBuyerIntoBriefMembers,
   selectAccountResearchBriefForReport,
+  type AccountResearchBrief,
 } from "@/app/lib/server/ironleadsAccountResearchBrief";
 
 describe("buildAccountResearchBrief", () => {
@@ -392,5 +393,35 @@ describe("buildAccountResearchBrief", () => {
     expect(selected.brief.gates.buyer.result).toBe("PASS");
     // Persisted scrape corpus / source ledger kept (not replaced by thin rebuild).
     expect(selected.brief.sourceLedger.some((s) => s.url.includes("/about"))).toBe(true);
+  });
+
+  it("does not crash when persisted brief is missing gates.buyer (Ops Hub digest 350965605)", () => {
+    const rebuilt = buildAccountResearchBrief({
+      company: "Strong Security Brasil",
+      websiteUrl: "https://www.strongsecurity.com.br",
+      detectedTrigger: "COMPLIANCE_JOB_POST",
+      industrySector: null,
+      dealStage: "SUSPECT",
+      corpus: "Strong Security Brasil cybersecurity",
+      sourceUrls: [],
+      members: [],
+      socialProfiles: [],
+      hasRealEmail: false,
+      contactEmail: null,
+      hasPhone: false,
+    });
+    const incomplete = {
+      ...rebuilt,
+      gates: {
+        fit: rebuilt.gates.fit,
+        pain: rebuilt.gates.pain,
+        // buyer intentionally omitted — legacy CRM metadata shape
+      },
+    } as unknown as AccountResearchBrief;
+
+    const selected = selectAccountResearchBriefForReport(incomplete, rebuilt);
+    expect(selected.reasons).toContain("incomplete_persisted_gates");
+    expect(selected.shouldPersist).toBe(true);
+    expect(selected.brief.gates.buyer.result).toBeDefined();
   });
 });

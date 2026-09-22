@@ -882,21 +882,32 @@ export type AccountResearchBriefSelection = {
  * Email, or roster drifted. When improving, merge gates onto the persisted brief so
  * company-intake UNKNOWN findings are not wiped by a thin report rebuild — and so
  * Prospeo personal-inbox PASS does land in CRM.
+ *
+ * Legacy / partial metadata briefs (missing `gates.buyer`) must not crash Ops Hub —
+ * treat as missing and accept the rebuilt brief.
  */
 export function selectAccountResearchBriefForReport(
   persistedBrief: AccountResearchBrief | null,
   rebuiltBrief: AccountResearchBrief,
 ): AccountResearchBriefSelection {
-  if (!persistedBrief) {
-    return { brief: rebuiltBrief, shouldPersist: true, reasons: ["missing_brief"] };
+  const persistedBuyer = persistedBrief?.gates?.buyer;
+  const rebuiltBuyer = rebuiltBrief?.gates?.buyer;
+  if (!persistedBrief || !persistedBuyer?.result) {
+    return {
+      brief: rebuiltBrief,
+      shouldPersist: true,
+      reasons: !persistedBrief ? ["missing_brief"] : ["incomplete_persisted_gates"],
+    };
+  }
+  if (!rebuiltBuyer?.result) {
+    // Rebuild should always include buyer; keep persisted if somehow thin.
+    return { brief: persistedBrief, shouldPersist: false, reasons: ["incomplete_rebuild"] };
   }
 
   const buyerImproved =
-    persistedBrief.gates.buyer.result === "FAIL" &&
-    rebuiltBrief.gates.buyer.result !== "FAIL";
+    persistedBuyer.result === "FAIL" && rebuiltBuyer.result !== "FAIL";
   const buyerDegraded =
-    persistedBrief.gates.buyer.result === "PASS" &&
-    rebuiltBrief.gates.buyer.result !== "PASS";
+    persistedBuyer.result === "PASS" && rebuiltBuyer.result !== "PASS";
   const emailMissing = !persistedBrief.gates?.email;
   const emailImproved =
     persistedBrief.gates.email?.result !== "PASS" &&
@@ -909,7 +920,7 @@ export function selectAccountResearchBriefForReport(
     .filter(Boolean)
     .sort()
     .join("|");
-  const rebuiltBuyerNames = rebuiltBrief.buyerMap
+  const rebuiltBuyerNames = (rebuiltBrief.buyerMap ?? [])
     .map((b) => (b.name ?? "").trim().toLowerCase())
     .filter(Boolean)
     .sort()
@@ -932,13 +943,13 @@ export function selectAccountResearchBriefForReport(
   // Thin report-corpus rebuilds must NOT wipe operator/Prospeo Buyer·Email PASS
   // (common when namedBuyer briefly fails to merge or contact.email is mid-write).
   const rebuiltForcesHold =
-    rebuiltBrief.outreach.status === "hold" ||
+    rebuiltBrief.outreach?.status === "hold" ||
     rebuiltBrief.competitiveConflict?.classification === "competitor" ||
     rebuiltBrief.competitiveConflict?.classification === "hold" ||
-    rebuiltBrief.snapshot.status === "HOLD";
+    rebuiltBrief.snapshot?.status === "HOLD";
 
   const persistedPromoteReady =
-    persistedBrief.gates.buyer.result === "PASS" &&
+    persistedBuyer.result === "PASS" &&
     persistedBrief.gates.email?.result === "PASS";
 
   // Absolute keep: operator/Prospeo promote gates + dossier Fit/Pain corpus win over any
@@ -982,8 +993,8 @@ export function selectAccountResearchBriefForReport(
   // Prefer persisted PASS when rebuild degrades without HOLD/competitor force.
   const buyerGate =
     buyerDegraded && !rebuiltForcesHold
-      ? persistedBrief.gates.buyer
-      : rebuiltBrief.gates.buyer;
+      ? persistedBuyer
+      : rebuiltBuyer;
   const emailGate =
     emailDegraded && !rebuiltForcesHold
       ? (persistedBrief.gates.email ?? rebuiltBrief.gates.email)
@@ -993,10 +1004,10 @@ export function selectAccountResearchBriefForReport(
     !rebuiltForcesHold &&
     (persistedBrief.buyerMap?.length ?? 0) > 0
       ? persistedBrief.buyerMap
-      : rebuiltBrief.buyerMap.length > 0
+      : (rebuiltBrief.buyerMap?.length ?? 0) > 0
         ? rebuiltBrief.buyerMap
         : persistedBrief.buyerMap;
-  const persistedOutreachStatus = String(persistedBrief.outreach.status);
+  const persistedOutreachStatus = String(persistedBrief.outreach?.status ?? "");
   const persistedOutreachPromote =
     persistedOutreachStatus === "promote" ||
     persistedOutreachStatus === "promote_ready";
@@ -1021,8 +1032,8 @@ export function selectAccountResearchBriefForReport(
       status:
         (buyerDegraded || emailDegraded) &&
         !rebuiltForcesHold &&
-        persistedBrief.snapshot.status !== "HOLD"
-          ? persistedBrief.snapshot.status
+        persistedBrief.snapshot?.status !== "HOLD"
+          ? (persistedBrief.snapshot?.status ?? rebuiltBrief.snapshot.status)
           : rebuiltBrief.snapshot.status,
     },
     generatedAt: rebuiltBrief.generatedAt ?? persistedBrief.generatedAt,
@@ -1041,6 +1052,14 @@ export function resolveAccountResearchBrief(metadata: unknown): AccountResearchB
   const meta = asRecord(metadata);
   const raw = asRecord(meta?.accountResearchBrief);
   if (!raw || typeof raw.generatedAt !== "string") return null;
+  const gates = asRecord(raw.gates);
+  const buyer = asRecord(gates?.buyer);
+  const snapshot = asRecord(raw.snapshot);
+  const outreach = asRecord(raw.outreach);
+  // Incomplete legacy briefs crash Ops Hub if trusted as full AccountResearchBrief.
+  if (!gates || typeof buyer?.result !== "string") return null;
+  if (!snapshot || typeof snapshot.status !== "string") return null;
+  if (!outreach || typeof outreach.status !== "string") return null;
   // Trust structured persist from our builder; re-hydrate lightly.
   return raw as unknown as AccountResearchBrief;
 }

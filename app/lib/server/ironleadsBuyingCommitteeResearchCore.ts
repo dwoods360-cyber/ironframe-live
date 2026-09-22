@@ -15,6 +15,7 @@ import {
   isPlausiblePersonName,
   looksLikeOsintTitleNoise,
   publishedEmailMatchesPerson,
+  isRoleLocalPart,
   RESEARCH_PATHS,
   socialAboutFetchUrl,
   stripHtmlToText,
@@ -31,8 +32,9 @@ import {
 } from "@/app/lib/server/emailMailboxHygiene";
 import {
   isGoogleLeadershipSearchConfigured,
-  searchCompanyLeadership,
+  searchCompanyProspectOsint,
 } from "@/app/lib/server/googleLeadershipSearchClient";
+import { isEmailAggregatorUrl } from "@/app/lib/server/ironleadsLeadershipSearchAllowlist";
 import { scoreSuspectReadiness } from "@/app/lib/ironleadsSuspectReadiness";
 import { isOperatorHoldArchived } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import {
@@ -225,6 +227,34 @@ async function gatherPublicSocialPages(
       });
       break;
     }
+  }
+  return pages;
+}
+
+async function gatherSearchHitPages(
+  urls: string[],
+  alreadyFetched: Set<string>,
+): Promise<Array<{ url: string; text: string; rawHtml: string }>> {
+  const pages: Array<{ url: string; text: string; rawHtml: string }> = [];
+  for (const raw of urls) {
+    if (pages.length >= 3) break;
+    let parsed: URL;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      continue;
+    }
+    if (/linkedin\.com/i.test(parsed.hostname)) continue;
+    const key = parsed.href.replace(/\/$/, "").toLowerCase();
+    if (alreadyFetched.has(key)) continue;
+    alreadyFetched.add(key);
+    const html = await fetchText(parsed.href);
+    if (!html || html.length < 80) continue;
+    pages.push({
+      url: parsed.href.replace(/\/$/, ""),
+      text: stripHtmlToText(html),
+      rawHtml: html,
+    });
   }
   return pages;
 }
@@ -443,6 +473,122 @@ function hygieneMemberNote(
   return prior ? `${prior} ${extra}` : extra;
 }
 
+function mergeCommitteeEmails(
+  prior: BuyingCommitteeEmail[],
+  incoming: BuyingCommitteeEmail[],
+): BuyingCommitteeEmail[] {
+  const byEmail = new Map<string, BuyingCommitteeEmail>();
+  for (const row of [...prior, ...incoming]) {
+    const key = row.email.toLowerCase();
+    const prev = byEmail.get(key);
+    if (!prev) {
+      byEmail.set(key, row);
+      continue;
+    }
+    if (row.status === "published" && prev.status !== "published") {
+      byEmail.set(key, { ...prev, ...row });
+    }
+  }
+  return [...byEmail.values()].slice(0, 5);
+}
+
+export function mergeBuyingCommitteeMembers(
+  prior: BuyingCommitteeMember[],
+  incoming: BuyingCommitteeMember[],
+): BuyingCommitteeMember[] {
+  const byRole = new Map<BuyingRole, BuyingCommitteeMember>();
+  for (const member of prior) {
+    if (!member.fullName || !isPlausiblePersonName(member.fullName)) continue;
+    byRole.set(member.role, member);
+  }
+  for (const member of incoming) {
+    if (!member.fullName || !isPlausiblePersonName(member.fullName)) continue;
+    const existing = byRole.get(member.role);
+    if (!existing) {
+      byRole.set(member.role, member);
+      continue;
+    }
+    const samePerson =
+      existing.fullName.trim().toLowerCase() === member.fullName.trim().toLowerCase();
+    byRole.set(member.role, {
+      ...existing,
+      title: existing.title ?? member.title,
+      emails: mergeCommitteeEmails(existing.emails, member.emails),
+      phones: existing.phones.length > 0 ? existing.phones : member.phones,
+      sourceUrls: [...new Set([...existing.sourceUrls, ...member.sourceUrls])].slice(0, 8),
+      note: existing.note ?? member.note,
+      fullName: samePerson ? existing.fullName : existing.fullName,
+    });
+  }
+  return [...byRole.values()];
+}
+
+function hasPersonalPublishedEmail(result: {
+  members: BuyingCommitteeMember[];
+  publishedEmails: string[];
+}): boolean {
+  const fromMembers = result.members.some((m) =>
+    m.emails.some((e) => {
+      if (e.status !== "published") return false;
+      const local = e.email.split("@")[0] ?? "";
+      return !isRoleLocalPart(local);
+    }),
+  );
+  if (fromMembers) return true;
+  return result.publishedEmails.some((email) => {
+    const local = email.split("@")[0] ?? "";
+    return !isRoleLocalPart(local);
+  });
+}
+
+/** Run public-web OSINT unless a named buyer AND a personal published email are already on file. */
+export function dossierNeedsPublicOsint(result: {
+  members: BuyingCommitteeMember[];
+  publishedEmails: string[];
+}): boolean {
+  const named = result.members.filter(
+    (m) => m.fullName && isPlausiblePersonName(m.fullName),
+  );
+  if (named.length === 0) return true;
+  const hasBuyer = named.some(
+    (m) =>
+      m.role === "CISO" ||
+      m.role === "CEO" ||
+      m.role === "GRC_PRACTICE_LEAD" ||
+      m.role === "MANAGING_DIRECTOR",
+  );
+  if (!hasBuyer) return true;
+  return !hasPersonalPublishedEmail(result);
+}
+
+function downgradeAggregatorEmails(
+  members: BuyingCommitteeMember[],
+): BuyingCommitteeMember[] {
+  return members.map((member) => ({
+    ...member,
+    emails: member.emails.map((row) => {
+      const fromAggregator = (member.sourceUrls ?? []).some((url) =>
+        isEmailAggregatorUrl(url),
+      );
+      if (!fromAggregator || row.status !== "published") return row;
+      return {
+        ...row,
+        status: "pattern_guess" as const,
+        source: row.source ?? "aggregator_snippet",
+      };
+    }),
+    note:
+      member.sourceUrls.some((url) => isEmailAggregatorUrl(url)) &&
+      member.emails.some((e) => e.status === "published" || e.source === "aggregator_snippet")
+        ? member.note?.includes("aggregator")
+          ? member.note
+          : [member.note, "Aggregator/directory email is a hint — not Email PASS until Hunter/Prospeo valid."]
+              .filter(Boolean)
+              .join(" ")
+        : member.note,
+  }));
+}
+
 /** Attach format+MX hygiene to committee emails (does not upgrade pattern_guess → published). */
 async function attachMailboxHygiene(
   members: BuyingCommitteeMember[],
@@ -657,9 +803,9 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
     };
   }
 
-  // Optional press/web leadership search (Brave → SerpAPI → Google CSE legacy)
-  // when the site scrape left no plausible people. Persist attempt metadata
-  // (ok / empty / error) so operators can diagnose not-configured vs zero hits.
+  // Public-web buyer/email OSINT (Brave → SerpAPI → CSE): leadership + email +
+  // events + filings. Runs when the site scrape is missing a named buyer or a
+  // personal work seat — not only when zero names were found.
   let googleCorpus = "";
   let googleSourceUrls: string[] = [];
   let googleLeadershipSearch: {
@@ -671,11 +817,14 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
     hitCount: number;
     sourceUrls: string[];
     error: string | null;
+    queries?: Array<{
+      kind: string;
+      query: string;
+      hitCount: number;
+      provider: string;
+    }>;
   } | null = null;
-  const plausibleNamed = result.members.filter(
-    (m) => m.fullName && isPlausiblePersonName(m.fullName),
-  ).length;
-  if (plausibleNamed === 0) {
+  if (dossierNeedsPublicOsint(result)) {
     if (!isGoogleLeadershipSearchConfigured()) {
       googleLeadershipSearch = {
         queriedAt: researchedAt,
@@ -688,7 +837,7 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
           "No leadership search provider configured (set BRAVE_SEARCH_API_KEY and/or SERPAPI_API_KEY)",
       };
     } else {
-      const google = await searchCompanyLeadership({
+      const google = await searchCompanyProspectOsint({
         company: contact.company,
         domain: accountDomain,
       });
@@ -704,8 +853,27 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
           error: google.error.slice(0, 240),
         };
       } else {
-        googleCorpus = google.corpus;
-        googleSourceUrls = google.sourceUrls;
+        const alreadyFetched = new Set(
+          pages.map((p) => p.url.replace(/\/$/, "").toLowerCase()),
+        );
+        const extraPages = await gatherSearchHitPages(
+          google.sourceUrls,
+          alreadyFetched,
+        );
+        if (extraPages.length > 0) {
+          pages = [...pages, ...extraPages];
+        }
+
+        googleCorpus = [
+          google.corpus,
+          ...extraPages.map((p) => p.text),
+        ]
+          .filter(Boolean)
+          .join(" \n ");
+        googleSourceUrls = [
+          ...google.sourceUrls,
+          ...extraPages.map((p) => p.url),
+        ];
         googleLeadershipSearch = {
           queriedAt: researchedAt,
           ok: true,
@@ -713,60 +881,79 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
           provider: google.provider,
           cascadedFrom: google.cascadedFrom,
           hitCount: google.hits.length,
-          sourceUrls: google.sourceUrls.slice(0, 8),
+          sourceUrls: googleSourceUrls.slice(0, 12),
           error: null,
+          queries: google.queries,
         };
-        if (google.corpus.trim()) {
-          const googleEmailHits = discoverPublishedEmails({
-            html: null,
-            text: google.corpus,
+
+        const discoveryMerged = new Map(
+          (result.publishedEmailDiscovery ?? []).map((h) => [h.email, h] as const),
+        );
+        const googleEmails: string[] = [];
+        const aggregatorEmails = new Set<string>();
+
+        const ingestText = (text: string, sourceUrl: string | null, html?: string) => {
+          for (const hit of discoverPublishedEmails({
+            html: html ?? null,
+            text,
             accountDomain,
-          });
-          const googleEmails = googleEmailHits.map((h) => h.email);
-          const priorDiscovery = result.publishedEmailDiscovery ?? [];
-          const discoveryMerged = new Map(
-            priorDiscovery.map((h) => [h.email, h] as const),
-          );
-          for (const hit of googleEmailHits) {
+          })) {
             if (!discoveryMerged.has(hit.email)) discoveryMerged.set(hit.email, hit);
+            googleEmails.push(hit.email);
+            if (sourceUrl && isEmailAggregatorUrl(sourceUrl)) {
+              aggregatorEmails.add(hit.email.toLowerCase());
+            }
           }
-          const googlePeople = extractBuyingPersons(google.corpus).filter((p) =>
-            isPlausiblePersonName(p.fullName),
-          );
-          if (googlePeople.length > 0 || googleEmails.length > 0) {
-            const googleMembers = buildMembers({
+        };
+        ingestText(google.corpus, google.sourceUrls[0] ?? null);
+        for (const hit of google.hits) {
+          ingestText(`${hit.title} ${hit.snippet}`, hit.link);
+        }
+        for (const page of extraPages) {
+          ingestText(page.text, page.url, page.rawHtml);
+        }
+
+        const googlePeople = extractBuyingPersons(googleCorpus).filter((p) =>
+          isPlausiblePersonName(p.fullName),
+        );
+        if (googlePeople.length > 0 || googleEmails.length > 0) {
+          const googleMembers = downgradeAggregatorEmails(
+            buildMembers({
               people: googlePeople,
               emails: [...new Set([...result.publishedEmails, ...googleEmails])],
               phones: [],
               sourceUrls: googleSourceUrls,
               accountDomain,
-            });
-            const byRole = new Map(result.members.map((m) => [m.role, m] as const));
-            for (const member of googleMembers) {
-              if (!member.fullName || !isPlausiblePersonName(member.fullName)) continue;
-              if (byRole.has(member.role)) continue;
-              byRole.set(member.role, {
-                ...member,
-                note:
-                  member.note ??
-                  `Press/web search (${google.provider}) — confirm before Promote`,
-                sourceUrls:
-                  member.sourceUrls.length > 0
-                    ? member.sourceUrls
-                    : googleSourceUrls.slice(0, 4),
-              });
-            }
-            result = {
-              ...result,
-              skipped: false,
-              skipReason: null,
-              members: [...byRole.values()],
-              publishedEmails: [
-                ...new Set([...result.publishedEmails, ...googleEmails]),
-              ],
-              publishedEmailDiscovery: [...discoveryMerged.values()],
-            };
-          }
+            }).map((member) => ({
+              ...member,
+              emails: member.emails.map((row) =>
+                aggregatorEmails.has(row.email.toLowerCase())
+                  ? {
+                      ...row,
+                      status: "pattern_guess" as const,
+                      source: row.source ?? "aggregator_snippet",
+                    }
+                  : row,
+              ),
+              note:
+                member.note ??
+                `Public-web OSINT (${google.provider}) — confirm before Promote`,
+            })),
+          );
+          result = {
+            ...result,
+            skipped: false,
+            skipReason: null,
+            members: mergeBuyingCommitteeMembers(result.members, googleMembers),
+            publishedEmails: [
+              ...new Set([
+                ...result.publishedEmails,
+                ...googleEmails.filter((e) => !aggregatorEmails.has(e.toLowerCase())),
+              ]),
+            ],
+            publishedEmailDiscovery: [...discoveryMerged.values()],
+            pagesFetched: pages.length,
+          };
         }
       }
     }
@@ -829,6 +1016,12 @@ async function persistResearch(
       hitCount: number;
       sourceUrls: string[];
       error: string | null;
+      queries?: Array<{
+        kind: string;
+        query: string;
+        hitCount: number;
+        provider: string;
+      }>;
     } | null;
   },
 ): Promise<void> {
@@ -911,6 +1104,13 @@ async function persistResearch(
   const ceo = result.members.find(
     (m) => m.role === "CEO" && m.fullName && isPlausiblePersonName(m.fullName),
   );
+  const practiceLead = result.members.find(
+    (m) =>
+      m.role === "GRC_PRACTICE_LEAD" &&
+      m.fullName &&
+      isPlausiblePersonName(m.fullName),
+  );
+  const outreachBuyer = ciso ?? practiceLead ?? ceo;
   const switchboard = result.switchboardPhones[0]?.phone ?? null;
 
   const priorBuyerName =
@@ -925,15 +1125,21 @@ async function persistResearch(
     priorSponsorName && isPlausiblePersonName(priorSponsorName),
   );
 
-  const namedBuyer = ciso?.fullName
+  const namedBuyer = outreachBuyer?.fullName
     ? {
-        fullName: ciso.fullName,
-        title: ciso.title ?? "Chief Information Security Officer",
+        fullName: outreachBuyer.fullName,
+        title:
+          outreachBuyer.title ??
+          (outreachBuyer.role === "CEO"
+            ? "Chief Executive Officer"
+            : outreachBuyer.role === "GRC_PRACTICE_LEAD"
+              ? "GRC Practice Lead"
+              : "Chief Information Security Officer"),
         location: null,
-        trigger: "NEW_CISO",
+        trigger: outreachBuyer.role === "CISO" ? "NEW_CISO" : "NAMED_BUYER",
         announcedAt: null,
-        sourceUrls: ciso.sourceUrls,
-        note: ciso.note,
+        sourceUrls: outreachBuyer.sourceUrls,
+        note: outreachBuyer.note,
         seededAt: result.researchedAt,
       }
     : priorBuyerPlausible
@@ -1009,10 +1215,15 @@ async function persistResearch(
       data: {
         phone: nextPhone,
         metadata: metadata as Prisma.InputJsonValue,
-        ...(ciso?.fullName && isPlausiblePersonName(ciso.fullName)
+        ...(outreachBuyer?.fullName && isPlausiblePersonName(outreachBuyer.fullName)
           ? {
-              fullName: ciso.fullName,
-              title: "Chief Information Security Officer",
+              fullName: outreachBuyer.fullName,
+              title:
+                outreachBuyer.role === "CEO"
+                  ? "Chief Executive Officer"
+                  : outreachBuyer.role === "GRC_PRACTICE_LEAD"
+                    ? "GRC Practice Lead"
+                    : "Chief Information Security Officer",
             }
           : contact.fullName && !isPlausiblePersonName(contact.fullName)
             ? {

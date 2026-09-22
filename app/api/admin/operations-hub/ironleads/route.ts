@@ -11,6 +11,7 @@ import {
   importMsspFreeDirectorySeeds,
   listMsspFreeDirectorySeeds,
   parseDirectoryImportPaste,
+  DIRECTORY_PASTE_MAX_ROWS,
 } from "@/app/lib/server/ironleadsMsspDirectoryImportCore";
 import {
   parkExcessActiveToPending,
@@ -181,10 +182,10 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    if (rows.length > 100) {
+    if (rows.length > DIRECTORY_PASTE_MAX_ROWS) {
       return NextResponse.json(
         {
-          error: `Max 100 rows per paste import (got ${rows.length}). Split your text file into batches of 100.`,
+          error: `Max ${DIRECTORY_PASTE_MAX_ROWS} rows per paste import (got ${rows.length}). Split your text file into batches of ${DIRECTORY_PASTE_MAX_ROWS}.`,
         },
         { status: 400 },
       );

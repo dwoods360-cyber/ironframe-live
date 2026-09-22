@@ -1,11 +1,16 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 
 import {
+  buildProspectOsintQueries,
   isGoogleLeadershipSearchConfigured,
   resolveLeadershipSearchProvider,
   searchCompanyLeadership,
+  searchCompanyProspectOsint,
 } from "@/app/lib/server/googleLeadershipSearchClient";
-import { isAllowlistedLeadershipUrl } from "@/app/lib/server/ironleadsLeadershipSearchAllowlist";
+import {
+  isAllowlistedLeadershipUrl,
+  isEmailAggregatorUrl,
+} from "@/app/lib/server/ironleadsLeadershipSearchAllowlist";
 
 describe("googleLeadershipSearchClient", () => {
   const priorEnv = {
@@ -208,6 +213,83 @@ describe("googleLeadershipSearchClient", () => {
     expect(result.cascadedFrom).toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("runs complementary Brave queries and keeps company-domain hits", async () => {
+    clearProviderEnv();
+    process.env.BRAVE_SEARCH_API_KEY = "test-brave";
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const href = String(input);
+      const q = decodeURIComponent(new URL(href).searchParams.get("q") ?? "");
+      if (q.includes("secretary of state")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            web: {
+              results: [
+                {
+                  title: "Siemba Inc — Georgia SOS",
+                  description: "Kannan Udayarajan is an officer of Siemba Inc.",
+                  url: "https://opencorporates.com/companies/us/siemba",
+                },
+              ],
+            },
+          }),
+        };
+      }
+      if (q.includes("email") || q.includes("@siemba.io")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            web: {
+              results: [
+                {
+                  title: "Kannan Udayarajan email — Siemba",
+                  description: "Public aggregator lists kannan@siemba.io for Siemba.",
+                  url: "https://rocketreach.co/kannan-udayarajan-email",
+                },
+              ],
+            },
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          web: {
+            results: [
+              {
+                title: "About Siemba — leadership",
+                description:
+                  "Kannan Udayarajan is Founder and Chief Executive Officer at Siemba.",
+                url: "https://www.siemba.io/about-us",
+              },
+            ],
+          },
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchCompanyProspectOsint({
+      company: "Siemba",
+      domain: "siemba.io",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.queries?.map((q) => q.kind)).toEqual([
+      "leadership",
+      "email",
+      "events",
+      "filings",
+    ]);
+    expect(result.sourceUrls.some((u) => u.includes("siemba.io"))).toBe(true);
+    expect(result.corpus).toMatch(/Kannan Udayarajan/i);
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
+  });
 });
 
 describe("ironleadsLeadershipSearchAllowlist", () => {
@@ -215,5 +297,35 @@ describe("ironleadsLeadershipSearchAllowlist", () => {
     expect(isAllowlistedLeadershipUrl("https://www.darkreading.com/a")).toBe(true);
     expect(isAllowlistedLeadershipUrl("https://news.bloomberg.com/x")).toBe(true);
     expect(isAllowlistedLeadershipUrl("https://evil.example/x")).toBe(false);
+  });
+
+  it("accepts the prospect's own domain and extra OSINT hosts", () => {
+    expect(
+      isAllowlistedLeadershipUrl("https://www.siemba.io/about-us", "siemba.io"),
+    ).toBe(true);
+    expect(isAllowlistedLeadershipUrl("https://opencorporates.com/companies/us/1")).toBe(
+      true,
+    );
+    expect(isEmailAggregatorUrl("https://rocketreach.co/kannan-udayarajan-email")).toBe(
+      true,
+    );
+  });
+});
+
+describe("prospect OSINT query bundle", () => {
+  it("builds leadership, email, events, and filings queries", () => {
+    const queries = buildProspectOsintQueries({
+      company: "Siemba",
+      domain: "siemba.io",
+    });
+    expect(queries.map((q) => q.kind)).toEqual([
+      "leadership",
+      "email",
+      "events",
+      "filings",
+    ]);
+    expect(queries.find((q) => q.kind === "email")?.query).toContain("@siemba.io");
+    expect(queries.find((q) => q.kind === "leadership")?.query).toMatch(/CSO|Chief Security/);
+    expect(queries.find((q) => q.kind === "events")?.query).toContain("GISEC");
   });
 });

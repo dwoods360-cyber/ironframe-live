@@ -4,6 +4,7 @@ import {
   buildAuthCallbackUrl,
   isPasswordRecoveryNextPath,
   resolveAuthNextPathForHost,
+  sanitizeAuthNextPath,
   resolveLocalDevAppPort,
   resolvePublicAppUrl,
   resolveSupabaseInviteRedirectOrigin,
@@ -61,6 +62,13 @@ describe("publicAppUrl", () => {
     expect(isPasswordRecoveryNextPath("/reset-password")).toBe(true);
     expect(isPasswordRecoveryNextPath("%2Freset-password")).toBe(false);
     expect(isPasswordRecoveryNextPath("/integrity")).toBe(false);
+  });
+
+  it("sanitizeAuthNextPath rejects session-logout and API next targets", async () => {
+    expect(sanitizeAuthNextPath("/api/auth/session-logout?next=%2Flogin", "/integrity")).toBe("/integrity");
+    expect(sanitizeAuthNextPath("/api/auth/session-logout", "/login")).toBe("/login");
+    expect(sanitizeAuthNextPath("/api/health", "/integrity")).toBe("/integrity");
+    expect(sanitizeAuthNextPath("/exports", "/integrity")).toBe("/exports");
   });
 
   it("resolveAuthNextPathForHost preserves get-started on tenant subdomain", () => {

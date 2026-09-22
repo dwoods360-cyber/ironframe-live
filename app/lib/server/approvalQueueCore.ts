@@ -1,6 +1,5 @@
 import "server-only";
 
-import prisma from "@/lib/prisma";
 import { isSalesSmsDraft } from "@/app/lib/approvalDraftChannel";
 import { isSalesDispatchHoldCompany } from "@/app/lib/approvalDispatchValidation";
 import {
@@ -8,6 +7,7 @@ import {
   type SalesOutreachGeoBand,
 } from "@/app/lib/approvalSalesGeo";
 import { isOperatorHoldArchived } from "@/app/lib/server/ironleadsOperatorHoldCore";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 export { isSalesSmsDraft };
 
@@ -283,7 +283,9 @@ function mapRowToDraft(row: {
 }
 
 export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft[]> {
-  const rows = await prisma.ironboardCrmInteraction.findMany({
+  // Path B CRM is prospect-pool. Unscoped prisma returns zero rows under RLS.
+  const rows = await withProspectPoolTenant((tx) =>
+    tx.ironboardCrmInteraction.findMany({
     where: {
       OR: PENDING_DRAFT_TAGS.map((tag) => ({ summary: { contains: tag } })),
       NOT: {
@@ -319,7 +321,8 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
         },
       },
     },
-  });
+    }),
+  );
 
   // Preserve occurredAt desc from the query. Client applies Path B geo vs Newest sort.
   const drafts = rows
@@ -349,22 +352,24 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
 
 /** Raw pending-tag row count before HOLD soft-filters (for UI total accuracy). */
 export async function countPendingApprovalDraftRows(): Promise<number> {
-  return prisma.ironboardCrmInteraction.count({
-    where: {
-      OR: PENDING_DRAFT_TAGS.map((tag) => ({ summary: { contains: tag } })),
-      NOT: {
-        OR: [
-          { summary: { contains: PURGED_DRAFT_TAG } },
-          { summary: { startsWith: "[PURGED DRAFT]" } },
-          { summary: { contains: NEEDS_ENRICHMENT_DRAFT_TAG } },
-          { summary: { startsWith: "[NEEDS ENRICHMENT]" } },
-          { summary: { contains: HOLD_PARKED_DRAFT_TAG } },
-          { summary: { startsWith: "[HOLD PARKED DRAFT]" } },
-        ],
+  return withProspectPoolTenant((tx) =>
+    tx.ironboardCrmInteraction.count({
+      where: {
+        OR: PENDING_DRAFT_TAGS.map((tag) => ({ summary: { contains: tag } })),
+        NOT: {
+          OR: [
+            { summary: { contains: PURGED_DRAFT_TAG } },
+            { summary: { startsWith: "[PURGED DRAFT]" } },
+            { summary: { contains: NEEDS_ENRICHMENT_DRAFT_TAG } },
+            { summary: { startsWith: "[NEEDS ENRICHMENT]" } },
+            { summary: { contains: HOLD_PARKED_DRAFT_TAG } },
+            { summary: { startsWith: "[HOLD PARKED DRAFT]" } },
+          ],
+        },
+        contactId: { not: null },
       },
-      contactId: { not: null },
-    },
-  });
+    }),
+  );
 }
 
 /** Soft-park pending SALES drafts for shortlist HOLD / Ironleads-archived companies. */
@@ -372,7 +377,8 @@ export async function parkHoldCompanyPendingSalesDrafts(options?: {
   companyContains?: string[];
 }): Promise<{ parked: Array<{ id: string; company: string }> }> {
   const needles = (options?.companyContains ?? []).map((s) => s.trim().toLowerCase()).filter(Boolean);
-  const rows = await prisma.ironboardCrmInteraction.findMany({
+  return withProspectPoolTenant(async (tx) => {
+  const rows = await tx.ironboardCrmInteraction.findMany({
     where: {
       summary: { contains: PENDING_SALES_DRAFT_TAG },
       NOT: {
@@ -402,7 +408,7 @@ export async function parkHoldCompanyPendingSalesDrafts(options?: {
     if (!companyHit && !holdHit) continue;
     if (!isPendingDraftSummary(row.summary)) continue;
 
-    await prisma.ironboardCrmInteraction.update({
+    await tx.ironboardCrmInteraction.update({
       where: { id: row.id },
       data: {
         summary: buildHoldParkedDraftSummary(row.summary, company),
@@ -412,21 +418,24 @@ export async function parkHoldCompanyPendingSalesDrafts(options?: {
     parked.push({ id: row.id, company: company || "(unknown)" });
   }
   return { parked };
+  });
 }
 
 async function resolveIncomingQuery(contactId: string, excludeInteractionId: string): Promise<string> {
-  const prior = await prisma.ironboardCrmInteraction.findFirst({
-    where: {
-      contactId,
-      id: { not: excludeInteractionId },
-      channel: "EMAIL",
-      NOT: {
-        OR: PENDING_DRAFT_TAGS.map((tag) => ({ summary: { contains: tag } })),
+  const prior = await withProspectPoolTenant((tx) =>
+    tx.ironboardCrmInteraction.findFirst({
+      where: {
+        contactId,
+        id: { not: excludeInteractionId },
+        channel: "EMAIL",
+        NOT: {
+          OR: PENDING_DRAFT_TAGS.map((tag) => ({ summary: { contains: tag } })),
+        },
       },
-    },
-    orderBy: { occurredAt: "desc" },
-    select: { summary: true },
-  });
+      orderBy: { occurredAt: "desc" },
+      select: { summary: true },
+    }),
+  );
 
   if (!prior?.summary) {
     return "Inbound context retained in CRM thread history.";

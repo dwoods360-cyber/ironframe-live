@@ -62,6 +62,7 @@ export function approvalsHref(
   kind: ApprovalKindFilter = "ALL",
   geo?: "US" | "ALL" | null,
   sort?: "GEO" | "RECENT" | null,
+  touch?: "TOUCH1" | "TOUCH2" | "TOUCH3" | "ALL" | null,
 ): string {
   const params = new URLSearchParams();
   if (kind !== "ALL") params.set("kind", kind);
@@ -69,8 +70,24 @@ export function approvalsHref(
   if (kind === "SALES" && (sort === "GEO" || sort === "RECENT")) {
     params.set("sort", sort);
   }
+  if (
+    kind === "SALES" &&
+    (touch === "TOUCH1" || touch === "TOUCH2" || touch === "TOUCH3")
+  ) {
+    params.set("touch", touch);
+  }
   const q = params.toString();
   return q ? `/dashboard/admin/approvals?${q}` : "/dashboard/admin/approvals";
+}
+
+export function parseApprovalTouchFilter(
+  raw: string | null | undefined,
+  kind: ApprovalKindFilter,
+): "TOUCH1" | "TOUCH2" | "TOUCH3" | "ALL" {
+  if (kind !== "SALES") return "ALL";
+  const value = (raw ?? "").trim().toUpperCase();
+  if (value === "TOUCH1" || value === "TOUCH2" || value === "TOUCH3") return value;
+  return "ALL";
 }
 
 /** Sales Approvals with a specific draft selected (CRM interaction id). */
@@ -79,11 +96,13 @@ export function approvalsDraftHref(
   kind: ApprovalKindFilter = "SALES",
   geo?: "US" | "ALL" | null,
   sort?: "GEO" | "RECENT" | null,
+  touch?: "TOUCH1" | "TOUCH2" | "TOUCH3" | "ALL" | null,
 ): string {
   const base = approvalsHref(
     kind,
     geo ?? (kind === "SALES" ? "US" : null),
     sort ?? (kind === "SALES" ? "GEO" : null),
+    touch ?? (kind === "SALES" ? "ALL" : null),
   );
   const sep = base.includes("?") ? "&" : "?";
   return `${base}${sep}draft=${encodeURIComponent(interactionId)}`;

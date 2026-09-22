@@ -6,7 +6,12 @@ import {
   isOperatorDryRunEmail,
   isSalesDispatchHoldCompany,
 } from "@/app/lib/approvalDispatchValidation";
-import { DISPATCHED_SALES_DRAFT_TAG } from "@/app/lib/server/approvalQueueCore";
+import {
+  DISPATCHED_SALES_DRAFT_TAG,
+  PENDING_SALES_DRAFT_TAG,
+  inferSalesTouchStage,
+  parsePendingDraftSummary,
+} from "@/app/lib/server/approvalQueueCore";
 import { isOperatorHoldArchived } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import { touch2ReAnchorFor } from "@/app/lib/salesTouch2ReAnchors";
 
@@ -28,6 +33,9 @@ export type Touch2QueueRow = {
   dispatchCount: number;
   reAnchor: string | null;
   motion: string | null;
+  /** Pending Approvals draft id when a HITL TOUCH2 card already exists — same editor UX as Touch 1. */
+  pendingDraftId: string | null;
+  pendingSubject: string | null;
 };
 
 export type Touch2QueuePayload = {
@@ -136,6 +144,39 @@ export async function fetchSalesTouch2Queue(options?: {
     (a, b) => a.touch1SentAt.getTime() - b.touch1SentAt.getTime(),
   );
 
+  const contactIds = sorted.map((row) => row.contactId);
+  const pendingByContact = new Map<string, { id: string; subject: string | null }>();
+
+  if (contactIds.length > 0) {
+    const pendingRows = await withProspectPoolTenant((tx, tenantId) =>
+      tx.ironboardCrmInteraction.findMany({
+        where: {
+          tenantId,
+          contactId: { in: contactIds },
+          summary: { contains: PENDING_SALES_DRAFT_TAG },
+        },
+        orderBy: { occurredAt: "desc" },
+        take: 500,
+        select: {
+          id: true,
+          contactId: true,
+          summary: true,
+        },
+      }),
+    );
+
+    for (const pending of pendingRows) {
+      if (!pending.contactId) continue;
+      if (inferSalesTouchStage(pending.summary) !== "TOUCH2") continue;
+      if (pendingByContact.has(pending.contactId)) continue;
+      const parsed = parsePendingDraftSummary(pending.summary);
+      pendingByContact.set(pending.contactId, {
+        id: pending.id,
+        subject: parsed.subject || null,
+      });
+    }
+  }
+
   const mapped: Touch2QueueRow[] = sorted.map((row, index) => {
     const touch2EarliestAt = addCalendarDays(row.touch1SentAt, TOUCH2_EARLIEST_OFFSET_DAYS);
     const dueStatus = computeTouch2DueStatus({
@@ -148,6 +189,7 @@ export async function fetchSalesTouch2Queue(options?: {
       company: row.company,
       buyer: row.buyer,
     });
+    const pending = pendingByContact.get(row.contactId) ?? null;
     return {
       rank: index + 1,
       interactionId: row.interactionId,
@@ -161,6 +203,8 @@ export async function fetchSalesTouch2Queue(options?: {
       dispatchCount: row.dispatchCount,
       reAnchor: enrichment?.reAnchor ?? null,
       motion: enrichment?.motion ?? null,
+      pendingDraftId: pending?.id ?? null,
+      pendingSubject: pending?.subject ?? null,
     };
   });
 

@@ -30,7 +30,7 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
     "hold" | "channel_competitor" | "enrich_later" | "pending_batch" | "other"
   >(
     report.operatorHold?.classification === "channel_competitor" ||
-      report.accountResearchBrief?.outreach.status === "hold"
+      report.accountResearchBrief?.outreach?.status === "hold"
       ? "channel_competitor"
       : report.operatorHold?.classification === "pending_batch"
         ? "pending_batch"

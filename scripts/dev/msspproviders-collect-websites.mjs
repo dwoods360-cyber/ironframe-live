@@ -338,7 +338,7 @@ async function main() {
         csv: outPath,
         paste: pastePath,
         checkpoint: checkpointPath,
-        next: "Paste .paste.txt into Ironleads (≤100/batch) → Import paste → Research only",
+        next: "Import via msspproviders-import-directory-pages.mjs (100-firm batches) or paste .paste.txt → Research only",
       },
       null,
       2,

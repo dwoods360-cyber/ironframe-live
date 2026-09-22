@@ -13,6 +13,7 @@ import {
   draftKindCardClass,
   icpTouchLogHref,
   parseApprovalKindFilter,
+  parseApprovalTouchFilter,
   workflowReviewLiveHref,
   type ApprovalDraftKind,
   type ApprovalKindFilter,
@@ -79,6 +80,7 @@ function AdminApprovalDashboardInner() {
   const kindFilter = parseApprovalKindFilter(searchParams.get("kind"));
   const geoFilter = parseApprovalGeoFilter(searchParams.get("geo"), kindFilter);
   const salesSort = parseApprovalSalesSort(searchParams.get("sort"), kindFilter);
+  const touchFilter = parseApprovalTouchFilter(searchParams.get("touch"), kindFilter);
   const draftParam = (searchParams.get("draft") ?? "").trim();
 
   const [drafts, setDrafts] = useState<PendingDraft[]>([]);
@@ -166,6 +168,15 @@ function AdminApprovalDashboardInner() {
     if (kindFilter === "SALES" && geoFilter === "US") {
       rows = rows.filter((d) => isUsSalesOutreachBand(d.outreachGeoBand ?? "UNKNOWN"));
     }
+    if (kindFilter === "SALES" && touchFilter === "TOUCH1") {
+      rows = rows.filter(
+        (d) => !d.salesTouchStage || d.salesTouchStage === "TOUCH1",
+      );
+    } else if (kindFilter === "SALES" && touchFilter === "TOUCH2") {
+      rows = rows.filter((d) => d.salesTouchStage === "TOUCH2");
+    } else if (kindFilter === "SALES" && touchFilter === "TOUCH3") {
+      rows = rows.filter((d) => d.salesTouchStage === "TOUCH3");
+    }
 
     const useGeoSort =
       (kindFilter === "SALES" || kindFilter === "ALL") &&
@@ -194,7 +205,7 @@ function AdminApprovalDashboardInner() {
     });
 
     return rows;
-  }, [drafts, kindFilter, geoFilter, salesSort]);
+  }, [drafts, kindFilter, geoFilter, salesSort, touchFilter]);
 
   const geoCounts = useMemo(() => {
     const sales = drafts.filter((d) => d.draftKind === "SALES");
@@ -204,6 +215,22 @@ function AdminApprovalDashboardInner() {
       NON_US: sales.filter((d) => d.outreachGeoBand === "NON_US").length,
     };
   }, [drafts]);
+
+  const touchCounts = useMemo(() => {
+    const sales = drafts.filter((d) => d.draftKind === "SALES");
+    const geoScoped =
+      geoFilter === "US"
+        ? sales.filter((d) => isUsSalesOutreachBand(d.outreachGeoBand ?? "UNKNOWN"))
+        : sales;
+    return {
+      ALL: geoScoped.length,
+      TOUCH1: geoScoped.filter(
+        (d) => !d.salesTouchStage || d.salesTouchStage === "TOUCH1",
+      ).length,
+      TOUCH2: geoScoped.filter((d) => d.salesTouchStage === "TOUCH2").length,
+      TOUCH3: geoScoped.filter((d) => d.salesTouchStage === "TOUCH3").length,
+    };
+  }, [drafts, geoFilter]);
 
   useEffect(() => {
     setActiveDraftId((current) => {
@@ -223,15 +250,29 @@ function AdminApprovalDashboardInner() {
       next === "SALES" ? (geoFilter === "ALL" ? "ALL" : "US") : null;
     const nextSort: ApprovalSalesSort | null =
       next === "SALES" ? salesSort : null;
-    router.replace(approvalsHref(next, nextGeo, nextSort), { scroll: false });
+    const nextTouch = next === "SALES" ? touchFilter : null;
+    router.replace(approvalsHref(next, nextGeo, nextSort, nextTouch), { scroll: false });
   };
 
   const setGeoFilter = (next: ApprovalGeoFilter) => {
-    router.replace(approvalsHref(kindFilter, next, salesSort), { scroll: false });
+    router.replace(
+      approvalsHref(kindFilter, next, salesSort, touchFilter),
+      { scroll: false },
+    );
   };
 
   const setSalesSort = (next: ApprovalSalesSort) => {
-    router.replace(approvalsHref(kindFilter, geoFilter, next), { scroll: false });
+    router.replace(
+      approvalsHref(kindFilter, geoFilter, next, touchFilter),
+      { scroll: false },
+    );
+  };
+
+  const setTouchFilter = (next: "TOUCH1" | "TOUCH2" | "TOUCH3" | "ALL") => {
+    router.replace(
+      approvalsHref(kindFilter, geoFilter, salesSort, next),
+      { scroll: false },
+    );
   };
 
   const patchSelectedDraft = (patch: Partial<PendingDraft>) => {
@@ -251,6 +292,7 @@ function AdminApprovalDashboardInner() {
       recipientPhone: selectedDraft.contactPhone,
       company: selectedDraft.company,
       acknowledgeOperatorSelfDispatch: acknowledgeDryRun,
+      expectedTouch: selectedDraft.salesTouchStage ?? null,
     });
   }, [selectedDraft, acknowledgeDryRun]);
 
@@ -465,8 +507,12 @@ function AdminApprovalDashboardInner() {
   const salesQueueStatus =
     kindFilter === "SALES"
       ? `${geoFilter === "US" ? "US only" : "All geos"} · ${
-          salesSort === "GEO" ? "US first" : "Newest"
-        } · ${visibleDrafts.length} shown`
+          touchFilter === "TOUCH1"
+            ? "Touch 1"
+            : touchFilter === "TOUCH2"
+              ? "Touch 2"
+              : "All touches"
+        } · ${salesSort === "GEO" ? "US first" : "Newest"} · ${visibleDrafts.length} shown`
       : null;
 
   return (
@@ -616,6 +662,67 @@ function AdminApprovalDashboardInner() {
             <div
               className="flex flex-wrap items-center gap-2 border-t border-amber-900/30 pt-2"
               role="group"
+              aria-label="Sales touch stage"
+            >
+              <span className="px-2 text-[10px] uppercase tracking-wide text-amber-200/80">
+                Touch
+              </span>
+              <button
+                type="button"
+                aria-pressed={touchFilter === "ALL"}
+                onClick={() => setTouchFilter("ALL")}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  touchFilter === "ALL"
+                    ? "bg-slate-800 text-white ring-1 ring-slate-600"
+                    : "text-slate-400 hover:bg-slate-900"
+                }`}
+              >
+                All
+                <span className="ml-2 font-mono text-xs opacity-70">{touchCounts.ALL}</span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={touchFilter === "TOUCH1"}
+                onClick={() => setTouchFilter("TOUCH1")}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  touchFilter === "TOUCH1"
+                    ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
+                    : "text-amber-200/70 hover:bg-amber-950/40"
+                }`}
+              >
+                Touch 1
+                <span className="ml-2 font-mono text-xs opacity-70">{touchCounts.TOUCH1}</span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={touchFilter === "TOUCH2"}
+                onClick={() => setTouchFilter("TOUCH2")}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  touchFilter === "TOUCH2"
+                    ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
+                    : "text-amber-200/70 hover:bg-amber-950/40"
+                }`}
+              >
+                Touch 2
+                <span className="ml-2 font-mono text-xs opacity-70">{touchCounts.TOUCH2}</span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={touchFilter === "TOUCH3"}
+                onClick={() => setTouchFilter("TOUCH3")}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  touchFilter === "TOUCH3"
+                    ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
+                    : "text-amber-200/70 hover:bg-amber-950/40"
+                }`}
+              >
+                Touch 3
+                <span className="ml-2 font-mono text-xs opacity-70">{touchCounts.TOUCH3}</span>
+              </button>
+            </div>
+            <div
+              className="flex flex-wrap items-center gap-2 border-t border-amber-900/30 pt-2"
+              role="group"
               aria-label="Sales sort"
             >
               <span className="px-2 text-[10px] uppercase tracking-wide text-amber-200/80">
@@ -700,7 +807,7 @@ function AdminApprovalDashboardInner() {
           </div>
         ) : (
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-            <div className="space-y-3 lg:col-span-4">
+            <div className="max-h-[70vh] space-y-3 overflow-y-auto lg:col-span-4 lg:sticky lg:top-0">
               <div className="px-1 font-mono text-[10px] uppercase tracking-wider text-slate-500">
                 {filterTitle} · review queue
                 {salesQueueStatus ? (
@@ -712,7 +819,13 @@ function AdminApprovalDashboardInner() {
               {visibleDrafts.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-800 p-4 text-center font-sans text-xs text-slate-500">
                   No pending drafts in this track.
-                  {kindFilter === "SALES" ? (
+                  {kindFilter === "SALES" && touchFilter === "TOUCH2" ? (
+                    <p className="mt-2 text-slate-400">
+                      No Touch 2 HITL drafts in this filter. Queue a Touch 2 draft from SalesTeam /
+                      Path B, or open a due card below once a pending draft exists.
+                    </p>
+                  ) : null}
+                  {kindFilter === "SALES" && touchFilter !== "TOUCH2" ? (
                     <p className="mt-2 text-slate-400">
                       Public /register/contact leads land on SalesTeam first —{" "}
                       <Link
@@ -755,13 +868,7 @@ function AdminApprovalDashboardInner() {
                         <div className="flex shrink-0 flex-wrap justify-end gap-1">
                           {draft.draftKind === "SALES" && draft.salesTouchStage ? (
                             <span
-                              className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${
-                                draft.salesTouchStage === "TOUCH2"
-                                  ? "border-amber-600/60 bg-amber-950/50 text-amber-200"
-                                  : draft.salesTouchStage === "TOUCH3"
-                                    ? "border-violet-700/50 bg-violet-950/40 text-violet-200"
-                                    : "border-slate-600 bg-slate-900 text-slate-300"
-                              }`}
+                              className="rounded border border-slate-600 bg-slate-900 px-2 py-0.5 font-mono text-[9px] uppercase text-slate-300"
                               title="Outreach cadence stage"
                             >
                               {draft.salesTouchStage === "TOUCH2"
@@ -806,11 +913,7 @@ function AdminApprovalDashboardInner() {
                         </div>
                       </div>
                       <div className="mb-1 font-mono text-[9px] uppercase tracking-wide text-slate-500">
-                        {draft.draftKind === "SALES" && draft.salesTouchStage === "TOUCH2"
-                          ? "Sales outreach · Touch 2"
-                          : draft.draftKind === "SALES" && draft.salesTouchStage === "TOUCH3"
-                            ? "Sales outreach · Touch 3"
-                            : meta.title}
+                        {meta.title}
                       </div>
                       <div className="mb-1 line-clamp-1 font-sans text-xs font-medium text-slate-300">
                         {draft.subject}
@@ -838,15 +941,7 @@ function AdminApprovalDashboardInner() {
                       </span>
                       {selectedDraft.draftKind === "SALES" &&
                       selectedDraft.salesTouchStage ? (
-                        <span
-                          className={`rounded border px-2 py-0.5 font-mono text-[10px] uppercase ${
-                            selectedDraft.salesTouchStage === "TOUCH2"
-                              ? "border-amber-600/60 bg-amber-950/50 text-amber-200"
-                              : selectedDraft.salesTouchStage === "TOUCH3"
-                                ? "border-violet-700/50 bg-violet-950/40 text-violet-200"
-                                : "border-slate-600 bg-slate-900 text-slate-300"
-                          }`}
-                        >
+                        <span className="rounded border border-slate-600 bg-slate-900 px-2 py-0.5 font-mono text-[10px] uppercase text-slate-300">
                           {selectedDraft.salesTouchStage === "TOUCH2"
                             ? "Touch 2"
                             : selectedDraft.salesTouchStage === "TOUCH3"
@@ -1162,29 +1257,22 @@ function AdminApprovalDashboardInner() {
                     </button>
                   </div>
 
-                  {selectedDraft.draftKind === "SALES" ? (
-                    <>
-                      <OutreachReplyReceiptPanel />
-                      <SalesTouch2QueuePanel />
-                    </>
-                  ) : null}
                 </div>
               ) : (
-                <div className="space-y-6">
-                  <div className="rounded-xl border border-dashed border-slate-800 p-12 text-center font-sans text-sm text-slate-500">
-                    Select a draft from the {filterTitle.toLowerCase()} queue to edit and dispatch.
-                  </div>
-                  {kindFilter === "SALES" ? (
-                    <>
-                      <OutreachReplyReceiptPanel />
-                      <SalesTouch2QueuePanel />
-                    </>
-                  ) : null}
+                <div className="rounded-xl border border-dashed border-slate-800 p-12 text-center font-sans text-sm text-slate-500">
+                  Select a draft from the {filterTitle.toLowerCase()} queue to edit and dispatch.
                 </div>
               )}
             </div>
           </div>
         )}
+
+        {kindFilter === "SALES" || kindFilter === "ALL" ? (
+          <div className="space-y-6">
+            <OutreachReplyReceiptPanel />
+            <SalesTouch2QueuePanel />
+          </div>
+        ) : null}
       </div>
     </div>
   );

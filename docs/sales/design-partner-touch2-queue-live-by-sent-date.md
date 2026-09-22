@@ -1,11 +1,13 @@
 # Touch 2 live queue — sorted by Touch 1 date sent
 
-**Generated:** 2026-08-24 (CT) · Source: CRM `[DISPATCHED SALES COURIER]` unique buyers
-**Sort:** Touch 1 `occurredAt` ascending
-**Touch 2 window:** day **4–5** after Touch 1
-**Excluded:** BlueRadius HOLD · operator dry-run · `@ironleads.local` · wrong-seat holds
-**Rule:** target-specific re-anchor required before scarcity ([outreach sequence](./design-partner-outreach-sequence.md))
-
+**Generated:** 2026-08-24 (CT) · Source: CRM `[DISPATCHED SALES COURIER]` unique buyers  
+**Pipeline refresh:** 2026-09-18 — reconstituted after cutover RLS confusion (CRM was never empty; tenant GUC required). Status: `scripts/dev/_pipeline-reconstituted-status.json`.  
+**Live desk counts (2026-09-18):** 377 contacts · 66 PROSPECT · 84 DISPATCHED · 30 pending Touch 2.  
+**Sort:** Touch 1 `occurredAt` ascending  
+**Touch 2 window:** day **4–5** after Touch 1  
+**Excluded:** BlueRadius HOLD · operator dry-run · `@ironleads.local` · wrong-seat holds  
+**Rule:** target-specific re-anchor required before scarcity ([outreach sequence](./design-partner-outreach-sequence.md))  
+**Late-11 (14–16d overdue), daily cap 5:** Day 1 queued 2026-09-18 (CoreTek → CSS). Day 2 queued 2026-09-19 — DISPATCH 5 today (CyberSheath → CyberGuard); hold Dark Rhino for next day under hard cap. **Do not re-send Touch 1.** Status: `scripts/dev/_pipeline-reconstituted-status.json`.
 | # | Touch 1 sent (CT) | T2 earliest (CT) | Due? | Buyer | Entity | Motion | Confidence | Re-anchor |
 |---|-------------------|------------------|------|-------|--------|--------|------------|-----------|
 | 1 | 08/17/2026, 12:44 PM | 08/21/2026, 12:44 PM | **YES** | Jonathan Bohrer | Abacus | MSP/MSSP for financial services & healthcare (AbacusFlex / Gotham Security) | high | Still thinking about how Abacus keeps each financial-services and healthcare client’s compliance evidence and board reporting isolated across AbacusFlex environments — without shared-stack register risk? |

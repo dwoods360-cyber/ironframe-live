@@ -9,6 +9,7 @@ import {
   MSSP_FREE_DIRECTORY_SEEDS,
   listMsspFreeDirectorySeeds,
   parseDirectoryImportPaste,
+  DIRECTORY_PASTE_MAX_ROWS,
   type DirectoryImportRow,
   type MsspDirectorySeed,
 } from "@/app/lib/ironleadsMsspFreeDirectorySeeds";
@@ -18,7 +19,7 @@ import { websiteUrlFromDomainOrUrl } from "@/app/lib/server/ironleadsSuspectLoca
 import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 export type { DirectoryImportRow, MsspDirectorySeed };
-export { listMsspFreeDirectorySeeds, parseDirectoryImportPaste };
+export { listMsspFreeDirectorySeeds, parseDirectoryImportPaste, DIRECTORY_PASTE_MAX_ROWS };
 
 export type DirectoryImportResultRow = {
   companyName: string;

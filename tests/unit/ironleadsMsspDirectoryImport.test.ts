@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DIRECTORY_PASTE_MAX_ROWS,
   listMsspFreeDirectorySeeds,
   parseDirectoryImportPaste,
 } from "@/app/lib/ironleadsMsspFreeDirectorySeeds";
@@ -75,6 +76,10 @@ describe("MSSP free-directory import helpers", () => {
     );
     expect(rows.map((r) => r.companyName)).toEqual(["Vinson", "Teal"]);
     expect(rows[0]?.directorySource).toBe("msspproviders_public");
+  });
+
+  it("allows up to 1000 firms per paste import", () => {
+    expect(DIRECTORY_PASTE_MAX_ROWS).toBe(1000);
   });
 
   it("ships a non-empty curated starter pack without HOLD/noise names", () => {

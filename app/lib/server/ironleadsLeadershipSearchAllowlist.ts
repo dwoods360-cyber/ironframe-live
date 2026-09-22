@@ -57,13 +57,72 @@ export const IRONLEADS_LEADERSHIP_SEARCH_ALLOWLIST: readonly string[] = [
   "nist.gov",
 ] as const;
 
-export function isAllowlistedLeadershipUrl(url: string): boolean {
+/** Extra public-record / event / directory hosts (Brave/SerpAPI only — CSE cap is 50). */
+export const IRONLEADS_PROSPECT_OSINT_EXTRA_HOSTS: readonly string[] = [
+  "opencorporates.com",
+  "sec.gov",
+  "crunchbase.com",
+  "pitchbook.com",
+  "theorg.com",
+  "eventbrite.com",
+  "gisec.ae",
+  "rsaconference.com",
+  "blackhat.com",
+  "ventureatlanta.org",
+  "channelnomics.com",
+] as const;
+
+/** Aggregators that publish guessed emails — never treat as Email PASS / published seat. */
+export const IRONLEADS_EMAIL_AGGREGATOR_HOSTS: readonly string[] = [
+  "rocketreach.co",
+  "zoominfo.com",
+  "apollo.io",
+  "lusha.com",
+  "contactout.com",
+  "hunter.io",
+  "prospeo.io",
+  "signalhire.com",
+  "torre.ai",
+  "seamless.ai",
+  "snov.io",
+  "clearbit.com",
+] as const;
+
+function hostFromUrl(url: string): string | null {
   try {
-    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
-    return IRONLEADS_LEADERSHIP_SEARCH_ALLOWLIST.some(
-      (domain) => host === domain || host.endsWith(`.${domain}`),
-    );
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
   } catch {
-    return false;
+    return null;
   }
+}
+
+function hostMatchesList(host: string, domains: readonly string[]): boolean {
+  return domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
+}
+
+function normalizeAccountHost(accountDomain?: string | null): string | null {
+  const raw = accountDomain?.trim().toLowerCase().replace(/^www\./, "") ?? "";
+  if (!raw) return null;
+  return raw.replace(/^https?:\/\//, "").split("/")[0] ?? raw;
+}
+
+export function isEmailAggregatorUrl(url: string): boolean {
+  const host = hostFromUrl(url);
+  return host ? hostMatchesList(host, IRONLEADS_EMAIL_AGGREGATOR_HOSTS) : false;
+}
+
+export function isAllowlistedLeadershipUrl(
+  url: string,
+  accountDomain?: string | null,
+): boolean {
+  const host = hostFromUrl(url);
+  if (!host) return false;
+  const accountHost = normalizeAccountHost(accountDomain);
+  if (accountHost && (host === accountHost || host.endsWith(`.${accountHost}`))) {
+    return true;
+  }
+  return (
+    hostMatchesList(host, IRONLEADS_LEADERSHIP_SEARCH_ALLOWLIST) ||
+    hostMatchesList(host, IRONLEADS_PROSPECT_OSINT_EXTRA_HOSTS)
+  );
 }

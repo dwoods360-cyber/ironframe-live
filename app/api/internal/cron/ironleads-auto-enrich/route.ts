@@ -5,15 +5,23 @@ import {
   cronBearerUnauthorizedResponse,
 } from "@/app/api/internal/cron/cronAuth";
 import { serializeCronJsonPayload } from "@/app/api/internal/cron/cronRouteShell";
-import { runIronleadsAutoEnrichBatch } from "@/app/lib/server/ironleadsAutoEnrichCore";
+import { researchBuyingCommitteeForAllSuspects } from "@/app/lib/server/ironleadsBuyingCommitteeResearchCore";
+import {
+  isIronleadsAutoEnrichEnabled,
+  runIronleadsAutoEnrichBatch,
+} from "@/app/lib/server/ironleadsAutoEnrichCore";
+import { maybePromoteAndQueueTouch1Draft } from "@/app/lib/server/ironleadsPreOutreachAutomationCore";
 import { recordCronJobArtifact } from "@/app/lib/server/cronTenantScope";
 
+export const maxDuration = 120;
+
 /**
- * Ironleads auto-enrich — fills `@ironleads.local` placeholders via Prospeo → Apollo
- * (Hunter opt-in). Never promotes / never DISPATCHes.
+ * Pre-outreach automation — Research thin actives, then Prospeo → Apollo
+ * (Hunter opt-in) for named-buyer placeholders, then queue T1 drafts.
+ * Never DISPATCHes.
  *
  * Schedule: every 2 hours weekdays (cron: 0 every-2h Mon-Fri).
- * Kill switch: `IRONLEADS_AUTO_ENRICH_ENABLED=1`.
+ * Kill switch: `IRONLEADS_AUTO_ENRICH_ENABLED=0`.
  * Auth: `Authorization: Bearer ${IRONFRAME_CRON_SECRET}`.
  */
 async function handleCron(request: Request) {
@@ -36,7 +44,32 @@ async function handleCron(request: Request) {
     "11111111-1111-4111-8111-111111111111";
 
   try {
+    if (!isIronleadsAutoEnrichEnabled()) {
+      return NextResponse.json({
+        ok: true,
+        degraded: false,
+        enabled: false,
+        skippedReason: "IRONLEADS_AUTO_ENRICH_ENABLED is off",
+        dryRun,
+        researched: 0,
+        selected: 0,
+        appliedEmailCount: 0,
+      });
+    }
+
+    const research = dryRun
+      ? null
+      : await researchBuyingCommitteeForAllSuspects({ limit: 3 });
     const batch = await runIronleadsAutoEnrichBatch({ dryRun, limit });
+    if (!dryRun) {
+      for (const row of batch.results) {
+        try {
+          await maybePromoteAndQueueTouch1Draft(row.contactId);
+        } catch {
+          // Draft queue is best-effort; DISPATCH stays human.
+        }
+      }
+    }
     const applied = batch.results.reduce(
       (n, row) => n + row.providers.filter((p) => p.ok && p.appliedEmail).length,
       0,
@@ -46,6 +79,14 @@ async function handleCron(request: Request) {
       tenantId,
       agentName: "ironleads-auto-enrich",
       payloadJson: serializeCronJsonPayload({
+        research: research
+          ? {
+              total: research.total,
+              researched: research.researched,
+              skipped: research.skipped,
+              remaining: research.remaining,
+            }
+          : null,
         batch,
         source: "cron-ironleads-auto-enrich",
         degraded: false,
@@ -61,6 +102,7 @@ async function handleCron(request: Request) {
       enabled: batch.enabled,
       skippedReason: batch.skippedReason,
       dryRun: batch.dryRun,
+      researched: research?.researched ?? 0,
       selected: batch.selected,
       appliedEmailCount: applied,
       providersEnabled: batch.providersEnabled,

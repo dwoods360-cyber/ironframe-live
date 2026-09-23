@@ -42,6 +42,7 @@ import {
 } from "@/app/lib/server/ironleadsSuspectLocation";
 import { probeCompanyWebsite } from "@/app/lib/server/ironleadsWebsiteProbeCore";
 import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
+import { runPreOutreachAfterResearch } from "@/app/lib/server/ironleadsPreOutreachAutomationCore";
 
 export type BuyingCommitteeEmail = {
   email: string;
@@ -997,6 +998,11 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
     sourceUrls,
     googleLeadershipSearch,
   });
+  try {
+    await runPreOutreachAfterResearch(contact.id);
+  } catch {
+    // Best-effort: weekday cron retries enrich + T1 queue. Never DISPATCH here.
+  }
   return result;
 }
 

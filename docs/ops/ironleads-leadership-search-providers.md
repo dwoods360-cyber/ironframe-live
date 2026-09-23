@@ -42,8 +42,9 @@ Portal **Research only** processes **5 SUSPECTs per request** (thinnest first), 
 
 ## After names land
 
-- Pattern emails may appear when a company domain is known (still guesses until published/confirmed).
-- Use **Prospeo** on the SUSPECT card for verified buyer email when available.
+- Research then runs **Prospeo → Apollo → Hunter** (when keys are set) to fill a named-buyer work seat. Pattern guesses and `info@`/`sales@` never become Email PASS.
+- Fit PASS + named buyer + promote-ready email auto-queues a **T1 Approvals draft**. DISPATCH stays human — review the message, then send.
+- Weekday cron (`/api/internal/cron/ironleads-auto-enrich`) researches a few thin actives and retries leftover placeholders. Set `IRONLEADS_AUTO_ENRICH_ENABLED=0` to pause.
 
 ### Email syntax (MSSP / GRC / Enterprise IT)
 

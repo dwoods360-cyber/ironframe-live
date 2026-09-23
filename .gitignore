@@ -41,6 +41,7 @@ tsconfig.tsbuildinfo
 !lib/gtm/outreachReplyReceiptCopy.ts
 !tests/unit/outreachReplyCopy.test.ts
 !tests/unit/outreachReplyReceiptCopy.test.ts
+!app/lib/salesTouchMotionCopy.ts
 public copy/
 test_docs copy/
 

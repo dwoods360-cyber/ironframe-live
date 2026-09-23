@@ -508,8 +508,7 @@ export function mergeBuyingCommitteeMembers(
       byRole.set(member.role, member);
       continue;
     }
-    const samePerson =
-      existing.fullName.trim().toLowerCase() === member.fullName.trim().toLowerCase();
+    const existingName = existing.fullName ?? member.fullName;
     byRole.set(member.role, {
       ...existing,
       title: existing.title ?? member.title,
@@ -517,7 +516,7 @@ export function mergeBuyingCommitteeMembers(
       phones: existing.phones.length > 0 ? existing.phones : member.phones,
       sourceUrls: [...new Set([...existing.sourceUrls, ...member.sourceUrls])].slice(0, 8),
       note: existing.note ?? member.note,
-      fullName: samePerson ? existing.fullName : existing.fullName,
+      fullName: existingName,
     });
   }
   return [...byRole.values()];

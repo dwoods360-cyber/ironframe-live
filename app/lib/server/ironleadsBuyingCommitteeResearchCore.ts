@@ -1080,10 +1080,12 @@ async function persistResearch(
       data: {
         metadata: {
           ...prior,
+          ...(result.websiteUrl ? { websiteUrl: result.websiteUrl } : {}),
           buyingCommittee: {
             researchedAt: result.researchedAt,
             skipped: true,
             skipReason: result.skipReason,
+            websiteUrl: result.websiteUrl,
             members: [],
             socialProfiles: result.socialProfiles,
             socialPagesFetched: result.socialPagesFetched,
@@ -1402,7 +1404,7 @@ export async function researchBuyingCommitteeForAllSuspects(options?: {
     tx.ironboardCrmContact.findMany({
     where: { tenantId, primaryDeals: { some: { stage: "SUSPECT" } } },
     orderBy: [{ createdAt: "desc" }, { priorityScore: "desc" }],
-    take: 80,
+    take: 2000,
     select: {
       id: true,
       fullName: true,

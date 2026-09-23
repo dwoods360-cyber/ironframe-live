@@ -552,102 +552,102 @@ export function videoCampaign2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Video V1 — The Risk Register (build)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-09-16T18:00:00.000Z",
+      dueAt: "2026-10-16T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v1-build",
       synopsis:
-        "Produce Episode 1 (The Number / risk register) clips for scheduled publish — Phase 1 budget ~$200. [2026-08-20] Rescheduled to Wed Sep 16 — +1 month from prior due Sun Aug 16 (cash discipline until Path B closes).",
+        "Produce Episode 1 (The Number / risk register) clips for scheduled publish — Phase 1 budget ~$200. [2026-09-21] Rescheduled to Fri Oct 16 — video slate moved to next month.",
     },
     {
       title: "Video V1 — Publish The Number",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-09-21T16:00:00.000Z",
+      dueAt: "2026-10-21T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v1-publish",
       synopsis:
-        "Ship Episode 1 to LinkedIn + /marketing with CTA to a 10–15 min workflow review. [2026-08-20] Rescheduled to Mon Sep 21 — keeps publish after V1 build (Sep 16).",
+        "Ship Episode 1 to LinkedIn + /marketing with CTA to a 10–15 min workflow review. [2026-09-21] Rescheduled to Wed Oct 21 — video slate moved to next month.",
     },
     {
       title: "Video V2 — The Audit Request (build)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-30T18:00:00.000Z",
+      dueAt: "2026-10-30T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v2-build",
       synopsis:
-        "Produce Episode 2 (The Evidence / audit request) and freeze the style pack after edit. [2026-08-24] Rescheduled +1 week from prior due Sun Aug 23 (Path B outreach + cash discipline).",
+        "Produce Episode 2 (The Evidence / audit request) and freeze the style pack after edit. [2026-09-21] Rescheduled to Fri Oct 30 — video slate moved to next month.",
     },
     {
       title: "Video V2 — Publish The Evidence",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-28T16:00:00.000Z",
+      dueAt: "2026-10-28T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v2-publish",
       synopsis:
-        "Ship Episode 2 pointing to /product-demo and audit-ready evidence solutions.",
+        "Ship Episode 2 pointing to /product-demo and audit-ready evidence solutions. [2026-09-21] Rescheduled to Wed Oct 28 — video slate moved to next month.",
     },
     {
       title: "Video V3 — Build The Boundary",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-08-29T18:00:00.000Z",
+      dueAt: "2026-10-29T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v3-build",
       href: "/docs/marketing-strategy/video-series/v3-kickoff-phase2-shotlist",
       priorityHint: 18,
       synopsis:
-        "V3 pack published (c6ca922c). Shot 02 keyframe + Flow card ready in Videos/WhenRisk/V3/raw. Generate clip next. [2026-08-24] Rescheduled +1 week from prior due Sat Aug 22.",
+        "V3 pack published (c6ca922c). Shot 02 keyframe + Flow card ready in Videos/WhenRisk/V3/raw. Generate clip next. [2026-09-21] Rescheduled to Thu Oct 29 — video slate moved to next month.",
     },
     {
       title: "Video Phase 2 — V3/V4/V5 production window",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-09-02T18:00:00.000Z",
+      dueAt: "2026-10-02T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#phase-2",
       synopsis:
-        "Start Episodes 3–5 (Boundary, Draft, Intake) production window for Sep publishes.",
+        "Start Episodes 3–5 (Boundary, Draft, Intake) production window for Oct publishes. [2026-09-21] Rescheduled to Fri Oct 2 — video slate moved to next month.",
     },
     {
       title: "Video V3 — Publish The Boundary",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-09-11T16:00:00.000Z",
+      dueAt: "2026-10-11T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v3-publish",
       synopsis:
-        "Ship Episode 3 on multi-entity / boundary control with workflow-review CTA.",
+        "Ship Episode 3 on multi-entity / boundary control with workflow-review CTA. [2026-09-21] Rescheduled to Sun Oct 11 — video slate moved to next month.",
     },
     {
       title: "Video V4 — Publish The Draft",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-09-18T16:00:00.000Z",
+      dueAt: "2026-10-18T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v4-publish",
       synopsis:
-        "Ship Episode 4 on governed AI drafts — AI never self-approves.",
+        "Ship Episode 4 on governed AI drafts — AI never self-approves. [2026-09-21] Rescheduled to Sun Oct 18 — video slate moved to next month.",
     },
     {
       title: "Video V5 — Publish The Intake",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-09-25T16:00:00.000Z",
+      dueAt: "2026-10-25T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v5-publish",
       synopsis:
-        "Ship Episode 5 on Irongate sanitize-before-persist intake narrative.",
+        "Ship Episode 5 on Irongate sanitize-before-persist intake narrative. [2026-09-21] Rescheduled to Sun Oct 25 — video slate moved to next month.",
     },
     {
       title: "Video V6 — Complete Story (build)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-10-11T18:00:00.000Z",
+      dueAt: "2026-11-11T18:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v6-build",
       synopsis:
-        "Finish the 2–3 min complete Ironframe story film for mid-Oct publish.",
+        "Finish the 2–3 min complete Ironframe story film for mid-Nov publish. [2026-09-21] Pushed to Wed Nov 11 so V1–V5 occupy October.",
     },
     {
       title: "Video V6 — Publish Complete Ironframe Story",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-10-16T16:00:00.000Z",
+      dueAt: "2026-11-16T16:00:00.000Z",
       sourceRef: "video-series/when-risk-enters-the-room#v6-publish",
       synopsis:
-        "Ship the complete story to LinkedIn, homepage, and newsletter with workflow-review CTA.",
+        "Ship the complete story to LinkedIn, homepage, and newsletter with workflow-review CTA. [2026-09-21] Pushed to Mon Nov 16 so V1–V5 occupy October.",
     },
   ];
 }
@@ -1279,10 +1279,9 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       href: "/dashboard/operations/publishing?desk=linkedin&li=2026-08-31-nis2-iso-accountability",
       priorityHint: 3,
       synopsis:
-        "Founder LinkedIn (Mon problem post): certificate ≠ regulatory clocks ≠ named accountable party. Arts 20/21/23 of Directive (EU) 2022/2555 verified against EUR-Lex 2026-08-28. Points to /marketing. First comment: clocks→owners map + transposition caveat. Draft: linkedin-drafts-2026-08-31-nis2-iso-accountability.md. Moved off Fri 2026-08-28 (draft file had never been written).",
+        "Founder LinkedIn (Mon problem post): certificate ≠ regulatory clocks ≠ named accountable party. Arts 20/21/23 of Directive (EU) 2022/2555 verified against EUR-Lex 2026-08-28. Points to /marketing. First comment: clocks→owners map + transposition caveat. Draft: linkedin-drafts-2026-08-31-nis2-iso-accountability.md. Voice pass 2026-09-21 — Ready for publish.",
       nextActions: [
         "Open Publishing Desk → LinkedIn (this calendar card)",
-        "Voice-pass body; confirm no legal-advice framing",
         "Verify research citations, Copy body → LinkedIn",
         "Paste first-comment clocks→owners map + CTA after publish",
         "Mark Done with LinkedIn URL",
@@ -1297,10 +1296,9 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       href: "/dashboard/operations/publishing?desk=linkedin&li=2026-09-04-evidence-provenance",
       priorityHint: 5,
       synopsis:
-        "Founder LinkedIn (Fri): control lesson — evidence should carry its origin as long as it carries its claim. Untrusted-ingest theme; points to /trust-center. Draft: linkedin-drafts-2026-09-04-evidence-provenance.md. Moved off Fri 2026-08-28. Unblocked 2026-08-30: independent citation is CVE-2026-33634 (NVD) — the Trivy scanner compromise, i.e. the evidence producer itself.",
+        "Founder LinkedIn (Fri): control lesson — evidence should carry its origin as long as it carries its claim. Untrusted-ingest theme; points to /trust-center. Draft: linkedin-drafts-2026-09-04-evidence-provenance.md. Moved off Fri 2026-08-28. Unblocked 2026-08-30: independent citation CVE-2026-33634 (NVD — Trivy / evidence producer). Voice pass 2026-09-21 — Ready for publish.",
       nextActions: [
         "Open Publishing Desk → LinkedIn (this calendar card)",
-        "Voice-pass the draft (last remaining gate)",
         "Verify research citations, Copy body → LinkedIn",
         "Paste first-comment CTA after publish",
         "Mark Done with LinkedIn URL",
@@ -1315,10 +1313,10 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       href: "/dashboard/operations/publishing?desk=linkedin&li=2026-09-15-ma-security-debt",
       priorityHint: 7,
       synopsis:
-        "Founder LinkedIn (Mon): M&A/diligence angle — security debt in deal valuation (not Magerr copy; no engage). Soft overlap with enclaves; different job than soft-tenancy GF.",
+        "Founder LinkedIn (Mon): M&A/diligence angle — security debt in deal valuation (not Magerr copy; no engage). Soft overlap with enclaves; different job than soft-tenancy GF. Voice pass 2026-09-21 — Ready for publish.",
       nextActions: [
         "Open Publishing Desk → LinkedIn (this calendar card)",
-        "Voice-pass draft; verify independent citations (not Magerr)",
+        "Verify independent citations (NACD + NIST 800-161; not Magerr)",
         "Copy body → LinkedIn; paste first-comment CTA after publish",
         "Mark Done with LinkedIn URL",
       ],
@@ -1430,11 +1428,11 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
       title: "Companion story bank — schedule Friday lessons (post style freeze)",
       kind: "OPS_GENERAL",
       status: "PLANNED",
-      dueAt: "2026-09-14T17:00:00.000Z",
+      dueAt: "2026-10-14T17:00:00.000Z",
       sourceRef: "marketing/companion-story-bank",
       priorityHint: 55,
       synopsis:
-        "After video Phase 1 style freeze, schedule Friday companion story-bank lessons. [2026-08-15] Rescheduled to Mon Sep 14 (was Aug 15).",
+        "After video Phase 1 style freeze, schedule Friday companion story-bank lessons. [2026-09-21] Rescheduled to Wed Oct 14 — video slate moved to next month.",
     },
   ];
 }

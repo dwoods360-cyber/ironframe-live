@@ -1,8 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { icpTouchLogHref } from "@/app/lib/approvalDraftKinds";
+import {
+  approvalsDraftHref,
+  draftKindBadgeClass,
+  draftKindCardClass,
+} from "@/app/lib/approvalDraftKinds";
 
 type Touch2DueStatus = "YES" | "WAIT" | "DONE";
 
@@ -19,6 +24,8 @@ type Touch2QueueRow = {
   dispatchCount: number;
   reAnchor: string | null;
   motion: string | null;
+  pendingDraftId: string | null;
+  pendingSubject: string | null;
 };
 
 type Touch2QueuePayload = {
@@ -52,12 +59,17 @@ function dueBadgeClass(status: Touch2DueStatus): string {
 
 type FilterMode = "DUE" | "ALL" | "WAIT";
 
+/**
+ * Touch 2 pipeline strip — same card chrome as the Sales review queue.
+ * Selecting a row with a pending HITL draft opens the shared Approvals editor
+ * (identical Touch 1 UX) via `approvalsDraftHref`.
+ */
 export default function SalesTouch2QueuePanel() {
+  const router = useRouter();
   const [payload, setPayload] = useState<Touch2QueuePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterMode>("DUE");
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,15 +98,14 @@ export default function SalesTouch2QueuePanel() {
     return rows;
   }, [payload, filter]);
 
-  const copyReAnchor = async (row: Touch2QueueRow) => {
-    if (!row.reAnchor) return;
-    try {
-      await navigator.clipboard.writeText(row.reAnchor);
-      setCopiedId(row.interactionId);
-      window.setTimeout(() => setCopiedId(null), 1600);
-    } catch {
-      /* ignore */
-    }
+  const openDraft = (row: Touch2QueueRow) => {
+    if (!row.pendingDraftId) return;
+    router.push(
+      approvalsDraftHref(row.pendingDraftId, "SALES", "US", "GEO", "TOUCH2"),
+    );
+    window.setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 50);
   };
 
   return (
@@ -105,11 +116,11 @@ export default function SalesTouch2QueuePanel() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-amber-300">
-            Touch 2 queue · sorted by Touch 1 date sent
+            Touch 2 · same Approvals desk as Touch 1
           </h2>
           <p className="mt-1 max-w-3xl font-sans text-xs text-slate-400">
-            Day 4–5 after Touch 1. Target-specific re-anchor required before scarcity. HITL only —
-            draft in Approvals, never auto-DISPATCH.
+            Day 4–5 after Touch 1. Cards with a pending draft open the shared review queue +
+            editor (edit → Approve &amp; dispatch). HITL only — never auto-DISPATCH.
           </p>
         </div>
         <button
@@ -176,85 +187,72 @@ export default function SalesTouch2QueuePanel() {
           No Touch 2 rows in this filter.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-800/80">
-          <table className="min-w-full border-collapse text-left text-xs">
-            <thead className="bg-slate-950/80 font-mono text-[9px] uppercase tracking-wider text-slate-500">
-              <tr>
-                <th className="px-3 py-2 font-medium">#</th>
-                <th className="px-3 py-2 font-medium">Due</th>
-                <th className="px-3 py-2 font-medium">Buyer / Entity</th>
-                <th className="px-3 py-2 font-medium">Touch 1 sent (CT)</th>
-                <th className="px-3 py-2 font-medium">T2 earliest (CT)</th>
-                <th className="px-3 py-2 font-medium">Re-anchor</th>
-                <th className="px-3 py-2 font-medium">Log</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((row) => (
-                <tr
-                  key={row.interactionId}
-                  className="border-t border-slate-900/80 align-top hover:bg-slate-950/40"
-                >
-                  <td className="px-3 py-2 font-mono text-slate-500">{row.rank}</td>
-                  <td className="px-3 py-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {visible.map((row) => {
+            const hasDraft = Boolean(row.pendingDraftId);
+            const subject =
+              row.pendingSubject?.trim() ||
+              row.reAnchor?.trim() ||
+              row.motion?.trim() ||
+              "Touch 2 follow-up";
+            return (
+              <button
+                key={row.interactionId}
+                type="button"
+                disabled={!hasDraft}
+                onClick={() => openDraft(row)}
+                title={
+                  hasDraft
+                    ? "Open in Approvals editor (same as Touch 1)"
+                    : "No pending Touch 2 draft yet — queue HITL draft first"
+                }
+                className={`block w-full touch-manipulation rounded-xl border-l-4 border p-4 text-left transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55 ${draftKindCardClass("SALES", false)}`}
+              >
+                <div className="mb-1.5 flex items-start justify-between gap-2">
+                  <span className="truncate font-sans text-xs font-bold text-white">
+                    {row.company}
+                  </span>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-1">
                     <span
-                      className={`inline-block rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${dueBadgeClass(row.dueStatus)}`}
+                      className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${dueBadgeClass(row.dueStatus)}`}
                     >
-                      {row.dueStatus}
+                      {row.dueStatus === "YES"
+                        ? "Due"
+                        : row.dueStatus === "WAIT"
+                          ? "Wait"
+                          : "Done"}
                     </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="font-sans font-semibold text-slate-100">{row.buyer}</div>
-                    <div className="text-slate-300">{row.company}</div>
-                    <div className="mt-0.5 font-mono text-[10px] text-slate-500">{row.email}</div>
-                    {row.motion ? (
-                      <div className="mt-1 max-w-xs text-[11px] leading-snug text-slate-400">
-                        {row.motion}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-300">
-                    {formatCt(row.touch1SentAt)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-300">
-                    {formatCt(row.touch2EarliestAt)}
-                  </td>
-                  <td className="max-w-md px-3 py-2">
-                    {row.reAnchor ? (
-                      <div className="space-y-1.5">
-                        <p className="font-sans text-[11px] leading-relaxed text-slate-300">
-                          {row.reAnchor}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => void copyReAnchor(row)}
-                          className="rounded border border-slate-700 px-2 py-0.5 font-mono text-[9px] uppercase text-slate-400 hover:border-cyan-700 hover:text-cyan-300"
-                        >
-                          {copiedId === row.interactionId ? "Copied" : "Copy re-anchor"}
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-slate-600">Investigate before draft</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <a
-                      href={icpTouchLogHref({
-                        company: row.company,
-                        channel: "EMAIL",
-                        interactionId: row.interactionId,
-                        to: row.email || undefined,
-                        touch: "TOUCH2",
-                      })}
-                      className="font-mono text-[10px] uppercase text-cyan-400 hover:underline"
+                    <span className="rounded border border-slate-600 bg-slate-900 px-2 py-0.5 font-mono text-[9px] uppercase text-slate-300">
+                      Touch 2
+                    </span>
+                    <span
+                      className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${draftKindBadgeClass("SALES")}`}
                     >
-                      TOUCH2 log
-                    </a>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      SALES
+                    </span>
+                  </div>
+                </div>
+                <div className="mb-1 font-mono text-[9px] uppercase tracking-wide text-slate-500">
+                  Sales outreach
+                </div>
+                <div className="mb-1 line-clamp-2 font-sans text-xs font-medium text-slate-300">
+                  {subject}
+                </div>
+                <div className="truncate font-mono text-[10px] text-slate-500">
+                  Operator: {row.buyer}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[9px] text-slate-600">
+                  <span>T1 {formatCt(row.touch1SentAt)}</span>
+                  <span>T2 earliest {formatCt(row.touch2EarliestAt)}</span>
+                  {hasDraft ? (
+                    <span className="text-cyan-400">Open editor →</span>
+                  ) : (
+                    <span className="text-amber-500/80">Draft not queued</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </section>

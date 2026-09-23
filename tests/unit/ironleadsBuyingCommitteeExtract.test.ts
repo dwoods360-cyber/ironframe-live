@@ -23,6 +23,15 @@ import {
 } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 
 describe("ironleadsBuyingCommitteeExtract", () => {
+  it("extracts CSO and founder+title cards from about-page prose", () => {
+    const text =
+      "Kannan Udayarajan, Founder and Chief Executive Officer. Sandhya Prashanth, Co-founder and Chief Security Officer. Suraj Mandhare Director of Growth.";
+    const people = extractBuyingPersons(text);
+    expect(people.find((p) => p.role === "CEO")?.fullName).toContain("Udayarajan");
+    expect(people.find((p) => p.role === "CISO")?.fullName).toContain("Prashanth");
+    expect(people.find((p) => p.role === "DIRECTOR_OPS")?.fullName).toContain("Mandhare");
+  });
+
   it("extracts CISO and CEO names from appointment prose", () => {
     const text = [
       "Western Alliance Appoints Stephen McMaster as Chief Information Security Officer.",

@@ -30,6 +30,13 @@ const ROLE_PATTERNS: Array<{ role: BuyingRole; title: RegExp; weight: number }> 
     weight: 100,
   },
   {
+    // Chief Security Officer is the economic/ops buyer on many CTEM/PTaaS firms.
+    // Do not match bare "CSO" — that also means Chief Strategy Officer.
+    role: "CISO",
+    title: /\bchief security officer\b/i,
+    weight: 98,
+  },
+  {
     role: "CEO",
     title:
       /\b(?:chief executive officer|ceo|president and chief executive|chairman[, ]+president and chief executive|co[- ]?founder|founder)\b/i,
@@ -76,6 +83,12 @@ const ROLE_PATTERNS: Array<{ role: BuyingRole; title: RegExp; weight: number }> 
     role: "DIRECTOR_OPS",
     title: /\bdirector\s+of\s+operations\b|\bchief\s+operating\s+officer\b|\bcoo\b/i,
     weight: 70,
+  },
+  {
+    role: "DIRECTOR_OPS",
+    title:
+      /\b(?:director|head|vp|vice president)[, ]+(?:of )?growth\b|\bgrowth\s+lead\b/i,
+    weight: 64,
   },
 ];
 
@@ -593,13 +606,19 @@ export function extractBuyingPersons(text: string): ExtractedPerson[] {
       ),
       // "Stephen McMaster as Chief Information Security Officer"
       new RegExp(
-        `\\b(${FULL_NAME})\\b(?:\\s*[,:\\-–—]|\\s+[Aa]s\\s+|\\s+[Hh]as\\s+[Bb]een\\s+[Aa]ppointed\\s+[Aa]s\\s+|\\s+[Ii]s\\s+)(?:[Tt]he\\s+)?${title}`,
+        `\\b(${FULL_NAME})\\b(?:\\s*[,:\\-–—]|\\s+[Aa]s\\s+|\\s+[Hh]as\\s+[Bb]een\\s+[Aa]ppointed\\s+[Aa]s\\s+|\\s+[Ii]s\\s+)\\s*(?:[Tt]he\\s+)?${title}`,
         "g",
       ),
       // "Kenneth A. Vecchione is Chairman, President and Chief Executive Officer"
       new RegExp(`\\b(${FULL_NAME})\\s+[Ii]s\\s+(?:[Tt]he\\s+)?${title}`, "g"),
       // Meet-the-team cards: "John Verry Lead Managing Director" (before title-first — safer)
       new RegExp(`\\b(${FULL_NAME})\\s+${title}`, "g"),
+      // About/press: "Kannan Udayarajan Founder and Chief Executive Officer"
+      // Requires Founder/Co-founder before the C-suite title — never a bare "and".
+      new RegExp(
+        `\\b(${FULL_NAME})\\s*[,:]?\\s+(?:[Cc][Oo][- ]?)?[Ff]ounder(?:\\s+[Aa]nd)?\\s+${title}`,
+        "g",
+      ),
       // Bio lines: "Richard Rebetti has been … Chief Operating Officer"
       new RegExp(
         `\\b(${FULL_NAME})\\s+[Hh]as\\s+[Bb]een\\b[^.!?]{0,120}?${title}`,
@@ -652,8 +671,17 @@ export function extractBuyingPersons(text: string): ExtractedPerson[] {
 export const RESEARCH_PATHS = [
   "/contact-us",
   "/contact",
+  "/book-a-demo",
+  "/book-demo",
+  "/request-a-demo",
+  "/request-demo",
+  "/demo",
   "/about",
   "/about-us",
+  "/our-story",
+  "/who-we-are",
+  "/founders",
+  "/leadership-team",
   "/our-leadership",
   "/leadership",
   "/team",
@@ -705,7 +733,7 @@ export type TradeShowEventSignal = {
 };
 
 const TRADE_SHOW_NAME_RE =
-  /\b(?:Black\s*Hat(?:\s*USA)?|RSA\s*C(?:onference)?|RSAC|DEF\s*CON|Gartner\s+Security|InfoSec\s*World|SecureWorld|AWS\s+re:Invent|Microsoft\s+Ignite|Web\s*Summit)\b/gi;
+  /\b(?:Black\s*Hat(?:\s*USA)?|RSA\s*C(?:onference)?|RSAC|DEF\s*CON|GISEC(?:\s+Global)?|Venture\s+Atlanta|ChannelCon|Gartner\s+Security|InfoSec\s*World|SecureWorld|AWS\s+re:Invent|Microsoft\s+Ignite|Web\s*Summit)\b/gi;
 
 /**
  * Pull trade-show / conference registration clues from company event or blog copy.
@@ -756,7 +784,7 @@ export function extractTradeShowAndEventSignals(
   }
 
   const speakerRe =
-    /\b(?:speaker|keynote|presenter|panelist|fireside)\b[^.]{0,100}\b(?:Black\s*Hat|RSA|RSAC|InfoSec\s*World|SecureWorld)\b[^.]{0,80}/gi;
+    /\b(?:speaker|keynote|presenter|panelist|fireside)\b[^.]{0,100}\b(?:Black\s*Hat|RSA|RSAC|GISEC|Venture\s+Atlanta|ChannelCon|InfoSec\s*World|SecureWorld)\b[^.]{0,80}/gi;
   while ((m = speakerRe.exec(text)) !== null) {
     const snippet = m[0].replace(/\s+/g, " ").trim();
     const eventMatch = snippet.match(TRADE_SHOW_NAME_RE);

@@ -1,6 +1,6 @@
 # Ironleads leadership search providers
 
-Research-only fills **names** from press/cyber snippets when the company-site scrape finds zero plausible people. Emails still come from published site addresses, pattern guess + MX, or **Prospeo** enrichment.
+Research-only fills **names and email clues** from public web search when the company-site scrape is missing a named buyer **or** a personal work seat (not only when zero names were found). Complementary queries cover leadership, email/contact, events, and corporate filings. Emails still come from published site addresses, pattern guess + MX, or **Prospeo/Hunter** enrichment. Aggregator claims (`rocketreach`, `zoominfo`, …) stay **pattern_guess** — never Email PASS.
 
 Google Custom Search JSON API is **closed to new customers** — do not rely on `GOOGLE_CSE_*` for new GCP projects.
 
@@ -12,7 +12,7 @@ Google Custom Search JSON API is **closed to new customers** — do not rely on 
 
 **Failover:** When Brave is configured and returns **zero usable hits** (or errors), Research automatically tries SerpAPI next (then CSE if present). Set `SERPAPI_API_KEY` on Vercel to unlock this path — free tier is 250 searches/mo.
 
-Hits are filtered to `app/lib/server/ironleadsLeadershipSearchAllowlist.ts` (mirror of `docs/ops/google-cse-ironleads-sites.txt`), then company-relevance refined in `ironleadsLeadershipSearchHitRefine.ts` (drops generic CISO roundups / Wikipedia role pages; turns LinkedIn `/in/` and Forbes Councils profile slugs into extractable prose). Brave requests use `extra_snippets=true` for richer corpus.
+Hits are filtered to `app/lib/server/ironleadsLeadershipSearchAllowlist.ts` (press/cyber list + the prospect's own domain + event/filing hosts), then company-relevance refined in `ironleadsLeadershipSearchHitRefine.ts` (drops generic CISO roundups / Wikipedia role pages; turns LinkedIn `/in/` and Forbes Councils profile slugs into extractable prose). Email queries may keep aggregator snippets as **hints only**. Brave requests use `extra_snippets=true` for richer corpus. Research also fetches up to **3** allowlisted result pages (never LinkedIn HTML).
 
 ## Setup — Brave (recommended)
 

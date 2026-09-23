@@ -449,13 +449,13 @@ export async function buildIronleadsSuspectReport(
     nextActions.unshift(
       `HOLD archive (${operatorHold.classification}) — parked ${operatorHold.at}. Restore from archive before Promote. Reason: ${operatorHold.reason}`,
     );
-  } else if (accountResearchBrief.outreach.status === "hold") {
+  } else if (accountResearchBrief?.outreach?.status === "hold") {
     nextActions.unshift(
       "Account Research Brief: HOLD — move to HOLD archive after review (do not Promote for Path B cold).",
     );
-  } else if (accountResearchBrief.outreach.status === "drop") {
+  } else if (accountResearchBrief?.outreach?.status === "drop") {
     nextActions.unshift("Account Research Brief: DROP — remove from Path B shortlist.");
-  } else if (accountResearchBrief.outreach.status === "promote" && deal?.stage === "SUSPECT") {
+  } else if (accountResearchBrief?.outreach?.status === "promote" && deal?.stage === "SUSPECT") {
     nextActions.unshift(
       "Account Research Brief: gates support Promote — confirm email, then SUSPECT→PROSPECT.",
     );

@@ -693,7 +693,7 @@ function finish(state) {
     paste: pastePath,
     checkpoint: checkpointPath,
     log: logPath,
-    next: "Paste .paste.txt into Ironleads (≤100/batch) → Import paste → Research only. Review CSV for HOLD/GRC conflicts (OSCAR/Radius360).",
+    next: "Import .paste.txt via clutch-import-directory-pages.mjs or import-msspproviders-paste-file.ts (100-firm batches, max 1000/paste) → Research only. Review CSV for HOLD/GRC conflicts (OSCAR/Radius360).",
   };
   log(JSON.stringify(summary, null, 2));
   return summary;

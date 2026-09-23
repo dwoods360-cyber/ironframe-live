@@ -6,7 +6,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { NEEDS_ENRICHMENT_DRAFT_TAG } from "@/app/lib/server/approvalQueueCore";
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 export function needsEnrichmentPlaceholderEmail(contactId: string): string {
   const short = contactId.replace(/-/g, "").slice(0, 12).toLowerCase();
@@ -96,7 +96,7 @@ export async function applyApprovalNeedsEnrichment(args: {
 
   let dealDemoted = false;
 
-  await prisma.$transaction(async (tx) => {
+  await withProspectPoolTenant(async (tx) => {
     await tx.ironboardCrmInteraction.update({
       where: { id: args.interactionId },
       data: {

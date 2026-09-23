@@ -4,6 +4,7 @@ import {
   DISPATCHED_DRAFT_TAG,
   DISPATCHED_SALES_DRAFT_TAG,
   inferDraftKind,
+  inferSalesTouchStage,
   isPendingDraftSummary,
   isSalesSmsDraft,
   parsePendingDraftSummary,
@@ -23,7 +24,7 @@ import {
   resolveOutgoingTouchNumber,
 } from "@/app/lib/server/salesTouchHistoryCore";
 import { applyApprovalNeedsEnrichment } from "@/app/lib/server/approvalNeedsEnrichmentCore";
-import prisma from "@/lib/prisma";
+import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 export const dynamic = "force-dynamic";
 
@@ -82,12 +83,14 @@ export async function POST(
       return NextResponse.json({ error: "Invalid action perimeter request." }, { status: 400 });
     }
 
-    const pendingInteraction = await prisma.ironboardCrmInteraction.findUnique({
-      where: { id: interactionId },
-      include: {
-        contact: true,
-      },
-    });
+    const pendingInteraction = await withProspectPoolTenant((tx) =>
+      tx.ironboardCrmInteraction.findUnique({
+        where: { id: interactionId },
+        include: {
+          contact: true,
+        },
+      }),
+    );
 
     if (!pendingInteraction) {
       return NextResponse.json(
@@ -156,6 +159,17 @@ export async function POST(
         }
       }
 
+      const cadenceTouch =
+        draftKind === "SALES"
+          ? inferSalesTouchStage(pendingInteraction.summary)
+          : null;
+      const expectedTouch =
+        draftKind === "SALES"
+          ? cadenceTouch === "TOUCH3" || salesTouch === "TOUCH3"
+            ? "TOUCH3"
+            : (cadenceTouch ?? salesTouch ?? null)
+          : null;
+
       const dispatchGate = validateApprovalDispatch({
         draftKind,
         channel,
@@ -164,6 +178,7 @@ export async function POST(
         recipientPhone: body.recipientPhone ?? contact.phone,
         company: contact?.company,
         acknowledgeOperatorSelfDispatch: Boolean(body.acknowledgeOperatorSelfDispatch),
+        expectedTouch,
       });
       if (!dispatchGate.ok) {
         return NextResponse.json(
@@ -188,10 +203,12 @@ export async function POST(
         }
 
         if (contact.phone !== toPhone) {
-          await prisma.ironboardCrmContact.update({
-            where: { id: contact.id },
-            data: { phone: toPhone },
-          });
+          await withProspectPoolTenant((tx) =>
+            tx.ironboardCrmContact.update({
+              where: { id: contact.id },
+              data: { phone: toPhone },
+            }),
+          );
         }
 
         const sendResult = await sendOutboundSms({
@@ -227,13 +244,15 @@ export async function POST(
           .filter(Boolean)
           .join("\n");
 
-        await prisma.ironboardCrmInteraction.update({
-          where: { id: interactionId },
-          data: {
-            summary: updatedSummary.slice(0, 12_000),
-            occurredAt: new Date(),
-          },
-        });
+        await withProspectPoolTenant((tx) =>
+          tx.ironboardCrmInteraction.update({
+            where: { id: interactionId },
+            data: {
+              summary: updatedSummary.slice(0, 12_000),
+              occurredAt: new Date(),
+            },
+          }),
+        );
 
         console.log(
           `SMS dispatch complete. Interaction [${interactionId}] closed via ${sendResult.provider ?? "sms"}.`,
@@ -282,10 +301,12 @@ export async function POST(
       }
 
       if (contact.email.toLowerCase() !== toEmail) {
-        await prisma.ironboardCrmContact.update({
-          where: { id: contact.id },
-          data: { email: toEmail },
-        });
+        await withProspectPoolTenant((tx) =>
+          tx.ironboardCrmContact.update({
+            where: { id: contact.id },
+            data: { email: toEmail },
+          }),
+        );
       }
 
       const sendResult = await sendOutboundEmail({
@@ -321,13 +342,15 @@ export async function POST(
         .filter(Boolean)
         .join("\n");
 
-      await prisma.ironboardCrmInteraction.update({
-        where: { id: interactionId },
-        data: {
-          summary: updatedSummary.slice(0, 12_000),
-          occurredAt: new Date(),
-        },
-      });
+      await withProspectPoolTenant((tx) =>
+        tx.ironboardCrmInteraction.update({
+          where: { id: interactionId },
+          data: {
+            summary: updatedSummary.slice(0, 12_000),
+            occurredAt: new Date(),
+          },
+        }),
+      );
 
       console.log(
         `Dispatch complete. Interaction [${interactionId}] closed and verified on wire.`,
@@ -403,13 +426,15 @@ export async function POST(
       pendingInteraction.summary,
     ].join("\n");
 
-    await prisma.ironboardCrmInteraction.update({
-      where: { id: interactionId },
-      data: {
-        summary: purgedSummary.slice(0, 12_000),
-        occurredAt: new Date(),
-      },
-    });
+    await withProspectPoolTenant((tx) =>
+      tx.ironboardCrmInteraction.update({
+        where: { id: interactionId },
+        data: {
+          summary: purgedSummary.slice(0, 12_000),
+          occurredAt: new Date(),
+        },
+      }),
+    );
 
     console.log(`Purge operation complete. Draft interaction [${interactionId}] soft-archived.`);
     return NextResponse.json({ status: "SUCCESS_PURGED" });

@@ -59,6 +59,8 @@ export function sanitizeAuthNextPath(raw: string | null | undefined, fallback = 
   const next = (raw ?? "").trim();
   if (!next.startsWith("/") || next.startsWith("//")) return fallback;
   if (next.includes("://")) return fallback;
+  const pathname = next.split("?")[0]?.split("#")[0] ?? next;
+  if (pathname === "/api" || pathname.startsWith("/api/")) return fallback;
   return next;
 }
 

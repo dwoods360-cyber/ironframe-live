@@ -187,6 +187,9 @@ function parseDirectoryCardBlocks(text: string): DirectoryImportRow[] | null {
   return rows;
 }
 
+/** Max firms per free-directory paste import (client + server). */
+export const DIRECTORY_PASTE_MAX_ROWS = 1000;
+
 /** Parse operator paste: card blocks, or company [, website] [, trigger] line lists. */
 export function parseDirectoryImportPaste(raw: string): DirectoryImportRow[] {
   const text = (raw ?? "").replace(/^\uFEFF/, "");

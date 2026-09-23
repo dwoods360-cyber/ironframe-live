@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   listMsspFreeDirectorySeeds,
   parseDirectoryImportPaste,
+  DIRECTORY_PASTE_MAX_ROWS,
 } from "@/app/lib/ironleadsMsspFreeDirectorySeeds";
 import {
   HOLD_ARCHIVE_SORT_OPTIONS,
@@ -17,7 +18,7 @@ import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
 const FREE_DIRECTORY_SEED_COUNT = listMsspFreeDirectorySeeds().length;
 const PASTE_DRAFT_KEY = "ironleads.directoryPasteDraft.v1";
-const PASTE_MAX_ROWS = 100;
+const PASTE_MAX_ROWS = DIRECTORY_PASTE_MAX_ROWS;
 
 type QueueDecision = {
   kind: "promoted" | "held" | "restored" | "discarded";

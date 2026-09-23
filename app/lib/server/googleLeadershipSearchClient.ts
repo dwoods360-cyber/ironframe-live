@@ -1,10 +1,16 @@
 import "server-only";
 
-import { isAllowlistedLeadershipUrl } from "@/app/lib/server/ironleadsLeadershipSearchAllowlist";
-import { refineLeadershipHits } from "@/app/lib/server/ironleadsLeadershipSearchHitRefine";
+import {
+  isAllowlistedLeadershipUrl,
+  isEmailAggregatorUrl,
+} from "@/app/lib/server/ironleadsLeadershipSearchAllowlist";
+import {
+  leadershipHitMentionsCompany,
+  refineLeadershipHits,
+} from "@/app/lib/server/ironleadsLeadershipSearchHitRefine";
 
 /**
- * Leadership OSINT search for Ironleads Research-only thin dossiers.
+ * Public-web buyer / email OSINT for Ironleads Research-only dossiers.
  *
  * Provider order:
  *   1. Brave Search API — BRAVE_SEARCH_API_KEY (or BRAVE_API_KEY)
@@ -14,9 +20,12 @@ import { refineLeadershipHits } from "@/app/lib/server/ironleadsLeadershipSearch
  *      (closed to new GCP customers; kept for legacy entitlement only)
  *
  * Never scrapes google.com/search HTML. Hits are filtered to the press/cyber
- * allowlist in ironleadsLeadershipSearchAllowlist.ts.
+ * allowlist in ironleadsLeadershipSearchAllowlist.ts, the prospect's own
+ * domain, extra event/filing hosts, and (email query only) aggregator snippets
+ * that stay pattern_guess until Hunter/Prospeo valid.
  *
- * Research only calls this when the company-site scrape left zero plausible names.
+ * Pipeline runs complementary queries (leadership + email + events + filings)
+ * whenever the site scrape is missing a named buyer or a personal work email.
  */
 
 const BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search";
@@ -24,6 +33,13 @@ const SERPAPI_SEARCH_URL = "https://serpapi.com/search.json";
 const CUSTOM_SEARCH_URL = "https://www.googleapis.com/customsearch/v1";
 
 export type LeadershipSearchProvider = "brave" | "serpapi" | "google_cse";
+
+export type ProspectOsintQueryKind = "leadership" | "email" | "events" | "filings";
+
+export type ProspectOsintQuery = {
+  kind: ProspectOsintQueryKind;
+  query: string;
+};
 
 export type GoogleLeadershipHit = {
   title: string;
@@ -42,6 +58,13 @@ export type GoogleLeadershipSearchResult =
       hits: GoogleLeadershipHit[];
       corpus: string;
       sourceUrls: string[];
+      /** When multi-query OSINT ran, one row per complementary search. */
+      queries?: Array<{
+        kind: ProspectOsintQueryKind;
+        query: string;
+        hitCount: number;
+        provider: LeadershipSearchProvider;
+      }>;
     }
   | {
       ok: false;
@@ -96,9 +119,56 @@ export function isLeadershipSearchConfigured(): boolean {
   return resolveLeadershipSearchProvider() != null;
 }
 
+function sanitizeFirm(company: string): string {
+  return company.trim().replace(/"/g, "");
+}
+
+function accountHost(domain?: string | null): string {
+  return (domain ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("/")[0] ?? "";
+}
+
 function buildLeadershipQuery(company: string): string {
-  const firm = company.trim().replace(/"/g, "");
-  return `"${firm}" (CEO OR CISO OR Founder OR "Managing Director" OR CFO OR "Chief Information Security") (appointed OR joins OR "is the" OR founder)`;
+  const firm = sanitizeFirm(company);
+  return `"${firm}" (CEO OR CISO OR CSO OR Founder OR "Managing Director" OR CFO OR COO OR "Chief Information Security" OR "Chief Security Officer" OR "co-founder") (appointed OR joins OR "is the" OR founder)`;
+}
+
+/** Complementary public-web queries — same mix used on desk OSINT (Siemba-style). */
+export function buildProspectOsintQueries(input: {
+  company: string;
+  domain?: string | null;
+}): ProspectOsintQuery[] {
+  const firm = sanitizeFirm(input.company);
+  const host = accountHost(input.domain);
+  const emailClause = host
+    ? `(email OR mailto OR contact OR "@${host}")`
+    : `(email OR mailto OR "contact us" OR "book a demo")`;
+  return [
+    { kind: "leadership", query: buildLeadershipQuery(firm) },
+    {
+      kind: "email",
+      query: `"${firm}" ${emailClause} (CEO OR CISO OR CSO OR founder OR "chief")`,
+    },
+    {
+      kind: "events",
+      query: `"${firm}" (conference OR booth OR speaker OR exhibitor OR GISEC OR RSAC OR "Black Hat" OR "Venture Atlanta" OR ChannelCon)`,
+    },
+    {
+      kind: "filings",
+      query: `"${firm}" ("secretary of state" OR "registered agent" OR "articles of incorporation" OR officer OR director)`,
+    },
+  ];
+}
+
+function hitLooksLikeEmailClue(hit: GoogleLeadershipHit, domain?: string | null): boolean {
+  const hay = `${hit.title} ${hit.snippet}`.toLowerCase();
+  if (hay.includes("mailto:") || hay.includes("@")) return true;
+  const host = accountHost(domain);
+  return Boolean(host && hay.includes(`@${host}`));
 }
 
 function finalizeHits(
@@ -106,10 +176,20 @@ function finalizeHits(
   company: string,
   query: string,
   rawHits: GoogleLeadershipHit[],
+  accountDomain?: string | null,
+  opts?: { acceptEmailClues?: boolean },
 ): Extract<GoogleLeadershipSearchResult, { ok: true }> {
   const allowlisted = rawHits
-    .filter((h) => h.link && isAllowlistedLeadershipUrl(h.link))
-    .filter((h) => h.title || h.snippet);
+    .filter((h) => {
+      if (!h.link || !(h.title || h.snippet)) return false;
+      if (isAllowlistedLeadershipUrl(h.link, accountDomain)) return true;
+      if (opts?.acceptEmailClues) {
+        const emailClue =
+          hitLooksLikeEmailClue(h, accountDomain) || isEmailAggregatorUrl(h.link);
+        return emailClue && leadershipHitMentionsCompany(h, company);
+      }
+      return false;
+    });
 
   const { hits, corpus } = refineLeadershipHits(company, allowlisted);
   const sourceUrls = hits.map((h) => h.link).filter(Boolean);
@@ -129,6 +209,8 @@ async function searchViaBrave(
   company: string,
   query: string,
   num: number,
+  accountDomain?: string | null,
+  opts?: { acceptEmailClues?: boolean },
 ): Promise<GoogleLeadershipSearchResult> {
   const apiKey = getBraveApiKey();
   if (!apiKey) {
@@ -204,7 +286,7 @@ async function searchViaBrave(
       };
     });
 
-    return finalizeHits("brave", company, query, rawHits);
+    return finalizeHits("brave", company, query, rawHits, accountDomain, opts);
   } catch (err) {
     return {
       ok: false,
@@ -220,6 +302,8 @@ async function searchViaSerpApi(
   company: string,
   query: string,
   num: number,
+  accountDomain?: string | null,
+  opts?: { acceptEmailClues?: boolean },
 ): Promise<GoogleLeadershipSearchResult> {
   const apiKey = getSerpApiKey();
   if (!apiKey) {
@@ -269,7 +353,7 @@ async function searchViaSerpApi(
       link: typeof item.link === "string" ? item.link.trim() : "",
     }));
 
-    return finalizeHits("serpapi", company, query, rawHits);
+    return finalizeHits("serpapi", company, query, rawHits, accountDomain, opts);
   } catch (err) {
     return {
       ok: false,
@@ -285,6 +369,8 @@ async function searchViaGoogleCse(
   company: string,
   query: string,
   num: number,
+  accountDomain?: string | null,
+  opts?: { acceptEmailClues?: boolean },
 ): Promise<GoogleLeadershipSearchResult> {
   const apiKey = getCseApiKey();
   const cx = getCseCx();
@@ -331,7 +417,7 @@ async function searchViaGoogleCse(
       link: typeof item.link === "string" ? item.link.trim() : "",
     }));
 
-    return finalizeHits("google_cse", company, query, rawHits);
+    return finalizeHits("google_cse", company, query, rawHits, accountDomain, opts);
   } catch (err) {
     return {
       ok: false,
@@ -362,17 +448,30 @@ export function shouldFailoverLeadershipSearch(
   return result.hits.length === 0;
 }
 
-/**
- * Search press/cyber media for leadership mentions for one company.
- * Returns title+snippet corpus for extractBuyingPersons (plausibility filtered upstream).
- *
- * When Brave is primary: on empty usable hits or Brave error, automatically
- * tries SerpAPI (then Google CSE) if those keys are configured.
- */
-export async function searchCompanyLeadership(input: {
+function runProviderSearch(
+  provider: LeadershipSearchProvider,
+  company: string,
+  query: string,
+  num: number,
+  accountDomain?: string | null,
+  opts?: { acceptEmailClues?: boolean },
+): Promise<GoogleLeadershipSearchResult> {
+  if (provider === "brave") {
+    return searchViaBrave(company, query, num, accountDomain, opts);
+  }
+  if (provider === "serpapi") {
+    return searchViaSerpApi(company, query, num, accountDomain, opts);
+  }
+  return searchViaGoogleCse(company, query, num, accountDomain, opts);
+}
+
+async function searchWithProviderCascade(input: {
   company: string;
+  query: string;
+  num: number;
   domain?: string | null;
-  num?: number;
+  acceptEmailClues?: boolean;
+  cascade: boolean;
 }): Promise<GoogleLeadershipSearchResult> {
   const provider = resolveLeadershipSearchProvider();
   if (!provider) {
@@ -397,42 +496,190 @@ export async function searchCompanyLeadership(input: {
     };
   }
 
-  const query = buildLeadershipQuery(company);
-  const num = Math.min(Math.max(input.num ?? 8, 1), 10);
-
-  const runPrimary = (): Promise<GoogleLeadershipSearchResult> => {
-    if (provider === "brave") return searchViaBrave(company, query, num);
-    if (provider === "serpapi") return searchViaSerpApi(company, query, num);
-    return searchViaGoogleCse(company, query, num);
-  };
-
-  const primary = await runPrimary();
-  if (!shouldFailoverLeadershipSearch(primary)) return primary;
+  const opts = { acceptEmailClues: Boolean(input.acceptEmailClues) };
+  const primary = await runProviderSearch(
+    provider,
+    company,
+    input.query,
+    input.num,
+    input.domain,
+    opts,
+  );
+  if (!input.cascade || !shouldFailoverLeadershipSearch(primary)) return primary;
 
   const tried: LeadershipSearchProvider[] = primary.provider ? [primary.provider] : [];
-  const failoverPlan: Array<() => Promise<GoogleLeadershipSearchResult>> = [];
-
+  const failoverPlan: LeadershipSearchProvider[] = [];
   if (provider === "brave") {
-    if (getSerpApiKey()) failoverPlan.push(() => searchViaSerpApi(company, query, num));
-    if (getCseApiKey() && getCseCx()) {
-      failoverPlan.push(() => searchViaGoogleCse(company, query, num));
-    }
+    if (getSerpApiKey()) failoverPlan.push("serpapi");
+    if (getCseApiKey() && getCseCx()) failoverPlan.push("google_cse");
   } else if (provider === "serpapi") {
-    if (getCseApiKey() && getCseCx()) {
-      failoverPlan.push(() => searchViaGoogleCse(company, query, num));
-    }
+    if (getCseApiKey() && getCseCx()) failoverPlan.push("google_cse");
   }
 
   let last: GoogleLeadershipSearchResult = primary;
   for (const next of failoverPlan) {
-    const candidate = await next();
+    const candidate = await runProviderSearch(
+      next,
+      company,
+      input.query,
+      input.num,
+      input.domain,
+      opts,
+    );
     if (candidate.provider) tried.push(candidate.provider);
     if (!shouldFailoverLeadershipSearch(candidate)) {
       return withCascadeNote(candidate, tried.slice(0, -1));
     }
-    // Prefer last ok-empty over hard fail when both empty
     if (candidate.ok || !last.ok) last = candidate;
   }
 
   return withCascadeNote(last, tried.slice(0, -1));
+}
+
+/**
+ * Search press/cyber media for leadership mentions for one company.
+ * Returns title+snippet corpus for extractBuyingPersons (plausibility filtered upstream).
+ *
+ * When Brave is primary: on empty usable hits or Brave error, automatically
+ * tries SerpAPI (then Google CSE) if those keys are configured.
+ */
+export async function searchCompanyLeadership(input: {
+  company: string;
+  domain?: string | null;
+  num?: number;
+}): Promise<GoogleLeadershipSearchResult> {
+  const num = Math.min(Math.max(input.num ?? 8, 1), 10);
+  return searchWithProviderCascade({
+    company: input.company,
+    query: buildLeadershipQuery(input.company),
+    num,
+    domain: input.domain,
+    cascade: true,
+  });
+}
+
+function mergeOsintHits(parts: Array<Extract<GoogleLeadershipSearchResult, { ok: true }>>): {
+  hits: GoogleLeadershipHit[];
+  corpus: string;
+  sourceUrls: string[];
+} {
+  const hits: GoogleLeadershipHit[] = [];
+  const seen = new Set<string>();
+  for (const part of parts) {
+    for (const hit of part.hits) {
+      const key = hit.link.replace(/\/$/, "").toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      hits.push(hit);
+    }
+  }
+  const corpus = parts
+    .map((p) => p.corpus)
+    .filter((c) => c.trim().length > 0)
+    .join(" \n ");
+  return {
+    hits,
+    corpus,
+    sourceUrls: hits.map((h) => h.link).filter(Boolean),
+  };
+}
+
+/**
+ * Siemba-style public-web pass: leadership + email/contact + events + filings.
+ * First query cascades providers; the rest reuse the winning/primary provider
+ * so one Research invoke does not burn a full failover stack per query.
+ */
+export async function searchCompanyProspectOsint(input: {
+  company: string;
+  domain?: string | null;
+  num?: number;
+  kinds?: ProspectOsintQueryKind[];
+}): Promise<GoogleLeadershipSearchResult> {
+  const company = input.company.trim();
+  const provider = resolveLeadershipSearchProvider();
+  if (!provider) {
+    return {
+      ok: false,
+      configured: false,
+      provider: null,
+      error:
+        "No leadership search provider configured. Set BRAVE_SEARCH_API_KEY and/or SERPAPI_API_KEY (preferred). Google CSE is closed to new customers.",
+      status: 503,
+    };
+  }
+  if (!company) {
+    return {
+      ok: false,
+      configured: true,
+      provider,
+      error: "company is required",
+      status: 400,
+    };
+  }
+
+  const wanted = new Set(input.kinds ?? ["leadership", "email", "events", "filings"]);
+  const queries = buildProspectOsintQueries({
+    company,
+    domain: input.domain,
+  }).filter((q) => wanted.has(q.kind));
+  const num = Math.min(Math.max(input.num ?? 8, 1), 10);
+
+  const okParts: Array<Extract<GoogleLeadershipSearchResult, { ok: true }>> = [];
+  const queryMeta: Array<{
+    kind: ProspectOsintQueryKind;
+    query: string;
+    hitCount: number;
+    provider: LeadershipSearchProvider;
+  }> = [];
+  let lastFail: GoogleLeadershipSearchResult | null = null;
+  let cascadedFrom: LeadershipSearchProvider[] | undefined;
+
+  for (let i = 0; i < queries.length; i += 1) {
+    const q = queries[i]!;
+    const result = await searchWithProviderCascade({
+      company,
+      query: q.query,
+      num,
+      domain: input.domain,
+      acceptEmailClues: q.kind === "email",
+      cascade: i === 0,
+    });
+    if (!result.ok) {
+      lastFail = result;
+      continue;
+    }
+    if (result.cascadedFrom?.length) cascadedFrom = result.cascadedFrom;
+    okParts.push(result);
+    queryMeta.push({
+      kind: q.kind,
+      query: q.query,
+      hitCount: result.hits.length,
+      provider: result.provider,
+    });
+  }
+
+  if (okParts.length === 0) {
+    return (
+      lastFail ?? {
+        ok: false,
+        configured: true,
+        provider,
+        error: "Prospect OSINT returned no usable provider results",
+        status: 502,
+      }
+    );
+  }
+
+  const merged = mergeOsintHits(okParts);
+  return {
+    ok: true,
+    configured: true,
+    provider: okParts[0]!.provider,
+    cascadedFrom,
+    query: queryMeta.map((q) => q.query).join(" | "),
+    hits: merged.hits,
+    corpus: merged.corpus,
+    sourceUrls: merged.sourceUrls,
+    queries: queryMeta,
+  };
 }

@@ -23,7 +23,7 @@ For every prospect **entering** Approvals and every **ongoing** Touch 2 (same da
 4. **Keep commercial locks** — estimated financial exposure (ranges/assumptions visible); **$4,999** / 90-day / workflow review; no `Path B` in body; C1 founder signature. Touch 1: **no** planned GA `~$35k`. Touch 2+: GA list price **optional**.
 5. **Apply into the pending draft** before READY / DISPATCH.
 
-**Touch 2 difference:** do **not** re-send the Touch 1 cold opener. Re-anchor their motion in one short line, then soften + scarcity (+ optional GA). Same investigation bar as Touch 1.
+**Touch 2 difference:** do **not** re-open the Touch 1 diagnostic in the body. Send as a threaded `Re:` reply. Open with a brief follow-up beat, then scarcity + combined economics + CTA. Use verified motion for **subject localization** and the economics `criteriaFocus` phrase only — not as a second Gate 2 open. Same investigation bar as Touch 1.
 
 **Forbidden:** generic “When {{company}} runs compliance…” as the default when a verified motion exists; inventing BHC / NERC / HIPAA language for a prospect not in that motion; Challenger essays pasted from flywheel research.
 
@@ -47,6 +47,7 @@ Write like a founder emailing a peer — short sentences you could say aloud.
 | Spoken opens (`When you're managing…`) | Word stumbles (`stacks` … `stack`) |
 | Plain economics on two short lines | Catalog glue (“co-builder seat structured around…”) |
 | Peer workflow-review ask | Demo CTAs / brochure cadence |
+| Words you'd say out loud (“each client stays in its own workspace”) | Spec-sheet nouns (“hard tenant walls”, “residual risk in whole cents”, “auditor-ready evidence”) |
 
 Lint helper: `app/lib/salesHumanVoice.ts` (`lintSalesHumanVoice`).  
 Peer register reference: [founder casual pitch](./founder-elevator-pitch-casual-audio-script.md).
@@ -71,13 +72,13 @@ Peer register reference: [founder casual pitch](./founder-elevator-pitch-casual-
 ```
 Hi {{firstName}},
 
-When {{company}} runs compliance across client environments, how do you keep evidence and board reporting isolated today — without mixing registers in a shared GRC stack?
+When {{company}} is running compliance for more than one client, how do you keep each client's evidence from ending up in the same pile?
 
-Ironframe is built for that: hard tenant walls, residual risk modeled in whole cents internally, and exportable auditor-ready evidence — so client leadership sees estimated financial exposure (ranges and assumptions visible), not another subjective heatmap.
+That's what I built Ironframe for. Each client stays in its own workspace. Risk shows up in dollars, not a color chart. You can hand a board or auditor a clean export — just that client.
 
-We're opening a small Command Design Partner cohort: $4,999 flat for a 90-day co-builder seat around 2–3 success criteria you set.
+We're taking a few Command Design Partner seats at $4,999 flat for 90 days. You pick 2–3 things that have to work.
 
-If that multi-client friction is real, the next step is a 10–15 minute workflow review on your evidence path — not a product tour.
+If that mixing problem is real on your side, would you be up for a 10–15 minute workflow review next week? Just how you do it today — not a product tour.
 
 Best,
 Dereck
@@ -88,7 +89,7 @@ dereck@ironframegrc.com
 **SMS (≤160 chars):**
 
 ```
-{{firstName}} — Dereck @ Ironframe. MSSP seats: client walls + dollar risk, not shared heatmaps. 10–15 min workflow review? Reply YES or STOP.
+{{firstName}} — Dereck @ Ironframe. Real client walls + dollar risk, not shared heatmaps. 10–15 min workflow review? Reply YES or STOP.
 ```
 
 ---
@@ -134,13 +135,13 @@ Receipt ≠ scheduling reply — still paste YES/SOFT/PRICE same business day.
 ```
 Hi {{firstName}},
 
-Thanks for the reply — good to hear from you.
+Thanks for writing back — good to hear from you.
 
-Glad the {{verified-motion}} angle landed — that’s exactly what the 10–15 minute workflow review is for.
+Glad the {{verified-motion}} piece landed. That's exactly what the 10–15 minute workflow review is for.
 
-It’s peer-to-peer, 10–15 minutes, on one real friction (client isolation, board dollars, or exportable evidence).
+It's just you and me, 10–15 minutes, on one real problem — how you keep clients separated, how you talk dollars to a board, or what you can actually export.
 
-If we align after that, the Command Design Partner seat is $4,999 flat for a 90-day window around 2–3 criteria you set.
+If that feels useful, Command Design Partner is $4,999 flat for 90 days. You pick 2–3 things that have to work.
 
 Reply with 2–3 times that work this week in Central Time (or YES and I’ll propose slots).
 
@@ -155,16 +156,16 @@ Optional booking line (when `IRONFRAME_WORKFLOW_REVIEW_BOOKING_URL` is set):
 
 ### SOFT — paste-ready
 
-**Subject:** `Re: co-builder seat — {{company}}`
+**Subject:** `Re: keeping clients separated — {{company}}`
 
 ```
 Hi {{firstName}},
 
 Appreciate you getting back.
 
-Happy to keep this concrete for {{company}}: one 10–15 minute workflow review on how you keep client evidence isolated (or board exposure defended) today — not a demo deck.
+Happy to keep this concrete for {{company}}: a 10–15 minute workflow review on how you keep client evidence separated today — not a deck.
 
-If that friction is real, the paid Command Design Partner seat is $4,999 for a 90-day convert-or-exit window.
+If that problem is real, Command Design Partner is $4,999 for 90 days. Convert or walk at day 90.
 
 Reply with 2–3 times that work this week in Central Time (or YES and I’ll propose slots).
 
@@ -181,14 +182,14 @@ dereck@ironframegrc.com
 ```
 Hi {{firstName}},
 
-Quick economics, then we can schedule:
+Quick numbers, then we can pick a time:
 
-Command Design Partner is $4,999 flat for a 90-day co-builder window.
-You name 2–3 success criteria. Convert or exit at day 90.
-Planned GA for Ironframe Command is about $35,000 a year.
-If you convert in-window, the $4,999 is credited to year-1 Command — not a negotiated discount.
+Command Design Partner is $4,999 flat for 90 days.
+You name 2–3 things that have to work. Convert or walk at day 90.
+After that, Ironframe Command is about $35,000 a year.
+If you convert in-window, the $4,999 credits toward year one — not a negotiated discount.
 
-Best next step for {{company}} is still a 10–15 minute workflow review — peer diligence, not a tour.
+Best next step for {{company}} is still a 10–15 minute workflow review on how you work today — not a tour.
 
 Reply with 2–3 times that work this week in Central Time (or YES and I’ll propose slots).
 
@@ -205,22 +206,25 @@ dereck@ironframegrc.com
 
 ## Touch 2 — Soften + scarcity (same day the following week)
 
-**Required before draft:** re-run the **target-specific hook rule** (investigate motion → one-line re-anchor). Do not DISPATCH a generic scarcity bump when a verified motion exists.
+**Required before draft:** re-run the **target-specific hook rule** (investigate motion → short `criteriaFocus` for the economics line + `Re:` subject). Do not DISPATCH a generic scarcity bump when a verified motion exists. Do **not** paste the diagnostic re-anchor as the email open.
 
-**Subject:** `Re:` + Touch 1 subject when possible · else `Re: co-builder seat — {{company}}`
+**Subject:** `Re:` + Touch 1 subject when possible · else `Re: client-isolated evidence — {{company}}`
 
-**Shape:** (1) one-line motion re-anchor · (2) soften + 3–5 seat scarcity · (3) optional planned GA · (4) workflow-review CTA · (5) C1 signature.
+**Canonical body:** `buildTouch2EmailBody()` in `app/lib/salesTouch2Body.ts` (Option 1 threaded follow-up).
+
+**Shape:** (1) brief threaded follow-up · (2) 3–5 seat cohort cap · (3) one economics beat Path B + GA · (4) peer workflow-review CTA · (5) C1 signature.
 
 ```
 Hi {{firstName}},
 
-Still thinking about how {{company}} keeps {{verified-motion}} evidence / board reporting isolated across client tracks — without shared-stack register risk.
+Following up on this briefly:
 
-Short follow-up: cohort is capped at 3–5 seats so we can honor roadmap influence without scope sprawl.
+We're only taking 3–5 MSP/MSSP operators in this Command Design Partner group so we can actually build around how you work.
 
-If that friction is still real, the paid Command Design Partner seat ($4,999) is the on-ramp — convert or exit at day 90 with criteria you named.
+$4,999 covers 90 days. You set 2–3 criteria for how you keep {{criteriaFocus}} separate.
+That's ahead of our planned GA at about $35,000/year.
 
-Worth a 10–15 min workflow review this week?
+If that's on your radar this quarter, open to a 10–15 minute workflow review next week?
 
 Best,
 Dereck
@@ -228,9 +232,10 @@ Founder, Ironframe
 dereck@ironframegrc.com
 ```
 
-**Optional scarcity / GA line (Touch 2+ only):**
-
-> Planned GA for Ironframe Command is ~$35,000/year — the Design Partner seat is the paid co-builder on-ramp.
+**criteriaFocus examples (economics line only — do not repeat in CTA):**
+- Abacus client registers
+- HIPAA / GLBA evidence registers
+- CISO Global client registers
 
 **SMS:**
 
@@ -238,29 +243,42 @@ dereck@ironframegrc.com
 {{firstName}} — still recruiting 3–5 Ironframe co-builders ($4,999). Workflow review, not a demo. Reply YES / later / stop.
 ```
 
-**Example motion re-anchors (illustrative — verify per target):**  
-- Attestation firm: `400+ SOC/PCI/ISO audit tracks`  
-- MDR MSSP: `24×7 MDR / SOC client environments`  
-- CMMC/DIB: `CMMC/DFARS client enclaves`
+**Investigation re-anchors** (queue panel / HITL context — not the body open): see `app/lib/salesTouch2ReAnchors.ts` and [live Touch 2 queue](./design-partner-touch2-queue-live-by-sent-date.md).
 
 ---
 
-## Touch 3 — Breakup (day 10–12)
+## Touch 3 — Value Drop (day ~10, send #3)
 
-**Subject:** Closing the loop on {{company}}
+**Canonical body:** `buildTouch3EmailBody()` — plain-English 3-point framework, **no** $4,999 / GA / workflow pitch.
+
+**Hard professionalism lock:** never DISPATCH Touch 2 Economics copy as Touch 3. `lintSalesTouchBodyMatch()` + DISPATCH `expectedTouch` gate enforce this.
+
+---
+
+## Touch 4 — Clean Breakup (day ~16, send #4, final)
+
+**Canonical body:** `buildTouch4EmailBody()` in `app/lib/salesTouch4Body.ts`.
+
+**Rules:** under ~4 sentences · no guilt · no Path B / GA restack · explicit close of **this Design Partner thread/cohort** · reopen later on new buyer, new cohort, or documented trigger (~90d+) — **not** a forever company ban.
+
+**Subject:** `Re:` + prior subject when possible.
 
 ```
 Hi {{firstName}},
 
-I’ll close the loop so this doesn’t linger. If a paid design-partner Command Tier seat isn’t useful right now, no hard feelings — reply “pause” and we’ll leave you alone.
+Assuming {{motion-specific priority for company}} this quarter, I'll close your file on this Design Partner thread and step back — no further follow-ups from me on this cohort.
 
-If timing is better after {{audit-or-board-event}}, a 10–15 min workflow review still opens the Command Design Partner seat ($4,999).
+If this comes back up later, or you want a second set of eyes on how you keep clients separated, just reply.
+
+Best of luck with the quarter.
 
 Best,
 Dereck
 Founder, Ironframe
 dereck@ironframegrc.com
 ```
+
+CRM after DISPATCH: stamp `CADENCE_CLOSED` for this wave (`TOUCH4_CADENCE_CLOSED_NOTE`).
 
 ---
 

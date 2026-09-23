@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 
 import { GoogleGenAI } from "@google/genai";
 
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import {
   PENDING_SALES_DRAFT_TAG,
 } from "@/app/lib/server/approvalQueueCore";
@@ -17,6 +16,13 @@ import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
 import { withIronguardTenant } from "@/app/lib/server/ironguardSessionTenant";
 
 const MAX_DRAFT_SUMMARY_CHARS = 12_000;
+
+/**
+ * Canonical air-gapped prospect-pool tenant (seed + Ironleads Path B CRM).
+ * Must match prisma/seed.ts and ironleads-auto-enrich cron fallback.
+ * Never fall back to a customer beachhead (Medshield) — that binds the wrong RLS GUC.
+ */
+export const PROSPECT_POOL_TENANT_UUID = "11111111-1111-4111-8111-111111111111";
 
 /** Real beachhead segment — never fictional demo tenant names. */
 export type BaselineTarget = BeachheadSegment;
@@ -60,7 +66,7 @@ export function resolveProspectPoolTenantId(): string {
   if (fromEnv && /^[0-9a-f-]{36}$/i.test(fromEnv)) {
     return fromEnv;
   }
-  return TENANT_UUIDS.medshield;
+  return PROSPECT_POOL_TENANT_UUID;
 }
 
 function sanitizeField(raw: string, maxLen: number): string {

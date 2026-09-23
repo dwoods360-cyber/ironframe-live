@@ -142,7 +142,7 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
     tx.ironboardCrmContact.findMany({
     where: { tenantId, primaryDeals: { some: { stage: "SUSPECT" } } },
     orderBy: [{ createdAt: "desc" }, { priorityScore: "desc" }],
-    take: 500,
+    take: 2000,
     select: {
       id: true,
       company: true,

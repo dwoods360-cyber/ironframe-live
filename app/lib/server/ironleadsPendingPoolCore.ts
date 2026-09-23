@@ -28,7 +28,7 @@ async function loadSuspectContacts(take: number) {
     tx.ironboardCrmContact.findMany({
       where: { tenantId, primaryDeals: { some: { stage: "SUSPECT" } } },
       orderBy: [{ createdAt: "desc" }, { priorityScore: "desc" }],
-      take,
+      take: Math.max(take, 2000),
       select: { id: true, createdAt: true, metadata: true },
     }),
   );

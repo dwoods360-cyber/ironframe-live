@@ -24,8 +24,9 @@ import {
  * domain, extra event/filing hosts, and (email query only) aggregator snippets
  * that stay pattern_guess until Hunter/Prospeo valid.
  *
- * Pipeline runs complementary queries (leadership + email + events + filings)
- * whenever the site scrape is missing a named buyer or a personal work email.
+ * Pipeline runs complementary queries (leadership, security leadership,
+ * named people, email/contact, services pages, events, filings) whenever the
+ * site scrape is missing a named buyer or a personal work email.
  */
 
 const BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search";
@@ -34,7 +35,24 @@ const CUSTOM_SEARCH_URL = "https://www.googleapis.com/customsearch/v1";
 
 export type LeadershipSearchProvider = "brave" | "serpapi" | "google_cse";
 
-export type ProspectOsintQueryKind = "leadership" | "email" | "events" | "filings";
+export type ProspectOsintQueryKind =
+  | "leadership"
+  | "security_leadership"
+  | "named_people"
+  | "email"
+  | "services"
+  | "events"
+  | "filings";
+
+export const DEFAULT_PROSPECT_OSINT_KINDS: readonly ProspectOsintQueryKind[] = [
+  "leadership",
+  "security_leadership",
+  "named_people",
+  "email",
+  "services",
+  "events",
+  "filings",
+] as const;
 
 export type ProspectOsintQuery = {
   kind: ProspectOsintQueryKind;
@@ -137,21 +155,69 @@ function buildLeadershipQuery(company: string): string {
   return `"${firm}" (CEO OR CISO OR CSO OR Founder OR "Managing Director" OR CFO OR COO OR "Chief Information Security" OR "Chief Security Officer" OR "co-founder") (appointed OR joins OR "is the" OR founder)`;
 }
 
-/** Complementary public-web queries — same mix used on desk OSINT (Siemba-style). */
+function sanitizePersonName(name: string): string {
+  return name
+    .trim()
+    .replace(/"/g, "")
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+}
+
+/** Keep first+last only; drop single-token or junk labels. */
+export function selectOsintKnownPeople(names: Array<string | null | undefined>): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of names) {
+    const name = sanitizePersonName(String(raw || ""));
+    if (!name) continue;
+    const parts = name.split(" ").filter(Boolean);
+    if (parts.length < 2) continue;
+    if (parts[0]!.length < 2 || parts[parts.length - 1]!.length < 2) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+/** Complementary public-web queries — desk OSINT (Siemba / TechMagic-style). */
 export function buildProspectOsintQueries(input: {
   company: string;
   domain?: string | null;
+  /** Known buyer / sponsor names already on the dossier (first + last). */
+  knownPeople?: Array<string | null | undefined>;
 }): ProspectOsintQuery[] {
   const firm = sanitizeFirm(input.company);
   const host = accountHost(input.domain);
+  const people = selectOsintKnownPeople(input.knownPeople ?? []);
   const emailClause = host
     ? `(email OR mailto OR contact OR "@${host}")`
     : `(email OR mailto OR "contact us" OR "book a demo")`;
-  return [
+  const siteClause = host ? `OR site:${host}` : "";
+  const queries: ProspectOsintQuery[] = [
     { kind: "leadership", query: buildLeadershipQuery(firm) },
     {
+      kind: "security_leadership",
+      query: `"${firm}" (security OR cybersecurity OR compliance OR "cloud security" OR "cloud & cybersecurity" OR SOC OR CISO OR vCISO OR "Director of" OR "Head of Security" OR "practice lead") (leadership OR director OR founder OR team OR "co-founder")`,
+    },
+  ];
+  if (people.length > 0) {
+    const peopleClause = people.map((p) => `"${p}"`).join(" OR ");
+    queries.push({
+      kind: "named_people",
+      query: `"${firm}" (${peopleClause}) (leadership OR director OR founder OR cybersecurity OR compliance OR email OR contact OR LinkedIn)`,
+    });
+  }
+  queries.push(
+    {
       kind: "email",
-      query: `"${firm}" ${emailClause} (CEO OR CISO OR CSO OR founder OR "chief")`,
+      query: `"${firm}" ${emailClause} (CEO OR CISO OR CSO OR founder OR "chief" OR director OR cybersecurity)`,
+    },
+    {
+      kind: "services",
+      query: `"${firm}" ("cybersecurity services" OR "SOC 2" OR "SOC2" OR compliance OR "managed security" OR vCISO OR "security consulting" OR "application security" OR "cloud security") (services OR about OR readiness ${siteClause})`,
     },
     {
       kind: "events",
@@ -161,7 +227,8 @@ export function buildProspectOsintQueries(input: {
       kind: "filings",
       query: `"${firm}" ("secretary of state" OR "registered agent" OR "articles of incorporation" OR officer OR director)`,
     },
-  ];
+  );
+  return queries;
 }
 
 function hitLooksLikeEmailClue(hit: GoogleLeadershipHit, domain?: string | null): boolean {
@@ -585,7 +652,8 @@ function mergeOsintHits(parts: Array<Extract<GoogleLeadershipSearchResult, { ok:
 }
 
 /**
- * Siemba-style public-web pass: leadership + email/contact + events + filings.
+ * Desk-style public-web pass: leadership + security leadership + named people
+ * + email/contact + services + events + filings.
  * First query cascades providers; the rest reuse the winning/primary provider
  * so one Research invoke does not burn a full failover stack per query.
  */
@@ -594,6 +662,7 @@ export async function searchCompanyProspectOsint(input: {
   domain?: string | null;
   num?: number;
   kinds?: ProspectOsintQueryKind[];
+  knownPeople?: Array<string | null | undefined>;
 }): Promise<GoogleLeadershipSearchResult> {
   const company = input.company.trim();
   const provider = resolveLeadershipSearchProvider();
@@ -617,10 +686,11 @@ export async function searchCompanyProspectOsint(input: {
     };
   }
 
-  const wanted = new Set(input.kinds ?? ["leadership", "email", "events", "filings"]);
+  const wanted = new Set(input.kinds ?? DEFAULT_PROSPECT_OSINT_KINDS);
   const queries = buildProspectOsintQueries({
     company,
     domain: input.domain,
+    knownPeople: input.knownPeople,
   }).filter((q) => wanted.has(q.kind));
   const num = Math.min(Math.max(input.num ?? 8, 1), 10);
 
@@ -641,7 +711,7 @@ export async function searchCompanyProspectOsint(input: {
       query: q.query,
       num,
       domain: input.domain,
-      acceptEmailClues: q.kind === "email",
+      acceptEmailClues: q.kind === "email" || q.kind === "named_people",
       cascade: i === 0,
     });
     if (!result.ok) {

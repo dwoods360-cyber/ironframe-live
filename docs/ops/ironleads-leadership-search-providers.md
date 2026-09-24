@@ -1,6 +1,16 @@
 # Ironleads leadership search providers
 
-Research-only fills **names and email clues** from public web search when the company-site scrape is missing a named buyer **or** a personal work seat (not only when zero names were found). Complementary queries cover leadership, email/contact, events, and corporate filings. Emails still come from published site addresses, pattern guess + MX, or **Prospeo/Hunter** enrichment. Aggregator claims (`rocketreach`, `zoominfo`, …) stay **pattern_guess** — never Email PASS.
+Research-only fills **names and email clues** from public web search when the company-site scrape is missing a named buyer **or** a personal work seat (not only when zero names were found). Complementary queries cover:
+
+1. **leadership** — CEO / CISO / founder appointments  
+2. **security_leadership** — cybersecurity / compliance / cloud security practice leads  
+3. **named_people** — when a named buyer or sponsor is already on the dossier (e.g. `TechMagic "Roman Kolodiy" OR "Oleg Dats"`)  
+4. **email** — mailto / contact / `@domain` clues  
+5. **services** — SOC 2 / compliance / cybersecurity service pages (`site:domain` preferred)  
+6. **events** — conference / booth / speaker  
+7. **filings** — corporate officers / registered agent  
+
+Site crawl also probes cyber/compliance paths (`/cybersecurity-services`, `/soc-2`, `/vciso`, …). Emails still come from published site addresses, pattern guess + MX, or **Prospeo/Hunter** enrichment. Aggregator claims (`rocketreach`, `zoominfo`, …) stay **pattern_guess** — never Email PASS.
 
 Google Custom Search JSON API is **closed to new customers** — do not rely on `GOOGLE_CSE_*` for new GCP projects.
 

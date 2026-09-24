@@ -803,9 +803,9 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
     };
   }
 
-  // Public-web buyer/email OSINT (Brave → SerpAPI → CSE): leadership + email +
-  // events + filings. Runs when the site scrape is missing a named buyer or a
-  // personal work seat — not only when zero names were found.
+  // Public-web buyer/email OSINT (Brave → SerpAPI → CSE): leadership +
+  // security leadership + named people + email + services + events + filings.
+  // Runs when the site scrape is missing a named buyer or a personal work seat.
   let googleCorpus = "";
   let googleSourceUrls: string[] = [];
   let googleLeadershipSearch: {
@@ -837,9 +837,19 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
           "No leadership search provider configured (set BRAVE_SEARCH_API_KEY and/or SERPAPI_API_KEY)",
       };
     } else {
+      const priorMeta = asRecord(contact.metadata) ?? {};
+      const priorNamedBuyer = asRecord(priorMeta.namedBuyer);
+      const priorSponsor = asRecord(priorMeta.executiveSponsor);
+      const knownPeople = [
+        typeof priorNamedBuyer?.fullName === "string" ? priorNamedBuyer.fullName : null,
+        typeof priorSponsor?.fullName === "string" ? priorSponsor.fullName : null,
+        contact.fullName,
+        ...result.members.map((m) => m.fullName),
+      ];
       const google = await searchCompanyProspectOsint({
         company: contact.company,
         domain: accountDomain,
+        knownPeople,
       });
       if (!google.ok) {
         googleLeadershipSearch = {

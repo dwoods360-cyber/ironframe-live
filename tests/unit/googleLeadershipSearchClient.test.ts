@@ -282,7 +282,9 @@ describe("googleLeadershipSearchClient", () => {
     if (!result.ok) return;
     expect(result.queries?.map((q) => q.kind)).toEqual([
       "leadership",
+      "security_leadership",
       "email",
+      "services",
       "events",
       "filings",
     ]);
@@ -313,19 +315,38 @@ describe("ironleadsLeadershipSearchAllowlist", () => {
 });
 
 describe("prospect OSINT query bundle", () => {
-  it("builds leadership, email, events, and filings queries", () => {
+  it("builds leadership, security, email, services, events, and filings queries", () => {
     const queries = buildProspectOsintQueries({
       company: "Siemba",
       domain: "siemba.io",
     });
     expect(queries.map((q) => q.kind)).toEqual([
       "leadership",
+      "security_leadership",
       "email",
+      "services",
       "events",
       "filings",
     ]);
     expect(queries.find((q) => q.kind === "email")?.query).toContain("@siemba.io");
     expect(queries.find((q) => q.kind === "leadership")?.query).toMatch(/CSO|Chief Security/);
+    expect(queries.find((q) => q.kind === "security_leadership")?.query).toMatch(
+      /cybersecurity|vCISO|compliance/i,
+    );
+    expect(queries.find((q) => q.kind === "services")?.query).toMatch(/SOC 2|site:siemba\.io/);
     expect(queries.find((q) => q.kind === "events")?.query).toContain("GISEC");
+  });
+
+  it("adds named_people query when known buyers are supplied", () => {
+    const queries = buildProspectOsintQueries({
+      company: "TechMagic",
+      domain: "techmagic.co",
+      knownPeople: ["Roman Kolodiy", "Oleg Dats", "Roman"],
+    });
+    expect(queries.map((q) => q.kind)).toContain("named_people");
+    const named = queries.find((q) => q.kind === "named_people")?.query ?? "";
+    expect(named).toContain('"Roman Kolodiy"');
+    expect(named).toContain('"Oleg Dats"');
+    expect(named).not.toMatch(/"Roman"/);
   });
 });

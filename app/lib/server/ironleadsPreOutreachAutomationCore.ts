@@ -17,6 +17,35 @@ function asRec(value: unknown): Record<string, unknown> {
   return { ...(value as Record<string, unknown>) };
 }
 
+async function stampEmailSearch(
+  contactId: string,
+  enrich: Awaited<ReturnType<typeof enrichIronleadsSuspectIfPlaceholder>>,
+): Promise<void> {
+  await withProspectPoolTenant(async (tx, tenantId) => {
+    const row = await tx.ironboardCrmContact.findFirst({
+      where: { id: contactId, tenantId },
+      select: { metadata: true },
+    });
+    if (!row) return;
+    const meta = asRec(row.metadata);
+    meta.emailSearch = {
+      ranAt: new Date().toISOString(),
+      trigger: "named_buyer_confirmed",
+      skippedReason: enrich.skippedReason ?? null,
+      providers: enrich.providers.map((p) => ({
+        provider: p.provider,
+        ok: p.ok,
+        error: p.error ?? null,
+        appliedEmail: Boolean(p.appliedEmail),
+      })),
+    };
+    await tx.ironboardCrmContact.updateMany({
+      where: { id: contactId, tenantId },
+      data: { metadata: meta as Prisma.InputJsonValue },
+    });
+  });
+}
+
 function resolveSector(raw: string | null): (typeof CORE_BEACHHEAD_SECTORS)[number] {
   const sector = (raw ?? "REGIONAL_BHC").trim().toUpperCase();
   if ((CORE_BEACHHEAD_SECTORS as readonly string[]).includes(sector)) {
@@ -45,6 +74,7 @@ export async function runPreOutreachAfterResearch(
   const enrich = await enrichIronleadsSuspectIfPlaceholder(contactId, {
     includeHunter: true,
   });
+  await stampEmailSearch(contactId, enrich);
   const appliedEmail = enrich.providers.some((p) => p.appliedEmail);
   const queued = await maybePromoteAndQueueTouch1Draft(contactId);
   return {

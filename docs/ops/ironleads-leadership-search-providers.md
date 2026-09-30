@@ -10,7 +10,7 @@ Research-only fills **names and email clues** from public web search when the co
 6. **events** — conference / booth / speaker  
 7. **filings** — corporate officers / registered agent  
 
-Site crawl also probes cyber/compliance paths (`/cybersecurity-services`, `/soc-2`, `/vciso`, …). Emails still come from published site addresses, pattern guess + MX, or **Prospeo/Hunter** enrichment. Aggregator claims (`rocketreach`, `zoominfo`, …) stay **pattern_guess** — never Email PASS.
+Site crawl also probes cyber/compliance paths (`/cybersecurity-services`, `/soc-2`, `/vciso`, …). Emails still come from published site addresses, pattern guess + MX, or **Prospeo/Hunter/Snov** enrichment. Aggregator claims (`rocketreach`, `zoominfo`, …) stay **pattern_guess** — never Email PASS. Snov `unknown` and catch-all stay off the card.
 
 Google Custom Search JSON API is **closed to new customers** — do not rely on `GOOGLE_CSE_*` for new GCP projects.
 
@@ -52,7 +52,7 @@ Portal **Research only** processes **5 SUSPECTs per request** (thinnest first), 
 
 ## After names land
 
-- Research then runs **Prospeo → Apollo → Hunter** (when keys are set) to fill a named-buyer work seat. Pattern guesses and `info@`/`sales@` never become Email PASS.
+- Research then runs **Prospeo → Apollo → Hunter → Snov.io → GetProspect** when a buyer name is confirmed and keys are set. Snov saves an address only when `smtp_status` is `valid`. GetProspect saves an address only when mailbox `status` is `valid` on the employer domain. `unknown`, a GetProspect `not_found` on a catch-all domain, and `info@`/`sales@` never become Email PASS.
 - Fit PASS + named buyer + promote-ready email auto-queues a **T1 Approvals draft**. DISPATCH stays human — review the message, then send.
 - Weekday cron (`/api/internal/cron/ironleads-auto-enrich`) researches a few thin actives and retries leftover placeholders. Set `IRONLEADS_AUTO_ENRICH_ENABLED=0` to pause.
 

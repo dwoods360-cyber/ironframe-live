@@ -41,6 +41,11 @@ import {
   websiteUrlFromDomainOrUrl,
 } from "@/app/lib/server/ironleadsSuspectLocation";
 import { probeCompanyWebsite } from "@/app/lib/server/ironleadsWebsiteProbeCore";
+import {
+  extractUsPostalAddress,
+  pickOfficialWebsite,
+  type DiscoveredPostalAddress,
+} from "@/app/lib/ironleadsOfficialSite";
 import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 import { runPreOutreachAfterResearch } from "@/app/lib/server/ironleadsPreOutreachAutomationCore";
 
@@ -970,6 +975,45 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
   }
 
   // Drop scrape junk that slipped past role extract before name hardening.
+  // Name-only directory rows: public search often names the real site (Wikipedia
+  // "official website", brand host) after the slug probe misses. Save it with no
+  // operator confirm. Email review and DISPATCH stay human.
+  let discoveredAddress: DiscoveredPostalAddress | null = null;
+  if (!websiteUrl && contact.company?.trim()) {
+    const picked = pickOfficialWebsite({
+      company: contact.company,
+      urls: [...googleSourceUrls, ...pages.map((p) => p.url)],
+      htmlBlobs: pages.map((p) => p.rawHtml),
+      textBlobs: [...pages.map((p) => p.text), googleCorpus],
+    });
+    if (picked) {
+      websiteUrl = picked;
+      result = {
+        ...result,
+        websiteUrl: picked,
+        skipped: false,
+        skipReason: null,
+      };
+      const already = pages.some((p) => p.url.toLowerCase().startsWith(picked.toLowerCase()));
+      if (!already) {
+        const home = await fetchText(picked);
+        if (home && home.length >= 80) {
+          pages = [
+            ...pages,
+            { url: picked, text: stripHtmlToText(home), rawHtml: home },
+          ];
+          result = { ...result, pagesFetched: pages.length };
+        }
+      }
+    }
+  }
+  const priorMetaForAddress = asRecord(contact.metadata) ?? {};
+  if (!asRecord(priorMetaForAddress.address)) {
+    discoveredAddress = extractUsPostalAddress(
+      pages.map((p) => `${p.rawHtml}\n${p.text}`).join("\n"),
+    );
+  }
+
   if (result.members.length > 0) {
     result = {
       ...result,
@@ -1007,6 +1051,7 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
     corpus,
     sourceUrls,
     googleLeadershipSearch,
+    discoveredAddress,
   });
   try {
     await runPreOutreachAfterResearch(contact.id);
@@ -1038,6 +1083,7 @@ async function persistResearch(
         provider: string;
       }>;
     } | null;
+    discoveredAddress?: DiscoveredPostalAddress | null;
   },
 ): Promise<void> {
   const IRONLEADS_LOCAL = /@ironleads\.local$/i;
@@ -1180,6 +1226,9 @@ async function persistResearch(
   const metadata: Record<string, unknown> = {
     ...prior,
     websiteUrl: result.websiteUrl ?? prior.websiteUrl ?? null,
+    ...(evidence.discoveredAddress && !asRecord(prior.address)
+      ? { address: evidence.discoveredAddress }
+      : {}),
     buyingCommittee: {
       researchedAt: result.researchedAt,
       skipped: result.skipped,

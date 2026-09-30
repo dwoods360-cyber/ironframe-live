@@ -3,8 +3,12 @@ import "server-only";
 import { isApolloConfigured } from "@/app/lib/server/apolloEnrichmentClient";
 import { enrichIronleadsSuspectWithApollo } from "@/app/lib/server/ironleadsApolloEnrichCore";
 import { enrichIronleadsSuspectWithHunter } from "@/app/lib/server/ironleadsHunterEnrichCore";
+import { enrichIronleadsSuspectWithSnov } from "@/app/lib/server/ironleadsSnovEnrichCore";
 import { enrichIronleadsSuspectWithProspeo } from "@/app/lib/server/ironleadsProspeoEnrichCore";
 import { isHunterConfigured } from "@/app/lib/server/hunterEnrichmentClient";
+import { isSnovConfigured } from "@/app/lib/server/snovEnrichmentClient";
+import { isGetProspectConfigured } from "@/app/lib/server/getprospectEnrichmentClient";
+import { enrichIronleadsSuspectWithGetProspect } from "@/app/lib/server/ironleadsGetProspectEnrichCore";
 import { isProspeoConfigured } from "@/app/lib/server/prospeoEnrichmentClient";
 import { isSalesDispatchHoldCompany } from "@/app/lib/approvalDispatchValidation";
 import {
@@ -16,11 +20,12 @@ import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 const DEFAULT_LIMIT = 8;
 const DEFAULT_GAP_MS = 1_200;
 
-export type AutoEnrichProvider = "prospeo" | "apollo" | "hunter";
+export type AutoEnrichProvider = "prospeo" | "apollo" | "hunter" | "snov" | "getprospect";
 
 export type AutoEnrichContactResult = {
   contactId: string;
   company: string | null;
+  skippedReason?: string;
   providers: Array<{
     provider: AutoEnrichProvider;
     ok: boolean;
@@ -40,6 +45,8 @@ export type AutoEnrichBatchResult = {
     prospeo: boolean;
     apollo: boolean;
     hunter: boolean;
+    snov: boolean;
+    getprospect: boolean;
   };
 };
 
@@ -73,21 +80,29 @@ function providersFromEnv(options?: { includeHunter?: boolean }): {
   prospeo: boolean;
   apollo: boolean;
   hunter: boolean;
+  snov: boolean;
+  getprospect: boolean;
 } {
+  const confirmedBuyer = options?.includeHunter === true;
   return {
     prospeo: isProspeoConfigured() && envFlag("IRONLEADS_AUTO_ENRICH_PROSPEO", true),
     apollo: isApolloConfigured() && envFlag("IRONLEADS_AUTO_ENRICH_APOLLO", true),
+    // Bulk cron stays off Hunter, Snov, and GetProspect unless their flags are 1.
+    // A confirmed buyer passes includeHunter and always uses those finders.
     hunter:
       isHunterConfigured() &&
-      envFlag(
-        "IRONLEADS_AUTO_ENRICH_HUNTER",
-        options?.includeHunter === true,
-      ),
+      (confirmedBuyer || envFlag("IRONLEADS_AUTO_ENRICH_HUNTER", false)),
+    snov:
+      isSnovConfigured() &&
+      (confirmedBuyer || envFlag("IRONLEADS_AUTO_ENRICH_SNOV", false)),
+    getprospect:
+      isGetProspectConfigured() &&
+      (confirmedBuyer || envFlag("IRONLEADS_AUTO_ENRICH_GETPROSPECT", false)),
   };
 }
 
 /**
- * Prospeo → Apollo → Hunter on one placeholder SUSPECT.
+ * Prospeo → Apollo → Hunter → Snov → GetProspect on one placeholder SUSPECT.
  * Never overwrites a real inbox. Never DISPATCHes.
  */
 export async function enrichIronleadsSuspectIfPlaceholder(
@@ -124,11 +139,17 @@ export async function enrichIronleadsSuspectIfPlaceholder(
       email: row.email,
       namedBuyerName:
         (typeof named.fullName === "string" && named.fullName) || row.fullName,
-      fit: String(asRec(gates.fit).result || ""),
+      fit: String(asRec(gates.fit).result || asRec(brief.fit).result || ""),
       holdClassification: String(hold.classification || ""),
       company: row.company,
     })
   ) {
+    entry.skippedReason = "buyer_or_email_not_ready";
+    return entry;
+  }
+
+  if (!on.prospeo && !on.apollo && !on.hunter && !on.snov && !on.getprospect) {
+    entry.skippedReason = "no_email_finder_configured";
     return entry;
   }
 
@@ -179,6 +200,48 @@ export async function enrichIronleadsSuspectIfPlaceholder(
       ok: r.ok,
       error: r.ok ? undefined : r.error,
       appliedEmail: r.ok ? Boolean(r.hunter?.appliedEmail) : undefined,
+    });
+    await sleep(gapMs);
+  }
+
+  const afterHunter = stillPlaceholder
+    ? await withProspectPoolTenant((tx, tenantId) =>
+        tx.ironboardCrmContact.findFirst({
+          where: { id: row.id, tenantId },
+          select: { email: true },
+        }),
+      )
+    : afterApollo;
+  stillPlaceholder = isHarvestPlaceholderEmail(afterHunter?.email);
+
+  if (on.snov && stillPlaceholder) {
+    const r = await enrichIronleadsSuspectWithSnov(row.id, { applyContactFields: true });
+    entry.providers.push({
+      provider: "snov",
+      ok: r.ok,
+      error: r.ok ? undefined : r.error,
+      appliedEmail: r.ok ? Boolean(r.snov?.appliedEmail) : undefined,
+    });
+    await sleep(gapMs);
+  }
+
+  const afterSnov = stillPlaceholder
+    ? await withProspectPoolTenant((tx, tenantId) =>
+        tx.ironboardCrmContact.findFirst({
+          where: { id: row.id, tenantId },
+          select: { email: true },
+        }),
+      )
+    : afterHunter;
+  stillPlaceholder = isHarvestPlaceholderEmail(afterSnov?.email);
+
+  if (on.getprospect && stillPlaceholder) {
+    const r = await enrichIronleadsSuspectWithGetProspect(row.id, { applyContactFields: true });
+    entry.providers.push({
+      provider: "getprospect",
+      ok: r.ok,
+      error: r.ok ? undefined : r.error,
+      appliedEmail: r.ok ? Boolean(r.getprospect?.appliedEmail) : undefined,
     });
   }
 

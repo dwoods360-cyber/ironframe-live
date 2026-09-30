@@ -1,31 +1,12 @@
 import "server-only";
 
+import { buildCompanyWebsiteProbeUrls } from "@/app/lib/ironleadsOfficialSite";
+
 /**
  * Best-effort public website guess when directory paste has company name only.
  * Not a search-engine scrape — probes common domain shapes and keeps the first
  * reachable host whose page text mentions a company token.
  */
-
-function companySlugCandidates(company: string): string[] {
-  const base = company
-    .toLowerCase()
-    .replace(/['’]/g, "")
-    .replace(/\b(inc|llc|ltd|corp|corporation|company|co|plc|lp|llp)\b\.?/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-  if (!base) return [];
-  const compact = base.replace(/\s+/g, "");
-  const dashed = base.replace(/\s+/g, "-");
-  const tokens = base.split(/\s+/).filter(Boolean);
-  const out = new Set<string>();
-  if (compact.length >= 3) out.add(compact);
-  if (dashed.length >= 3 && dashed !== compact) out.add(dashed);
-  if (tokens.length >= 2) {
-    out.add(tokens.join(""));
-    out.add(tokens.slice(0, 2).join(""));
-  }
-  return [...out].slice(0, 4);
-}
 
 function companyTokens(company: string): string[] {
   return company
@@ -66,21 +47,12 @@ async function probeUrl(url: string, tokens: string[]): Promise<boolean> {
 export async function probeCompanyWebsite(companyName: string): Promise<string | null> {
   const company = companyName.trim();
   if (company.length < 2) return null;
-  const slugs = companySlugCandidates(company);
   const tokens = companyTokens(company);
-  if (slugs.length === 0) return null;
-
-  const tlds = ["com", "io", "co", "net", "us"];
-  const urls: string[] = [];
-  for (const slug of slugs) {
-    for (const tld of tlds) {
-      urls.push(`https://www.${slug}.${tld}`);
-      urls.push(`https://${slug}.${tld}`);
-    }
-  }
+  const urls = buildCompanyWebsiteProbeUrls(company);
+  if (urls.length === 0) return null;
 
   // Bound probes so Research stays within serverless time budgets.
-  for (const url of urls.slice(0, 16)) {
+  for (const url of urls) {
     if (await probeUrl(url, tokens)) return url;
   }
   return null;

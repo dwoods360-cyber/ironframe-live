@@ -15,10 +15,14 @@ import {
 } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import { enrichIronleadsSuspectWithApollo } from "@/app/lib/server/ironleadsApolloEnrichCore";
 import { enrichIronleadsSuspectWithHunter } from "@/app/lib/server/ironleadsHunterEnrichCore";
+import { enrichIronleadsSuspectWithSnov } from "@/app/lib/server/ironleadsSnovEnrichCore";
+import { enrichIronleadsSuspectWithGetProspect } from "@/app/lib/server/ironleadsGetProspectEnrichCore";
 import { enrichIronleadsSuspectWithProspeo } from "@/app/lib/server/ironleadsProspeoEnrichCore";
 import { discardIronleadsSuspectContact } from "@/app/lib/server/ironleadsOsintNoisePurgeCore";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
 import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
+import { hasNamedBuyerName } from "@/app/lib/ironleadsPreOutreachPolicy";
+import { runPreOutreachAfterResearch } from "@/app/lib/server/ironleadsPreOutreachAutomationCore";
 
 export type SuspectOperatorUpdateInput = {
   fullName?: string;
@@ -44,6 +48,10 @@ export type SuspectOperatorUpdateInput = {
   enrichWithProspeo?: boolean;
   /** HITL Hunter Email Finder (consumes Hunter credits; valid-only auto-apply). */
   enrichWithHunter?: boolean;
+  /** HITL Snov.io Email Finder (valid smtp_status on the employer domain only). */
+  enrichWithSnov?: boolean;
+  /** HITL GetProspect Email Finder (status valid on the employer domain only). */
+  enrichWithGetProspect?: boolean;
   holdReason?: string | null;
   holdClassification?: OperatorHoldRecord["classification"] | null;
   operatorNote?: string | null;
@@ -120,6 +128,14 @@ export async function updateIronleadsSuspectContact(
 
   if (input.enrichWithHunter) {
     return enrichIronleadsSuspectWithHunter(contactId, { applyContactFields: true });
+  }
+
+  if (input.enrichWithSnov) {
+    return enrichIronleadsSuspectWithSnov(contactId, { applyContactFields: true });
+  }
+
+  if (input.enrichWithGetProspect) {
+    return enrichIronleadsSuspectWithGetProspect(contactId, { applyContactFields: true });
   }
 
   const deal = contact.primaryDeals[0] ?? null;
@@ -328,6 +344,19 @@ export async function updateIronleadsSuspectContact(
       });
     }
   });
+
+  const confirmedBuyer = asRecord(nextMeta.namedBuyer).fullName;
+  if (
+    typeof confirmedBuyer === "string" &&
+    hasNamedBuyerName(confirmedBuyer) &&
+    (input.namedBuyerFullName !== undefined || input.namedBuyerTitle !== undefined)
+  ) {
+    try {
+      await runPreOutreachAfterResearch(contact.id);
+    } catch {
+      // Finder errors stay on the card. DISPATCH stays human.
+    }
+  }
 
   const report = await buildIronleadsSuspectReport(contactId);
   if (!report) {

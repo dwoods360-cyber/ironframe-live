@@ -15,10 +15,10 @@
  * Server-side Prisma readers live in `app/lib/server/salesTouchHistoryCore.ts`.
  */
 
-export type SalesTouchNumber = "TOUCH1" | "TOUCH2" | "TOUCH3";
+export type SalesTouchNumber = "TOUCH1" | "TOUCH2" | "TOUCH3" | "TOUCH4";
 
-/** Cadence tags only model three touches; later sends clamp to TOUCH3. */
-export const MAX_TRACKED_TOUCH_ORDINAL = 3;
+/** Cadence tags model four touches. Touch 4 is the final close. Later sends clamp to TOUCH4. */
+export const MAX_TRACKED_TOUCH_ORDINAL = 4;
 
 export const TRACE_MATRIX_MARKER = "--- Trace Matrix ---";
 
@@ -34,7 +34,7 @@ export function nextTouchOrdinalFromPriorSends(priorSendCount: number): number {
 
 /** Read an explicit cadence tag when present. Label only — never authoritative. */
 export function parseCadenceTouch(summary: string | null | undefined): SalesTouchNumber | null {
-  const match = String(summary ?? "").match(/Cadence:\s*(TOUCH[123])\b/i);
+  const match = String(summary ?? "").match(/Cadence:\s*(TOUCH[1-4])\b/i);
   if (!match?.[1]) return null;
   return match[1].toUpperCase() as SalesTouchNumber;
 }

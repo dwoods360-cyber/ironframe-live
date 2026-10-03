@@ -85,6 +85,7 @@ describe("approvalQueueCore", () => {
       ),
     ).toBe("TOUCH2");
     expect(inferSalesTouchStage("Cadence: TOUCH3")).toBe("TOUCH3");
+    expect(inferSalesTouchStage("Cadence: TOUCH4")).toBe("TOUCH4");
     expect(inferSalesTouchStage("plain first outreach")).toBe(null);
   });
 

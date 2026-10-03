@@ -58,11 +58,13 @@ export function parseApprovalKindFilter(raw: string | null | undefined): Approva
   return "ALL";
 }
 
+export type ApprovalTouchFilter = "TOUCH1" | "TOUCH2" | "TOUCH3" | "TOUCH4" | "ALL";
+
 export function approvalsHref(
   kind: ApprovalKindFilter = "ALL",
   geo?: "US" | "ALL" | null,
   sort?: "GEO" | "RECENT" | null,
-  touch?: "TOUCH1" | "TOUCH2" | "TOUCH3" | "ALL" | null,
+  touch?: ApprovalTouchFilter | null,
 ): string {
   const params = new URLSearchParams();
   if (kind !== "ALL") params.set("kind", kind);
@@ -72,7 +74,7 @@ export function approvalsHref(
   }
   if (
     kind === "SALES" &&
-    (touch === "TOUCH1" || touch === "TOUCH2" || touch === "TOUCH3")
+    (touch === "TOUCH1" || touch === "TOUCH2" || touch === "TOUCH3" || touch === "TOUCH4")
   ) {
     params.set("touch", touch);
   }
@@ -83,10 +85,12 @@ export function approvalsHref(
 export function parseApprovalTouchFilter(
   raw: string | null | undefined,
   kind: ApprovalKindFilter,
-): "TOUCH1" | "TOUCH2" | "TOUCH3" | "ALL" {
+): ApprovalTouchFilter {
   if (kind !== "SALES") return "ALL";
   const value = (raw ?? "").trim().toUpperCase();
-  if (value === "TOUCH1" || value === "TOUCH2" || value === "TOUCH3") return value;
+  if (value === "TOUCH1" || value === "TOUCH2" || value === "TOUCH3" || value === "TOUCH4") {
+    return value;
+  }
   return "ALL";
 }
 
@@ -96,7 +100,7 @@ export function approvalsDraftHref(
   kind: ApprovalKindFilter = "SALES",
   geo?: "US" | "ALL" | null,
   sort?: "GEO" | "RECENT" | null,
-  touch?: "TOUCH1" | "TOUCH2" | "TOUCH3" | "ALL" | null,
+  touch?: ApprovalTouchFilter | null,
 ): string {
   const base = approvalsHref(
     kind,

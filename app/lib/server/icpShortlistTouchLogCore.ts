@@ -3,7 +3,7 @@ import "server-only";
 import prisma from "@/lib/prisma";
 import { upsertOpsActivity } from "@/app/lib/server/opsScheduleCore";
 
-export type IcpTouchStage = "TOUCH1" | "TOUCH2" | "TOUCH3";
+export type IcpTouchStage = "TOUCH1" | "TOUCH2" | "TOUCH3" | "TOUCH4";
 export type IcpTouchChannel = "EMAIL" | "SMS";
 
 export type IcpTouchLogRow = {
@@ -39,7 +39,7 @@ const SHORTLIST_HREF = "/dashboard/operations/library/icp-shortlist#section-d";
 
 function asTouch(value: string | null | undefined): IcpTouchStage | null {
   const v = String(value ?? "").trim().toUpperCase();
-  if (v === "TOUCH1" || v === "TOUCH2" || v === "TOUCH3") return v;
+  if (v === "TOUCH1" || v === "TOUCH2" || v === "TOUCH3" || v === "TOUCH4") return v;
   return null;
 }
 

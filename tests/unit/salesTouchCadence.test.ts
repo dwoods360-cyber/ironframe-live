@@ -34,13 +34,14 @@ describe("touch ordinal rules", () => {
     expect(nextTouchOrdinalFromPriorSends(1.9)).toBe(2);
   });
 
-  it("clamps ordinals beyond the modelled cadence to TOUCH3", () => {
+  it("clamps ordinals beyond the modelled cadence to TOUCH4", () => {
     expect(touchStageFromOrdinal(1)).toBe("TOUCH1");
     expect(touchStageFromOrdinal(2)).toBe("TOUCH2");
     expect(touchStageFromOrdinal(3)).toBe("TOUCH3");
-    expect(touchStageFromOrdinal(9)).toBe("TOUCH3");
+    expect(touchStageFromOrdinal(4)).toBe("TOUCH4");
+    expect(touchStageFromOrdinal(9)).toBe("TOUCH4");
     expect(touchStageFromOrdinal(0)).toBe("TOUCH1");
-    expect(MAX_TRACKED_TOUCH_ORDINAL).toBe(3);
+    expect(MAX_TRACKED_TOUCH_ORDINAL).toBe(4);
   });
 
   it("never reports TOUCH1 for a contact that already had a send", () => {
@@ -64,8 +65,9 @@ describe("cadence tag parsing", () => {
     expect(parseCadenceTouch(null)).toBeNull();
   });
 
-  it("ignores touch numbers outside the modelled cadence", () => {
-    expect(parseCadenceTouch("Cadence: TOUCH4")).toBeNull();
+  it("reads the final Touch 4 tag and ignores anything past it", () => {
+    expect(parseCadenceTouch("Cadence: TOUCH4")).toBe("TOUCH4");
+    expect(parseCadenceTouch("Cadence: TOUCH5")).toBeNull();
   });
 });
 

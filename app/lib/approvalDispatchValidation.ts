@@ -6,6 +6,7 @@ import {
   looksLikeTouch3ValueDropBody,
   looksLikeTouchEconomicsBody,
 } from "@/app/lib/salesTouch3Body";
+import { looksLikeTouch4BreakupBody } from "@/app/lib/salesTouch4Body";
 
 export type ApprovalDispatchChannel = "EMAIL" | "SMS";
 
@@ -102,7 +103,7 @@ export type DispatchValidationInput = {
    * When TOUCH3 (Value Drop), skip T1/T2 economics CTA locks and require
    * three-check body without $4,999 / workflow review.
    */
-  expectedTouch?: "TOUCH1" | "TOUCH2" | "TOUCH3" | null;
+  expectedTouch?: "TOUCH1" | "TOUCH2" | "TOUCH3" | "TOUCH4" | null;
 };
 
 export type DispatchValidationResult =
@@ -160,7 +161,19 @@ export function validateApprovalDispatch(
 
   if (input.draftKind === "SALES" && input.channel === "EMAIL" && body) {
     const isTouch3 = input.expectedTouch === "TOUCH3";
-    if (isTouch3) {
+    const isTouch4 = input.expectedTouch === "TOUCH4";
+    if (isTouch4) {
+      if (looksLikeTouchEconomicsBody(body)) {
+        errors.push(
+          "Touch 4 Clean Breakup must not include $4,999 / GA / workflow review.",
+        );
+      }
+      if (!looksLikeTouch4BreakupBody(body)) {
+        errors.push(
+          "Touch 4 EMAIL must close this Design Partner thread and invite a later reply.",
+        );
+      }
+    } else if (isTouch3) {
       if (looksLikeTouchEconomicsBody(body)) {
         errors.push(
           "Touch 3 Value Drop must not include $4,999 / GA / Command Design Partner / workflow review (use Touch 1–2 economics elsewhere).",
@@ -191,7 +204,7 @@ export function validateApprovalDispatch(
       errors.push("Sales EMAIL must not use Governance Frame as the sales signature (C1 lock).");
     }
     const voice = lintSalesHumanVoice(body, {
-      allowMissingPeerCta: isTouch3,
+      allowMissingPeerCta: isTouch3 || isTouch4,
     });
     if (!voice.ok) {
       for (const issue of voice.issues) {

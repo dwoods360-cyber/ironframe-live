@@ -34,7 +34,7 @@ export const APPROVAL_QUEUE_FETCH_CAP = 200;
 export type ApprovalTier = "Gridcore" | "Vaultbank" | "Medshield";
 export type DraftKind = "SUPPORT" | "SALES" | "CUSTOMER_SUCCESS";
 /** Outreach cadence stage for Sales Approvals cards (from CRM summary cadence / HITL note). */
-export type SalesTouchStage = "TOUCH1" | "TOUCH2" | "TOUCH3";
+export type SalesTouchStage = "TOUCH1" | "TOUCH2" | "TOUCH3" | "TOUCH4";
 
 export type ApprovalDispatchChannel = "EMAIL" | "SMS";
 
@@ -113,11 +113,12 @@ export function inferDraftKind(summary: string): DraftKind {
  * contacted", which is how a prep run can stack a duplicate send.
  */
 export function inferSalesTouchStage(summary: string): SalesTouchStage | null {
-  const cadence = summary.match(/Cadence:\s*(TOUCH[123])\b/i)?.[1];
+  const cadence = summary.match(/Cadence:\s*(TOUCH[1-4])\b/i)?.[1];
   if (cadence) {
     const u = cadence.toUpperCase();
-    if (u === "TOUCH1" || u === "TOUCH2" || u === "TOUCH3") return u;
+    if (u === "TOUCH1" || u === "TOUCH2" || u === "TOUCH3" || u === "TOUCH4") return u;
   }
+  if (/Touch\s*4\b/i.test(summary) || /\bTOUCH4\b/i.test(summary)) return "TOUCH4";
   if (/Touch\s*3\b/i.test(summary) || /\bTOUCH3\b/i.test(summary)) return "TOUCH3";
   if (/Touch\s*2\b/i.test(summary) || /\bTOUCH2\b/i.test(summary)) return "TOUCH2";
   if (/Touch\s*1\b/i.test(summary) || /\bTOUCH1\b/i.test(summary)) return "TOUCH1";

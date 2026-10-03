@@ -65,7 +65,7 @@ interface PendingDraft {
   accountDomain?: string | null;
   occurredAt?: string;
   /** Sales cadence stage from CRM summary (TOUCH2 cards). */
-  salesTouchStage?: "TOUCH1" | "TOUCH2" | "TOUCH3" | null;
+  salesTouchStage?: "TOUCH1" | "TOUCH2" | "TOUCH3" | "TOUCH4" | null;
 }
 
 function kindSortRank(kind: ApprovalDraftKind): number {
@@ -133,7 +133,8 @@ function AdminApprovalDashboardInner() {
         salesTouchStage:
           draft.salesTouchStage === "TOUCH1" ||
           draft.salesTouchStage === "TOUCH2" ||
-          draft.salesTouchStage === "TOUCH3"
+          draft.salesTouchStage === "TOUCH3" ||
+          draft.salesTouchStage === "TOUCH4"
             ? draft.salesTouchStage
             : null,
       }));
@@ -176,6 +177,8 @@ function AdminApprovalDashboardInner() {
       rows = rows.filter((d) => d.salesTouchStage === "TOUCH2");
     } else if (kindFilter === "SALES" && touchFilter === "TOUCH3") {
       rows = rows.filter((d) => d.salesTouchStage === "TOUCH3");
+    } else if (kindFilter === "SALES" && touchFilter === "TOUCH4") {
+      rows = rows.filter((d) => d.salesTouchStage === "TOUCH4");
     }
 
     const useGeoSort =
@@ -229,6 +232,7 @@ function AdminApprovalDashboardInner() {
       ).length,
       TOUCH2: geoScoped.filter((d) => d.salesTouchStage === "TOUCH2").length,
       TOUCH3: geoScoped.filter((d) => d.salesTouchStage === "TOUCH3").length,
+      TOUCH4: geoScoped.filter((d) => d.salesTouchStage === "TOUCH4").length,
     };
   }, [drafts, geoFilter]);
 
@@ -268,7 +272,7 @@ function AdminApprovalDashboardInner() {
     );
   };
 
-  const setTouchFilter = (next: "TOUCH1" | "TOUCH2" | "TOUCH3" | "ALL") => {
+  const setTouchFilter = (next: "TOUCH1" | "TOUCH2" | "TOUCH3" | "TOUCH4" | "ALL") => {
     router.replace(
       approvalsHref(kindFilter, geoFilter, salesSort, next),
       { scroll: false },
@@ -511,7 +515,11 @@ function AdminApprovalDashboardInner() {
             ? "Touch 1"
             : touchFilter === "TOUCH2"
               ? "Touch 2"
-              : "All touches"
+              : touchFilter === "TOUCH3"
+                ? "Touch 3"
+                : touchFilter === "TOUCH4"
+                  ? "Touch 4"
+                  : "All touches"
         } · ${salesSort === "GEO" ? "US first" : "Newest"} · ${visibleDrafts.length} shown`
       : null;
 
@@ -719,6 +727,19 @@ function AdminApprovalDashboardInner() {
                 Touch 3
                 <span className="ml-2 font-mono text-xs opacity-70">{touchCounts.TOUCH3}</span>
               </button>
+              <button
+                type="button"
+                aria-pressed={touchFilter === "TOUCH4"}
+                onClick={() => setTouchFilter("TOUCH4")}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  touchFilter === "TOUCH4"
+                    ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
+                    : "text-amber-200/70 hover:bg-amber-950/40"
+                }`}
+              >
+                Touch 4
+                <span className="ml-2 font-mono text-xs opacity-70">{touchCounts.TOUCH4}</span>
+              </button>
             </div>
             <div
               className="flex flex-wrap items-center gap-2 border-t border-amber-900/30 pt-2"
@@ -875,7 +896,9 @@ function AdminApprovalDashboardInner() {
                                 ? "Touch 2"
                                 : draft.salesTouchStage === "TOUCH3"
                                   ? "Touch 3"
-                                  : "Touch 1"}
+                                  : draft.salesTouchStage === "TOUCH4"
+                                    ? "Touch 4"
+                                    : "Touch 1"}
                             </span>
                           ) : null}
                           {draft.draftKind === "SALES" && draft.outreachGeoLabel ? (
@@ -946,7 +969,9 @@ function AdminApprovalDashboardInner() {
                             ? "Touch 2"
                             : selectedDraft.salesTouchStage === "TOUCH3"
                               ? "Touch 3"
-                              : "Touch 1"}
+                              : selectedDraft.salesTouchStage === "TOUCH4"
+                                ? "Touch 4"
+                                : "Touch 1"}
                         </span>
                       ) : null}
                       <strong>{selectedMeta.title}</strong>

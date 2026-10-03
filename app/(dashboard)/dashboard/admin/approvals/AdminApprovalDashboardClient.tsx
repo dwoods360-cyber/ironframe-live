@@ -668,7 +668,7 @@ function AdminApprovalDashboardInner() {
               ) : null}
             </div>
             <div
-              className="flex flex-wrap items-center gap-2 border-t border-amber-900/30 pt-2"
+              className="flex flex-nowrap items-center gap-2 overflow-x-auto border-t border-amber-900/30 pt-2"
               role="group"
               aria-label="Sales touch stage"
             >
@@ -679,7 +679,7 @@ function AdminApprovalDashboardInner() {
                 type="button"
                 aria-pressed={touchFilter === "ALL"}
                 onClick={() => setTouchFilter("ALL")}
-                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors ${
                   touchFilter === "ALL"
                     ? "bg-slate-800 text-white ring-1 ring-slate-600"
                     : "text-slate-400 hover:bg-slate-900"
@@ -692,7 +692,7 @@ function AdminApprovalDashboardInner() {
                 type="button"
                 aria-pressed={touchFilter === "TOUCH1"}
                 onClick={() => setTouchFilter("TOUCH1")}
-                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors ${
                   touchFilter === "TOUCH1"
                     ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
                     : "text-amber-200/70 hover:bg-amber-950/40"
@@ -705,7 +705,7 @@ function AdminApprovalDashboardInner() {
                 type="button"
                 aria-pressed={touchFilter === "TOUCH2"}
                 onClick={() => setTouchFilter("TOUCH2")}
-                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors ${
                   touchFilter === "TOUCH2"
                     ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
                     : "text-amber-200/70 hover:bg-amber-950/40"
@@ -718,7 +718,7 @@ function AdminApprovalDashboardInner() {
                 type="button"
                 aria-pressed={touchFilter === "TOUCH3"}
                 onClick={() => setTouchFilter("TOUCH3")}
-                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors ${
                   touchFilter === "TOUCH3"
                     ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
                     : "text-amber-200/70 hover:bg-amber-950/40"
@@ -731,7 +731,7 @@ function AdminApprovalDashboardInner() {
                 type="button"
                 aria-pressed={touchFilter === "TOUCH4"}
                 onClick={() => setTouchFilter("TOUCH4")}
-                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors ${
                   touchFilter === "TOUCH4"
                     ? "bg-amber-900/60 text-amber-50 ring-1 ring-amber-500/50"
                     : "text-amber-200/70 hover:bg-amber-950/40"

@@ -16,8 +16,8 @@ import { recordCronJobArtifact } from "@/app/lib/server/cronTenantScope";
 export const maxDuration = 120;
 
 /**
- * Pre-outreach automation — Research thin actives, then Prospeo → Apollo
- * (Hunter opt-in) for named-buyer placeholders, then queue T1 drafts.
+ * Pre-outreach automation — Research thin actives, then Prospeo → Apollo →
+ * Hunter → Snov → GetProspect for named-buyer placeholders, then queue T1 drafts.
  * Never DISPATCHes.
  *
  * Schedule: every 2 hours weekdays (cron: 0 every-2h Mon-Fri).

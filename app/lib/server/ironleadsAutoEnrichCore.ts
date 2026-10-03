@@ -261,10 +261,14 @@ export async function runIronleadsAutoEnrichBatch(options?: {
   const dryRun = Boolean(options?.dryRun) || envFlag("IRONLEADS_AUTO_ENRICH_DRY_RUN", false);
   const limit = Math.min(40, options?.limit ?? envInt("IRONLEADS_AUTO_ENRICH_LIMIT", DEFAULT_LIMIT));
   const gapMs = envInt("IRONLEADS_AUTO_ENRICH_GAP_MS", DEFAULT_GAP_MS);
-  const providersEnabled = providersFromEnv({ includeHunter: false });
+  // Every selected row already has a named buyer. Those finders stay on
+  // even when the bulk Hunter/Snov/GetProspect flags are off.
+  const providersEnabled = providersFromEnv({ includeHunter: true });
   const prospeoOn = providersEnabled.prospeo;
   const apolloOn = providersEnabled.apollo;
   const hunterOn = providersEnabled.hunter;
+  const snovOn = providersEnabled.snov;
+  const getprospectOn = providersEnabled.getprospect;
 
   if (!enabled) {
     return {
@@ -278,7 +282,7 @@ export async function runIronleadsAutoEnrichBatch(options?: {
     };
   }
 
-  if (!prospeoOn && !apolloOn && !hunterOn) {
+  if (!prospeoOn && !apolloOn && !hunterOn && !snovOn && !getprospectOn) {
     return {
       enabled: true,
       skippedReason: "No enrich providers enabled/configured",
@@ -345,8 +349,8 @@ export async function runIronleadsAutoEnrichBatch(options?: {
     if (fit === "PASS") score += 100;
     if (fit === "ADJACENT") score += 40;
     if (hasNamed) score += 50;
-    if (classif === "enrich_later") score += 20;
-    if (!classif) score += 10;
+    // Active queue (no hold) outranks enrich_later so parked cards wait.
+    if (!classif) score += 30;
     // Avoid thrashing recently touched rows.
     const ageHrs = (Date.now() - c.updatedAt.getTime()) / 3_600_000;
     if (ageHrs < 6) score -= 30;
@@ -369,12 +373,14 @@ export async function runIronleadsAutoEnrichBatch(options?: {
       if (prospeoOn) entry.providers.push({ provider: "prospeo", ok: true });
       if (apolloOn) entry.providers.push({ provider: "apollo", ok: true });
       if (hunterOn) entry.providers.push({ provider: "hunter", ok: true });
+      if (snovOn) entry.providers.push({ provider: "snov", ok: true });
+      if (getprospectOn) entry.providers.push({ provider: "getprospect", ok: true });
       results.push(entry);
       continue;
     }
 
     results.push(
-      await enrichIronleadsSuspectIfPlaceholder(row.id, { includeHunter: hunterOn, gapMs }),
+      await enrichIronleadsSuspectIfPlaceholder(row.id, { includeHunter: true, gapMs }),
     );
   }
 

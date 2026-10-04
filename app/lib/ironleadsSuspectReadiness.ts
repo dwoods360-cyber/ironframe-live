@@ -78,6 +78,25 @@ export function scoreSuspectReadiness(input: {
   };
 }
 
+type PendingPoolRow = {
+  metadata: unknown;
+  accountDomain?: string | null;
+  priorityScore?: number | null;
+  createdAt: Date;
+};
+
+/**
+ * Pending pool order: every row that already has a named buyer leads, richest
+ * first. Rows still waiting on Research keep FIFO so the oldest import is next.
+ */
+export function comparePendingPoolRows(a: PendingPoolRow, b: PendingPoolRow): number {
+  const aNamed = scoreSuspectReadiness(a).hasNamedBuyer;
+  const bNamed = scoreSuspectReadiness(b).hasNamedBuyer;
+  if (aNamed !== bNamed) return aNamed ? -1 : 1;
+  if (aNamed) return compareSuspectReadiness(a, b);
+  return a.createdAt.getTime() - b.createdAt.getTime();
+}
+
 export function compareSuspectReadiness(
   a: { metadata: unknown; accountDomain?: string | null; priorityScore?: number | null; createdAt?: Date | string },
   b: { metadata: unknown; accountDomain?: string | null; priorityScore?: number | null; createdAt?: Date | string },

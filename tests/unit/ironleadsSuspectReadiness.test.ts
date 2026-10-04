@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  comparePendingPoolRows,
   compareSuspectReadiness,
   scoreSuspectReadiness,
 } from "@/app/lib/ironleadsSuspectReadiness";
@@ -49,6 +50,37 @@ describe("ironleadsSuspectReadiness", () => {
     ];
     const sorted = [...rows].sort(compareSuspectReadiness);
     expect(resolveName(sorted[0])).toBe("Pat Buyer");
+  });
+
+  it("puts named buyers at the top of the pending pool and keeps the rest FIFO", () => {
+    const rows = [
+      { metadata: { websiteUrl: "https://oldest.example" }, createdAt: new Date("2026-01-01") },
+      {
+        metadata: { namedBuyer: { fullName: "Pat Buyer" }, websiteUrl: "https://b.example" },
+        createdAt: new Date("2026-03-01"),
+      },
+      { metadata: {}, createdAt: new Date("2026-02-01") },
+      {
+        metadata: {
+          namedBuyer: { fullName: "Dana Reyes" },
+          websiteUrl: "https://c.example",
+          buyingCommittee: {
+            members: [
+              {
+                role: "CISO",
+                fullName: "Dana Reyes",
+                emails: [{ email: "dana@c.example", status: "published" }],
+              },
+            ],
+          },
+        },
+        createdAt: new Date("2026-04-01"),
+      },
+    ];
+    const sorted = [...rows].sort(comparePendingPoolRows);
+    expect(sorted.map(resolveName)).toEqual(["Dana Reyes", "Pat Buyer", null, null]);
+    expect(sorted[2]!.createdAt).toEqual(new Date("2026-01-01"));
+    expect(sorted[3]!.createdAt).toEqual(new Date("2026-02-01"));
   });
 });
 

@@ -170,6 +170,30 @@ const GENERIC_COMPANY_INBOX_LOCALS = new Set([
   "abuse",
   "security",
   "compliance",
+  // Intake aliases the finders return on catch-all domains. A provider can
+  // verify these as deliverable, which is not the same as a person's seat.
+  "questions",
+  "ask",
+  "general",
+  "mail",
+  "email",
+  "reception",
+  "inbox",
+  "intake",
+  "helpdesk",
+  "service",
+  "services",
+  "partner",
+  "partners",
+  "channel",
+  "procurement",
+  "vendors",
+  "legal",
+  "finance",
+  "accounting",
+  "newbusiness",
+  "new-business",
+  "it",
 ]);
 
 /**

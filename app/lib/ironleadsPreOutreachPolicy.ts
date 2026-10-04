@@ -29,6 +29,16 @@ function holdBlocksAutomation(classification: string | null | undefined): boolea
   );
 }
 
+/**
+ * pending_batch parks a row until an operator pulls it, so it blocks drafting.
+ * It does not block the email finders: a parked row with a named buyer is
+ * exactly what we want searched, so the inbox is already on file when it lands.
+ */
+function holdBlocksEnrichment(classification: string | null | undefined): boolean {
+  const c = String(classification || "").trim().toLowerCase();
+  return c !== "pending_batch" && holdBlocksAutomation(c);
+}
+
 function fitResult(fit: string | null | undefined): string {
   return String(fit || "").trim().toUpperCase();
 }
@@ -42,7 +52,7 @@ export function shouldAutoEnrichPlaceholder(input: {
   company: string | null | undefined;
 }): boolean {
   if (isSalesDispatchHoldCompany(input.company)) return false;
-  if (holdBlocksAutomation(input.holdClassification)) return false;
+  if (holdBlocksEnrichment(input.holdClassification)) return false;
   if (fitResult(input.fit) === "FAIL") return false;
   if (!isHarvestPlaceholderEmail(input.email)) return false;
   return hasNamedBuyerName(input.namedBuyerName);

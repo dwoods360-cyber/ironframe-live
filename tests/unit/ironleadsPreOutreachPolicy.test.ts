@@ -42,6 +42,35 @@ describe("pre-outreach policy", () => {
     );
   });
 
+  it("searches parked pending_batch rows but still refuses to draft them", () => {
+    const base = {
+      namedBuyerName: "Jane Doe",
+      fit: "PASS",
+      holdClassification: "pending_batch",
+      company: "Cyberdome",
+    };
+    expect(
+      shouldAutoEnrichPlaceholder({ ...base, email: "lead@ironleads.local" }),
+    ).toBe(true);
+    expect(
+      shouldAutoQueueTouch1Draft({ ...base, email: "jane.doe@cyberdome.net" }),
+    ).toBe(false);
+    expect(
+      shouldAutoEnrichPlaceholder({
+        ...base,
+        email: "lead@ironleads.local",
+        holdClassification: "hold",
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoEnrichPlaceholder({
+        ...base,
+        email: "lead@ironleads.local",
+        holdClassification: "other",
+      }),
+    ).toBe(false);
+  });
+
   it("queues T1 only for Fit PASS + promote-ready work email", () => {
     const base = {
       email: "jane.doe@cyberdome.net",

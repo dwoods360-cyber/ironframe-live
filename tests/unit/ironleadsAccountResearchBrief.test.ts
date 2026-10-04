@@ -288,6 +288,10 @@ describe("buildAccountResearchBrief", () => {
   it("keeps Email UNKNOWN for company intake inboxes even when hasRealEmail is true", () => {
     expect(isPromoteReadyWorkEmail("info@corestackit.com")).toBe(false);
     expect(isPromoteReadyWorkEmail("hello@ai4itservices.com")).toBe(false);
+    // A finder can verify these as deliverable on a catch-all domain.
+    expect(isPromoteReadyWorkEmail("questions@presidio.com")).toBe(false);
+    expect(isPromoteReadyWorkEmail("partners@presidio.com")).toBe(false);
+    expect(isPromoteReadyWorkEmail("it@presidio.com")).toBe(false);
     expect(isPromoteReadyWorkEmail("steve@solutionprovidersconsulting.com")).toBe(true);
 
     const brief = buildAccountResearchBrief({

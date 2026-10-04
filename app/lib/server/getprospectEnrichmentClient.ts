@@ -12,6 +12,12 @@ import "server-only";
  */
 
 const GETPROSPECT_FIND_URL = "https://api.getprospect.com/v2/email/find";
+/**
+ * GetProspect verifies the mailbox on its side, so a find can outlast the
+ * 45s the other finders use. At 45s roughly a third of calls were aborted
+ * mid-verify and read as "no mailbox".
+ */
+const GETPROSPECT_FIND_TIMEOUT_MS = 90_000;
 
 export type GetProspectPersonEnrichment = {
   email: string | null;
@@ -117,7 +123,7 @@ export async function enrichPersonWithGetProspect(input: {
       body: JSON.stringify({
         data: { first_name: firstName, last_name: lastName, domain },
       }),
-      signal: AbortSignal.timeout(45_000),
+      signal: AbortSignal.timeout(GETPROSPECT_FIND_TIMEOUT_MS),
     });
     const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     if (!response.ok) {

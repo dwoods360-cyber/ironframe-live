@@ -21,6 +21,7 @@ import {
   resolveFitHeldPromoteTo,
 } from "@/app/lib/ironleadsHoldArchiveSort";
 import {
+  comparePendingPoolRows,
   compareSuspectReadiness,
   scoreSuspectReadiness,
 } from "@/app/lib/ironleadsSuspectReadiness";
@@ -173,9 +174,11 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
   const activeRows = collapsed
     .filter((row) => !resolveOperatorHold(row.metadata))
     .sort((a, b) => compareSuspectReadiness(readinessKey(a), readinessKey(b)));
+  // Research names a buyer on parked rows too. Those are ready to review, so
+  // they lead the pool; everything still unnamed keeps its FIFO place.
   const pendingRows = collapsed
     .filter((row) => isPendingBatchHold(row.metadata))
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    .sort((a, b) => comparePendingPoolRows(readinessKey(a), readinessKey(b)));
   const holdRows = collapsed
     .filter((row) => resolveOperatorHold(row.metadata) && !isPendingBatchHold(row.metadata))
     .sort((a, b) =>

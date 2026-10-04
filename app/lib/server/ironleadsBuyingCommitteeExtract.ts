@@ -563,8 +563,11 @@ export function isPlausiblePersonName(name: string): boolean {
   }
   if (PERSON_NAME_NOISE.test(trimmed)) return false;
   // Reject bare acronyms / all-caps tokens that are not middle initials ("IT", "CEO").
-  for (const part of parts) {
-    if (/^[A-Z]\.$/.test(part)) continue;
+  for (const [i, part] of parts.entries()) {
+    // A middle initial may be written with or without a period ("John V Thompson").
+    // First and last name still have to be real words.
+    const isMiddle = i > 0 && i < parts.length - 1;
+    if (/^[A-Z]\.$/.test(part) || (isMiddle && /^[A-Z]$/.test(part))) continue;
     if (/^[A-Z]{2,}$/.test(part)) return false;
     if (!/^[A-Z][a-zA-Z'’-]+$/.test(part)) return false;
   }

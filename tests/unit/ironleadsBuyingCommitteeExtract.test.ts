@@ -199,6 +199,11 @@ describe("ironleadsBuyingCommitteeExtract", () => {
     expect(isPlausiblePersonName("National Defense")).toBe(false);
     expect(isPlausiblePersonName("Dameon Jeremy")).toBe(false);
     expect(isPlausiblePersonName("Andrew B. Quiming")).toBe(true);
+    // A middle initial is often written without a period.
+    expect(isPlausiblePersonName("John V Thompson")).toBe(true);
+    // A bare initial still cannot stand in for a first or last name.
+    expect(isPlausiblePersonName("J Thompson")).toBe(false);
+    expect(isPlausiblePersonName("John V")).toBe(false);
     expect(isPlausiblePersonName("Al Alper")).toBe(true);
     expect(isPlausiblePersonName("Stephen McMaster")).toBe(true);
     expect(isPlausiblePersonName("Kenneth A. Vecchione")).toBe(true);

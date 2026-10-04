@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
+import { comparePendingPoolRows } from "@/app/lib/ironleadsSuspectReadiness";
 import {
   applyOperatorHoldToMetadata,
   buildOperatorHoldRecord,
@@ -175,10 +176,11 @@ export async function pullPendingSuspectBatch(
   }
 
   const candidates = await loadSuspectContacts(500);
-  // FIFO: oldest pending first so the operator walks the directory list in order.
+  // A named buyer is what lets the email finders run, so those come in first.
+  // Everything else stays FIFO and walks the directory list in order.
   const pending = candidates
     .filter((row) => isPendingBatchHold(row.metadata))
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .sort((a, b) => comparePendingPoolRows(a, b))
     .slice(0, toPull);
 
   const contactIds: string[] = [];

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   MAX_TRACKED_TOUCH_ORDINAL,
+  MIN_DAYS_BETWEEN_TOUCHES,
   buildCadenceTraceLine,
+  gateTouchSpacing,
   nextTouchOrdinalFromPriorSends,
   parseCadenceTouch,
   touchStageFromOrdinal,
@@ -50,6 +52,45 @@ describe("touch ordinal rules", () => {
     for (const priorSends of [1, 2, 3, 4]) {
       expect(touchStageFromOrdinal(nextTouchOrdinalFromPriorSends(priorSends))).not.toBe("TOUCH1");
     }
+  });
+});
+
+describe("touch spacing gate", () => {
+  const now = new Date("2026-10-05T17:00:00.000Z");
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000);
+
+  it("is one week", () => {
+    expect(MIN_DAYS_BETWEEN_TOUCHES).toBe(7);
+  });
+
+  it("clears a contact that has never been sent to", () => {
+    const gate = gateTouchSpacing({ lastSentAt: null, now });
+    expect(gate.ok).toBe(true);
+    expect(gate.ok && gate.daysSinceLastSend).toBeNull();
+  });
+
+  it("blocks a second send inside the week and names the earliest date", () => {
+    const gate = gateTouchSpacing({ lastSentAt: daysAgo(2), now });
+    expect(gate.ok).toBe(false);
+    if (gate.ok) return;
+    expect(gate.daysSinceLastSend).toBe(2);
+    expect(gate.earliestNextSendAt.toISOString()).toBe("2026-10-10T17:00:00.000Z");
+  });
+
+  it("clears exactly on day seven", () => {
+    expect(gateTouchSpacing({ lastSentAt: daysAgo(7), now }).ok).toBe(true);
+    expect(gateTouchSpacing({ lastSentAt: daysAgo(6), now }).ok).toBe(false);
+  });
+
+  it("blocks two approvals made in the same sitting", () => {
+    // Both drafts pass their own gates; only the spacing check stops the
+    // second one landing a day after the first.
+    const firstSend = daysAgo(0);
+    expect(gateTouchSpacing({ lastSentAt: firstSend, now }).ok).toBe(false);
+  });
+
+  it("clears the 38-day-cold retarget backlog", () => {
+    expect(gateTouchSpacing({ lastSentAt: daysAgo(38), now }).ok).toBe(true);
   });
 });
 

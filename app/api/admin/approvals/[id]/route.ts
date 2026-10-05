@@ -21,7 +21,8 @@ import {
 import { finalizeSalesDispatchOperatorTrail } from "@/app/lib/server/finalizeSalesDispatchOperatorTrail";
 import {
   buildCadenceTraceLine,
-  resolveOutgoingTouchNumber,
+  fetchSalesTouchHistory,
+  MIN_DAYS_BETWEEN_TOUCHES,
 } from "@/app/lib/server/salesTouchHistoryCore";
 import { applyApprovalNeedsEnrichment } from "@/app/lib/server/approvalNeedsEnrichmentCore";
 import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
@@ -142,13 +143,26 @@ export async function POST(
        * `--- Prospect Context ---` block, so the cadence has to be re-stamped
        * here or the touch number is lost the moment the email leaves.
        */
-      const salesTouch =
+      const touchHistory =
         draftKind === "SALES"
-          ? await resolveOutgoingTouchNumber({
+          ? await fetchSalesTouchHistory({
               contactId: contact.id,
               excludeInteractionId: interactionId,
             })
           : null;
+      const salesTouch = touchHistory?.nextTouch ?? null;
+
+      // One email per buyer per week. Two drafts approved in the same sitting
+      // each pass their own gates, so the spacing check has to live here.
+      if (touchHistory && !touchHistory.spacing.ok) {
+        return NextResponse.json(
+          {
+            error: `Last send to this buyer was ${touchHistory.spacing.daysSinceLastSend} day(s) ago. Cadence is one touch per ${MIN_DAYS_BETWEEN_TOUCHES} days.`,
+            earliestNextSendAt: touchHistory.spacing.earliestNextSendAt.toISOString(),
+          },
+          { status: 409 },
+        );
+      }
 
       let channel: ApprovalDispatchChannel = "EMAIL";
       if (draftKind === "SALES") {

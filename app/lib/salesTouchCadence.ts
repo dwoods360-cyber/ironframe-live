@@ -20,6 +20,41 @@ export type SalesTouchNumber = "TOUCH1" | "TOUCH2" | "TOUCH3" | "TOUCH4";
 /** Cadence tags model four touches. Touch 4 is the final close. Later sends clamp to TOUCH4. */
 export const MAX_TRACKED_TOUCH_ORDINAL = 4;
 
+/** Minimum spacing between two sends to the same buyer. */
+export const MIN_DAYS_BETWEEN_TOUCHES = 7;
+
+const MS_PER_DAY = 86_400_000;
+
+export type TouchSpacingGate =
+  | { ok: true; daysSinceLastSend: number | null }
+  | { ok: false; daysSinceLastSend: number; earliestNextSendAt: Date };
+
+/**
+ * A buyer gets at most one email a week. Without this, two drafts approved in
+ * the same sitting both pass their own gates and land a day apart.
+ * A contact with no prior send is always clear.
+ */
+export function gateTouchSpacing(input: {
+  lastSentAt: Date | null | undefined;
+  now?: Date;
+}): TouchSpacingGate {
+  if (!input.lastSentAt) return { ok: true, daysSinceLastSend: null };
+
+  const now = input.now ?? new Date();
+  const elapsed = now.getTime() - input.lastSentAt.getTime();
+  const daysSinceLastSend = Math.floor(elapsed / MS_PER_DAY);
+  if (daysSinceLastSend >= MIN_DAYS_BETWEEN_TOUCHES) {
+    return { ok: true, daysSinceLastSend };
+  }
+  return {
+    ok: false,
+    daysSinceLastSend,
+    earliestNextSendAt: new Date(
+      input.lastSentAt.getTime() + MIN_DAYS_BETWEEN_TOUCHES * MS_PER_DAY,
+    ),
+  };
+}
+
 export const TRACE_MATRIX_MARKER = "--- Trace Matrix ---";
 
 export function touchStageFromOrdinal(ordinal: number): SalesTouchNumber {

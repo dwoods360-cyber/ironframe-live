@@ -4,9 +4,11 @@ import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 import { DISPATCHED_SALES_DRAFT_TAG } from "@/app/lib/server/approvalQueueCore";
 import {
   MAX_TRACKED_TOUCH_ORDINAL,
+  gateTouchSpacing,
   nextTouchOrdinalFromPriorSends,
   touchStageFromOrdinal,
   type SalesTouchNumber,
+  type TouchSpacingGate,
 } from "@/app/lib/salesTouchCadence";
 
 /**
@@ -17,10 +19,13 @@ import {
 
 export {
   buildCadenceTraceLine,
+  gateTouchSpacing,
+  MIN_DAYS_BETWEEN_TOUCHES,
   parseCadenceTouch,
   touchStageFromOrdinal,
   withCadenceTraceLine,
   type SalesTouchNumber,
+  type TouchSpacingGate,
 } from "@/app/lib/salesTouchCadence";
 
 export type SalesTouchHistory = {
@@ -33,6 +38,8 @@ export type SalesTouchHistory = {
   nextTouch: SalesTouchNumber;
   /** True when the contact is already past the modelled 3-touch cadence. */
   beyondTrackedCadence: boolean;
+  /** One email per buyer per week — blocks a second send inside the window. */
+  spacing: TouchSpacingGate;
 };
 
 /**
@@ -59,14 +66,16 @@ export async function fetchSalesTouchHistory(input: {
 
   const priorSendCount = rows.length;
   const nextTouchOrdinal = nextTouchOrdinalFromPriorSends(priorSendCount);
+  const lastSentAt = rows.length ? rows[rows.length - 1]!.occurredAt : null;
 
   return {
     contactId: input.contactId,
     priorSendCount,
-    lastSentAt: rows.length ? rows[rows.length - 1]!.occurredAt : null,
+    lastSentAt,
     nextTouchOrdinal,
     nextTouch: touchStageFromOrdinal(nextTouchOrdinal),
     beyondTrackedCadence: nextTouchOrdinal > MAX_TRACKED_TOUCH_ORDINAL,
+    spacing: gateTouchSpacing({ lastSentAt }),
   };
 }
 

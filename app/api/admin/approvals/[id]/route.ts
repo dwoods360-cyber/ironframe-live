@@ -25,9 +25,44 @@ import {
   MIN_DAYS_BETWEEN_TOUCHES,
 } from "@/app/lib/server/salesTouchHistoryCore";
 import { applyApprovalNeedsEnrichment } from "@/app/lib/server/approvalNeedsEnrichmentCore";
+import { emailMatchesAccountDomain } from "@/app/lib/server/ironleadsAccountResearchBrief";
 import { withProspectPoolTenant } from "@/app/lib/server/ironleadsTenantScope";
 
 export const dynamic = "force-dynamic";
+
+/** Account domain as the rest of Ironleads resolves it: deal first, then site. */
+async function resolveDispatchAccountDomain(contactId: string): Promise<string | null> {
+  const contact = await withProspectPoolTenant((tx) =>
+    tx.ironboardCrmContact.findUnique({
+      where: { id: contactId },
+      select: {
+        metadata: true,
+        primaryDeals: {
+          orderBy: { updatedAt: "desc" },
+          take: 1,
+          select: { accountDomain: true },
+        },
+      },
+    }),
+  );
+  if (!contact) return null;
+
+  const meta =
+    contact.metadata && typeof contact.metadata === "object" && !Array.isArray(contact.metadata)
+      ? (contact.metadata as Record<string, unknown>)
+      : {};
+  const location =
+    meta.location && typeof meta.location === "object" && !Array.isArray(meta.location)
+      ? (meta.location as Record<string, unknown>)
+      : {};
+
+  const raw =
+    contact.primaryDeals[0]?.accountDomain ||
+    (typeof meta.websiteUrl === "string" ? meta.websiteUrl : null) ||
+    (typeof location.websiteUrl === "string" ? location.websiteUrl : null);
+
+  return raw?.trim() ? raw : null;
+}
 
 function escapeHtml(raw: string): string {
   return raw
@@ -312,6 +347,27 @@ export async function POST(
           },
           { status: 422 },
         );
+      }
+
+      /**
+       * The Email gate runs when the draft is written, which can be weeks before
+       * an operator clicks DISPATCH — and the operator may retype the address
+       * here. Re-check employer ownership against the live account domain so a
+       * sales email cannot leave for a company we never confirmed the buyer
+       * works at. An unresolved domain blocks: set it on the deal first.
+       */
+      if (draftKind === "SALES") {
+        const accountDomain = await resolveDispatchAccountDomain(contact.id);
+        if (!emailMatchesAccountDomain(toEmail, accountDomain)) {
+          return NextResponse.json(
+            {
+              error: accountDomain
+                ? `Destination ${toEmail} is not on the account domain ${accountDomain}. Confirm the buyer works there, then set the deal domain or correct the address.`
+                : `No account domain on file for ${contact.company ?? "this account"}, so ${toEmail} cannot be confirmed as an employer inbox. Set the deal domain before DISPATCH.`,
+            },
+            { status: 422 },
+          );
+        }
       }
 
       if (contact.email.toLowerCase() !== toEmail) {

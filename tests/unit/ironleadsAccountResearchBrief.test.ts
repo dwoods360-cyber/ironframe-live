@@ -2,11 +2,104 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAccountResearchBrief,
+  emailMatchesAccountDomain,
+  inferAccountDomainFromVerifiedInbox,
+  isPromoteReadyEmployerEmail,
   isPromoteReadyWorkEmail,
   mergeNamedBuyerIntoBriefMembers,
   selectAccountResearchBriefForReport,
   type AccountResearchBrief,
 } from "@/app/lib/server/ironleadsAccountResearchBrief";
+
+describe("employer-domain ownership", () => {
+  it("fails Email PASS when the account domain is unknown", () => {
+    // Regression: the check used to report a match whenever it had no domain to
+    // compare against, so paul.kerr@dyntek.com cleared an arctiq.com account.
+    expect(isPromoteReadyEmployerEmail("paul.kerr@dyntek.com", null)).toBe(false);
+    expect(isPromoteReadyEmployerEmail("paul.kerr@dyntek.com", "")).toBe(false);
+    expect(isPromoteReadyEmployerEmail("ssharma@techheights.com", null)).toBe(false);
+  });
+
+  it("still passes a person seat on a known employer domain", () => {
+    expect(isPromoteReadyEmployerEmail("ssharma@techheights.com", "techheights.com")).toBe(true);
+    expect(isPromoteReadyEmployerEmail("ssharma@mail.techheights.com", "techheights.com")).toBe(true);
+    expect(isPromoteReadyEmployerEmail("ssharma@techheights.com", "https://www.techheights.com/")).toBe(true);
+  });
+
+  it("still fails a person seat on someone else's domain", () => {
+    expect(isPromoteReadyEmployerEmail("paul.kerr@dyntek.com", "arctiq.com")).toBe(false);
+    expect(isPromoteReadyEmployerEmail("jamesr@byteteksolutions.com", "crestline-technologies.com")).toBe(false);
+  });
+
+  it("leaves the permissive helper alone for the enrichment cores", () => {
+    // Adoption paths still treat an unknown domain as "cannot say", so finder
+    // results are not silently dropped mid-enrichment.
+    expect(emailMatchesAccountDomain("paul.kerr@dyntek.com", null)).toBe(true);
+    expect(emailMatchesAccountDomain("paul.kerr@dyntek.com", "arctiq.com")).toBe(false);
+  });
+});
+
+describe("inferAccountDomainFromVerifiedInbox", () => {
+  it("adopts a domain whose label corroborates the company name", () => {
+    expect(inferAccountDomainFromVerifiedInbox("a.b@nonasec.com", "NonaSec")).toBe("nonasec.com");
+    expect(inferAccountDomainFromVerifiedInbox("a@ocsecurityaudit.com", "OC Security Audit")).toBe("ocsecurityaudit.com");
+    expect(inferAccountDomainFromVerifiedInbox("a@bdemerson.com", "BD Emerson")).toBe("bdemerson.com");
+    expect(inferAccountDomainFromVerifiedInbox("a@osibeyond.com", "OSIbeyond")).toBe("osibeyond.com");
+  });
+
+  it("accepts a longer domain or a longer company name on either side", () => {
+    expect(inferAccountDomainFromVerifiedInbox("a@corsicatech.com", "Corsica")).toBe("corsicatech.com");
+    expect(
+      inferAccountDomainFromVerifiedInbox(
+        "a@solutionprovidersconsulting.com",
+        "Solution Providers Consulting Group",
+      ),
+    ).toBe("solutionprovidersconsulting.com");
+  });
+
+  it("refuses a domain that does not corroborate — a merger is a human call", () => {
+    expect(inferAccountDomainFromVerifiedInbox("paul.kerr@dyntek.com", "Arctiq")).toBeNull();
+    expect(inferAccountDomainFromVerifiedInbox("jamesr@byteteksolutions.com", "Crestline Technologies")).toBeNull();
+  });
+
+  it("rescues the Email gate when a row has no website but a corroborating inbox", () => {
+    const base = {
+      websiteUrl: null,
+      accountDomain: null,
+      detectedTrigger: "NEW_CISO",
+      industrySector: "MSSP",
+      dealStage: "SUSPECT",
+      corpus: "We are an MSSP offering vCISO and managed GRC services.",
+      sourceUrls: [],
+      members: [],
+      socialProfiles: [],
+      hasRealEmail: true,
+      hasPhone: false,
+      namedBuyer: { fullName: "Steve Grant", title: "Chief Executive Officer" },
+    };
+
+    const corroborated = buildAccountResearchBrief({
+      ...base,
+      company: "NonaSec",
+      contactEmail: "steve@nonasec.com",
+    });
+    expect(corroborated.gates.email.result).toBe("PASS");
+
+    const mismatched = buildAccountResearchBrief({
+      ...base,
+      company: "Arctiq",
+      contactEmail: "paul.kerr@dyntek.com",
+    });
+    expect(mismatched.gates.email.result).not.toBe("PASS");
+  });
+
+  it("refuses intake aliases, placeholders, and stubs too short to mean anything", () => {
+    expect(inferAccountDomainFromVerifiedInbox("info@nonasec.com", "NonaSec")).toBeNull();
+    expect(inferAccountDomainFromVerifiedInbox("suspect+b19@ironleads.local", "Arctiq")).toBeNull();
+    expect(inferAccountDomainFromVerifiedInbox("a@acme.com", "Acme")).toBeNull();
+    expect(inferAccountDomainFromVerifiedInbox("a@nonasec.com", null)).toBeNull();
+  });
+});
 
 describe("buildAccountResearchBrief", () => {
   it("HOLDs Pivot Point with OSCAR conflict and internal-only what-to-say", () => {

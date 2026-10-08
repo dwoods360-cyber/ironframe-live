@@ -219,28 +219,78 @@ export function isPromoteReadyWorkEmail(email: string | null | undefined): boole
  * (e.g. mikeg@marciacourageinaction.org on a kybersecure.com SUSPECT).
  * When accountDomain is missing, returns true so legacy rows are not blocked.
  */
+function normalizeDomainHost(value: string | null | undefined): string {
+  return (
+    (value ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .split("/")[0]
+      ?.replace(/\.$/, "") ?? ""
+  );
+}
+
 export function emailMatchesAccountDomain(
   email: string | null | undefined,
   accountDomain: string | null | undefined,
 ): boolean {
   const host = (email ?? "").trim().toLowerCase().split("@")[1] ?? "";
-  const domain = (accountDomain ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/^https?:\/\//, "")
-    .replace(/^www\./, "")
-    .split("/")[0]
-    ?.replace(/\.$/, "");
+  const domain = normalizeDomainHost(accountDomain);
   if (!host || !domain) return !domain;
   return host === domain || host.endsWith(`.${domain}`);
 }
 
-/** Promote-ready person inbox that also belongs to the deal's employer domain. */
+/**
+ * Promote-ready person inbox that also belongs to the deal's employer domain.
+ *
+ * Unlike `emailMatchesAccountDomain`, an unknown accountDomain fails here. This
+ * is the gate that promotes a row to Email PASS and lets a draft be written, so
+ * "we could not check" must not read as "checked and fine" — that is how
+ * paul.kerr@dyntek.com reached an arctiq.com account. Resolve the domain
+ * (see `inferAccountDomainFromVerifiedInbox`) rather than relaxing this.
+ */
 export function isPromoteReadyEmployerEmail(
   email: string | null | undefined,
   accountDomain: string | null | undefined,
 ): boolean {
+  if (!normalizeDomainHost(accountDomain)) return false;
   return isPromoteReadyWorkEmail(email) && emailMatchesAccountDomain(email, accountDomain);
+}
+
+/** Alphanumeric spine of a name, for comparing a company to a domain label. */
+function compareKey(value: string | null | undefined): string {
+  return (value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** Shortest token that must still look deliberate rather than coincidental. */
+const MIN_CORROBORATION_LENGTH = 5;
+
+/**
+ * Derive an account domain from a verified inbox when the domain label and the
+ * company name corroborate each other ("NonaSec" / nonasec.com, "Corsica" /
+ * corsicatech.com). Returns null when they disagree, which is the signal that a
+ * human has to say whether the address belongs to the account at all —
+ * "Arctiq" / dyntek.com is a real merger, not something to guess at.
+ */
+export function inferAccountDomainFromVerifiedInbox(
+  email: string | null | undefined,
+  company: string | null | undefined,
+): string | null {
+  if (!isPromoteReadyWorkEmail(email)) return null;
+  const host = normalizeDomainHost((email ?? "").split("@")[1]);
+  if (!host) return null;
+
+  const label = compareKey(host.split(".")[0]);
+  const name = compareKey(company);
+  if (!label || !name) return null;
+
+  const shorter = label.length <= name.length ? label : name;
+  const longer = shorter === label ? name : label;
+  if (shorter.length < MIN_CORROBORATION_LENGTH) return null;
+  if (!longer.startsWith(shorter)) return null;
+
+  return host;
 }
 
 export type BuildAccountResearchBriefInput = {
@@ -550,10 +600,19 @@ export function buildAccountResearchBrief(
     (m) => m.fullName?.trim() && isPlausiblePersonName(m.fullName),
   );
   const hasNamedBuyer = namedMembers.length > 0;
+  // Most rows carry a website but no deal.accountDomain. Fall back the same way
+  // buildSuspectHoldBlockers does, so the Email gate is not deciding ownership
+  // against a null it could have resolved. The last resort reads the domain off
+  // the inbox itself, which is only safe because the company name has to
+  // corroborate it — the name is doing the verifying, not the address.
+  const employerDomain =
+    input.accountDomain?.trim() ||
+    input.websiteUrl?.trim() ||
+    inferAccountDomainFromVerifiedInbox(input.contactEmail, input.company);
   const memberPromoteReadyEmail = namedMembers.some((m) =>
     m.emails.some(
       (e) =>
-        isPromoteReadyEmployerEmail(e.email, input.accountDomain) &&
+        isPromoteReadyEmployerEmail(e.email, employerDomain) &&
         e.status !== "pattern_guess" &&
         e.status !== "INVALID" &&
         e.status !== "unavailable" &&
@@ -562,7 +621,7 @@ export function buildAccountResearchBrief(
   );
   const contactPromoteReady = isPromoteReadyEmployerEmail(
     input.contactEmail,
-    input.accountDomain,
+    employerDomain,
   );
   /** Email gate PASS — person/work seat on employer domain, not company intake alone. */
   const hasPromoteReadyEmail = memberPromoteReadyEmail || contactPromoteReady;

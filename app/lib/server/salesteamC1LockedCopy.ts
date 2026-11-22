@@ -7,6 +7,11 @@ import { C1_FOUNDER_EMAIL_SIGNATURE } from "@/app/lib/salesC1FounderSignature";
 export type C1DraftProspect = {
   company: string;
   fullName: string;
+  /**
+   * One verified public fact for the Touch-1 opener (`I noticed …`).
+   * Omit for the generic isolation ask only. Never invent ALE / Path B / demo slugs.
+   */
+  personalizationFact?: string | null;
 };
 
 export {
@@ -29,16 +34,34 @@ function greetingName(fullName: string): string {
  * Beachhead D opener: multi-client isolation first (not invented hiring; heatmap amnesty is CISO/CFO lane).
  * Cold first touch: no planned GA list price (defer to Touch 2 / pricing questions).
  */
+function normalizePersonalizationFact(raw: string | null | undefined): string | null {
+  const fact = String(raw ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\.$/, "");
+  if (!fact) return null;
+  if (/^I noticed\b/i.test(fact)) return fact.slice(0, 220);
+  return `I noticed ${fact}`.slice(0, 220);
+}
+
 export function buildC1LockedEmailBody(prospect: C1DraftProspect): {
   subject: string;
   body: string;
 } {
   const name = greetingName(prospect.fullName);
   const subject = `Multi-client GRC walls — ${prospect.company}`;
+  const noticed = normalizePersonalizationFact(prospect.personalizationFact);
+  const opener = noticed
+    ? [
+        noticed + ".",
+        "",
+        `When ${prospect.company} runs compliance across client environments, how do you keep evidence and board reporting isolated today — without mixing registers in a shared GRC stack?`,
+      ].join("\n")
+    : `When ${prospect.company} runs compliance across client environments, how do you keep evidence and board reporting isolated today — without mixing registers in a shared GRC stack?`;
   const body = [
     `Hi ${name},`,
     "",
-    `When ${prospect.company} runs compliance across client environments, how do you keep evidence and board reporting isolated today — without mixing registers in a shared GRC stack?`,
+    opener,
     "",
     "Ironframe is built for that: hard tenant walls, residual risk in whole cents, and exportable evidence — so leadership sees dollar exposure, not another color chart.",
     "",

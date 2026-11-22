@@ -6,7 +6,13 @@
 **Complements:** Soft thematic overlap with multi-entity / soft-tenancy / enclaves — this post is **deal-time valuation**, not day-2 operating isolation  
 **Canonical enclaves deep dive (different job):** https://research.ironframegrc.com/briefings/2026-05-14-connector-count-sovereign-enclaves  
 **Avoids:** GF briefing rewrite; Activision-as-tenancy; product pitch; “we fix M&A diligence”  
-**Drafted:** 2026-08-21 · **Status:** Parked seed — voice-pass before publish
+**Drafted:** 2026-08-21 · **Voice pass:** 2026-09-21 · **Status:** Ready for publish
+
+### Board voice (founder cadence)
+
+- Speak to operators who prepare diligence packets — not as every board, and not as deal counsel.
+- Problem → diligence-room questions → one practical LOI test. Workflow-review CTA in first comment only.
+- Soft tenancy is one diligence check, not this post’s main job — point to the enclaves briefing if comments go there.
 
 ---
 
@@ -15,19 +21,19 @@ Security debt does not wait for the first post-close audit.
 In a deal, it shows up earlier: as diligence findings, as escrow holdbacks, as price chips, and as “we’ll fix it later” that never lands on a named owner with a date.
 
 The usual packet still answers: “Do they have a policy stack?”  
-It often fails to answer: “What is the estimated exposure of the gaps we already found—and can we defend that number under challenge?”
+It often fails to answer: “What is the estimated exposure of the gaps we already found — and can we defend that number under challenge?”
 
 Three questions that belong in the diligence room, not only the SOC binder:
 
-• Which findings change purchase price, indemnity, or day-1 operating scope?  
-• Which evidence is scoped to the legal entity in the deal — vs a shared console with soft tags?  
-• Who owns remediation clocks after close, in whole-cent residual terms the board can challenge?
+1. Which findings change purchase price, indemnity, or day-1 operating scope?
+2. Which evidence is scoped to the legal entity in the deal — vs a shared console with soft tags?
+3. Who owns remediation clocks after close, in whole-cent residual terms leadership can challenge?
 
 A practical test before the next LOI:
 
-1. Pick one material control gap from the diligence list.  
-2. Ask for estimated exposure (whole cents, explicit assumptions) — not only High/Med/Low.  
-3. Ask which entity boundary the evidence sits in, and who can authorize promoting it into the deal pack.  
+1. Pick one material control gap from the diligence list.
+2. Ask for estimated exposure (whole cents, explicit assumptions) — not only High/Med/Low.
+3. Ask which entity boundary the evidence sits in, and who can authorize promoting it into the deal pack.
 4. If the trail ends at “they have a GRC tool,” you have tooling — not priced security debt.
 
 Deal valuation cares about defendable exposure and ownership. Color scores and connector counts do not close that gap.
@@ -38,8 +44,11 @@ Deal valuation cares about defendable exposure and ownership. Color scores and c
 
 ## First comment (post immediately after publish — do not put in main body)
 
-Happy to walk one diligence finding → estimated exposure → entity-scoped evidence path in 10–15 minutes:  
+Happy to walk one diligence finding → estimated exposure → entity-scoped evidence path in 10–15 minutes:
 https://ironframegrc.com/register/contact
+
+Operating isolation (different job from deal valuation):
+https://research.ironframegrc.com/briefings/2026-05-14-connector-count-sovereign-enclaves
 
 ---
 
@@ -54,3 +63,5 @@ https://ironframegrc.com/register/contact
 **Do not claim:** Ironframe is an M&A diligence suite; Magerr endorsement; guaranteed purchase-price impact; customer deal outcomes; that soft tenancy is always unlawful.
 
 **Engage policy:** No outreach to Magerr required for this seed.
+
+**Voice pass:** 2026-09-21 — ready to Copy → LinkedIn.

@@ -134,18 +134,18 @@ Secondary links: `/product-demo`, matching `/solutions/*`.
 | 2 Episodes 3–5 | 2026-08-18 → 09-12 | V3 Boundary · V4 Draft · V5 Intake | Remainder of **$300–$500** |
 | 3 Main film | 2026-09-15 → 10-03 | V6 Complete Ironframe Story (2–3 min) | Included |
 
-## Publish windows (rescheduled 2026-08-04)
+## Publish windows (rescheduled 2026-09-21)
 
-Intervals preserved; no cross-list overlaps. Authoritative public ship dates:
+Video slate moved to next month. Authoritative public ship dates (Ops calendar):
 
 | Date (UTC) | Asset | Channel |
 |------------|-------|---------|
-| Fri 2026-08-21 16:00 | V1 — The Number | LinkedIn + `/marketing` embed |
-| Fri 2026-08-28 16:00 | V2 — The Evidence | LinkedIn + `/product-demo` CTA |
-| Fri 2026-09-11 16:00 | V3 — The Boundary | LinkedIn + `/solutions/enterprise` |
-| Fri 2026-09-18 16:00 | V4 — The Draft | LinkedIn + `/solutions/enterprise` |
-| Fri 2026-09-25 16:00 | V5 — The Intake | LinkedIn + Irongate narrative |
-| Fri 2026-10-16 16:00 | V6 — Complete story | LinkedIn + homepage + newsletter |
+| Sun 2026-10-11 16:00 | V3 — The Boundary | LinkedIn + `/solutions/enterprise` |
+| Sun 2026-10-18 16:00 | V4 — The Draft | LinkedIn + `/solutions/enterprise` |
+| Wed 2026-10-21 16:00 | V1 — The Number | LinkedIn + `/marketing` embed |
+| Sun 2026-10-25 16:00 | V5 — The Intake | LinkedIn + Irongate narrative |
+| Wed 2026-10-28 16:00 | V2 — The Evidence | LinkedIn + `/product-demo` CTA |
+| Mon 2026-11-16 16:00 | V6 — Complete story | LinkedIn + homepage + newsletter |
 
 ## Project register (all six)
 

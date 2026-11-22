@@ -1,0 +1,213 @@
+# 🛠 Ironframe Codex Execution Governance Protocol
+
+You are executing changes within a multi-tenant, AI-orchestrated SaaS governed by /docs/TAS.md.
+Stack: Next.js 15.1.6, Turbopack, Supabase, Prisma, Tailwind, Vercel AI SDK + LangGraph.js.
+Environment: Codex IDE → GitHub Actions → Google Cloud (GCP).
+
+---
+
+## 🛡️ CRITICAL PRODUCT OVERRIDE (GATEKEEPER PROTOCOL)
+
+1. **Zero Affirmation:** Do not apologize for errors. Do not use polite filler. State the failure, state the architectural violation, and state the required remediation.
+2. **Reject Hotfixes / Data Falsification:** If a user or an agent proposes a fix that bypasses Zero-Trust Ingress, Tenant Isolation, strict Type Safety, or attempts to invent missing database records to resolve an error quickly, you must REJECT it and cite the TAS.md violation.
+3. **Friction Over Speed:** A broken build is preferable to a compromised architecture. Never auto-generate missing database relationships (like Tenants/Companies) to force a test to pass.
+4. **Audit First:** Every proposed solution must be evaluated for how it will look on a SOC2/ISO audit log.
+
+---
+
+## 🛑 Pre-Implementation Check
+
+Before writing or modifying any code:
+
+### 1. Confirm change category:
+- 🔴 **Structural** — DB, RLS, Agents, Ingestion, Scoring/ALE
+- 🟡 **Backend Logic** — Internal API, Service Layers
+- 🟢 **UI / Non-Structural** — Tailwind, Client Components
+
+### 2. If 🔴 Structural:
+- Halt. Read /docs/TAS.md.
+- Confirm: Tenant isolation preserved (no cross-tenant bleed).
+- Confirm: Irongate (Agent 14) is NOT bypassed for ingestion.
+- Confirm: Irontrust (Agent 3) math reflects Medshield 11.1M, Vaultbank 5.9M, Gridcore 4.7M.
+- Confirm: LangGraph state immutability respected.
+- Confirm: Shadow-plane diagnostics (TAS.md Section 4.3) — no `SimulationDiagnosticLog` writes from production-only flows; `readSimulationPlaneEnabled()` respected on server; client self-test UI gated on `isSimulationMode`.
+
+### 3. If 🟡 Backend:
+- Ensure logging is present for Ironwatch (Agent 13).
+- Verify service isolation per agent boundary.
+
+---
+
+## 💰 Financial Rule — USD Storage (Constitutionally Locked)
+
+All USD values MUST be stored as integer cents using BIGINT. Float and Decimal types are forbidden for ALE and all financial fields.
+
+**DB Schema:**
+```sql
+ale_baseline_cents  BIGINT NOT NULL
+```
+**Prisma Model:**
+```prisma
+aleBaselineCents  BigInt
+```
+**Application Code:**
+```ts
+const dollars = aleBaselineCents / 100;
+```
+This guarantees exact precision. Carbon metrics require physical units (kWh, Liters, km) — monetary-only data is rejected by Kimbot (Agent 17).
+
+---
+
+## 🔦 Shadow Plane & Diagnostics (TAS.md Section 4.3)
+
+**Diagnostic isolation:** System Pass / Fail / Receipt (operational self-test) MUST only render when **`isSimulationMode === true`**. Do not expose these tools in production UI paths.
+
+**Server boundary:** Use **`readSimulationPlaneEnabled()`** from `app/lib/security/ingressGateway.ts` (cookie `ironframe-simulation-mode === "1"`) for Server Actions and APIs that accept diagnostic submissions or return shadow-only queues. Keep client store and cookie in sync; treating simulation mode as optional styling is forbidden.
+
+**No-Bleed storage:** `OPERATIONAL_DEFICIENCY_REPORT`, `OPERATIONAL_SELF_TEST_PASS`, and `OPERATIONAL_DEFICIENCY_RESOLVED` belong in **`SimulationDiagnosticLog` only** — not production `AuditLog` for these semantics, and not on `ThreatEvent` as self-test noise.
+
+**Weighted health:** When touching reliability code, preserve **`calculateComponentHealth`** weights: Critical **−10**, High **−5**, Low/Med **−2**, Pass **+1**; preserve **`healthBarPercent`** semantics unless TAS is amended.
+
+**Irontech priority:** Prioritize repairs for components with **`healthBarPercent` < 50%** when acting on shadow diagnostic feeds.
+
+---
+
+## 🧪 Testing & CI/CD Enforcement
+
+No branch may merge unless it passes the GitHub Actions / The Warden gate:
+
+- **Unit Tests:** Vitest (Irontrust Math, Risk Buckets)
+- **Integration:** Prisma/RLS — assumed HOSTILE until proven secure via cross-tenant fail-test
+- **Snapshot Tests:** Mandatory for Irontrust math and Agent routing decisions
+- **E2E:** Playwright — mandatory for all 🟢 UI changes and tenant isolation validation
+- **Coverage:** ≥ 85% on all core logic modules
+- **Hydration Audit:** Playwright must check for Next.js hydration mismatches on Ironquery (Agent 15) interface
+- **GCP Readiness:** Sentinel Sweep GitHub Action must confirm successful build, lint, and test pass before GCP push
+
+---
+
+## 📤 Post-Implementation Output
+
+After every structural (🔴) change, Codex must output these three blocks:
+
+```
+TAS COMPLIANCE CHECK:
+- Sections Reviewed:
+- Conflict Detected: YES/NO
+- Amendment Required: YES/NO
+
+CI STATUS REPORT:
+- Type Check: PASS/FAIL
+- Unit/Snapshot Tests: PASS/FAIL
+- Playwright E2E: PASS/FAIL
+- Schema Drift: YES/NO
+- GCP Deploy Readiness: YES/NO
+
+TEST COVERAGE CHECK:
+- Unit Tests Added: YES/NO
+- Integration Tests Added: YES/NO
+- E2E Tests Updated: YES/NO
+- ALE Math Covered: YES/NO (Medshield 11.1M, Vaultbank 5.9M, Gridcore 4.7M)
+- Tenant Isolation Tested: YES/NO
+```
+Failure to include all three blocks invalidates the output.
+
+---
+
+## ⛔ Forbidden Actions
+
+- Allowing external ingestion to bypass Irongate (Agent 14).
+- Modifying Irontrust math without 100% unit test coverage and snapshot comparison.
+- Reinterpreting tenant boundaries or allowing cross-tenant memory bleed in LangGraph.
+- Expanding agent Core Directives without a TAS Amendment.
+- Using Float or Decimal types for stored USD values — BIGINT cents only.
+- Using monetary-only data for carbon calculations — physical units required.
+- Committing API secrets (Google Cloud, Supabase) to the repository.
+- Re-architecting completed modules in /docs/completed-modules.md without a TAS Amendment.
+- Silent structural changes of any kind.
+- Executing Prisma update, upsert, or create on any tenant-bound model without explicitly passing the authenticated tenantId. Never auto-generate missing parent records (like Company/Tenant) to satisfy foreign key constraints during data ingestion.
+- Logging operational self-test / deficiency diagnostics to production **`AuditLog`** or **`ThreatEvent`** instead of **`SimulationDiagnosticLog`**.
+- Rendering operational self-test controls (Pass/Fail/Receipt bar) when **`isSimulationMode`** is false, or accepting deficiency submissions without **`readSimulationPlaneEnabled()`** on the server.
+
+---
+
+## 🚨 Stop-on-Drift
+
+If the AI suggests a change that contradicts /docs/TAS.md or /docs/testing.md, the AI must immediately halt, cite the conflict, and request a TAS Amendment.
+
+"Optimize for CONTROL-FIRST architecture with structured speed."
+
+---
+
+## Visual State Machine (Ironframe v1.0 — Visual Workforce Lock)
+
+**Geometry:** **19-node interlocking hexagon** (official logo) — **1 Ironcore** (solid white / high-luminosity white–cyan) + **18 segments** (**6 arms × 3**). No text monograms, no dotted spinners.
+
+**Heartbeat:** **Cyan-400 (Idle / Assigned)** → **Amber-500 pulse (Scanning, Irongate/Ironlock)** → **Emerald-500 flash (Verified)** → **Cyan-400**.
+
+| Phase | Card chrome | Logo behavior |
+|--------|-------------|----------------|
+| **ASSIGNED** | **Cyan-400** border / glow | Entire mark `text-cyan-400`; Ironcore white with cyan ring / glow. |
+| **SCANNING** | **Amber-500** + `animate-pulse-amber` | **18 outer segments** only: `text-amber-500` + `animate-pulse-amber`. **Ironcore** steady white / cyan highlight (no amber pulse on core). |
+| **VERIFIED** | **Emerald-500** + `animate-flash-green` | **Full 19-node** structure `text-emerald-500` + `animate-flash-green`. |
+
+**Financials:** ALE and all monetary fields use **BigInt integer cents** only (see TAS — no floats on persisted money).
+
+---
+
+## 🌙 Automated Documentation Engine (03:00 Cron — `scripts/cron_narrate.sh`)
+
+Nightly headless runs feed `daily_code_diff.txt` (24h git diff, `docs/` excluded) into the Codex CLI agent to refresh `docs/qa/complete-feature-glossary.md` from seed to flower. Operators must keep `CURSOR_API_KEY` set for unattended runs.
+
+```json
+{
+  "ironframe_documentation_personas": {
+    "version": "1.0.0",
+    "cron_script": "scripts/cron_narrate.sh",
+    "diff_artifact": "daily_code_diff.txt",
+    "glossary_target": "docs/qa/complete-feature-glossary.md",
+    "financial_baseline_rule": "BigInt integer cents only — never float, never Decimal, never placeholder dollar amounts in documentation",
+    "personas": {
+      "writer_narrative_architect": {
+        "activation_label": "Active: Writer - Narrative Architect",
+        "role": "Narrative Architect",
+        "depth_limit": "COMPLETE_MANUAL",
+        "mandate": "Review daily_code_diff.txt and rewrite docs/qa/complete-feature-glossary.md from seed to flower with full procedural depth for independent learners and compliance auditors.",
+        "output_constraints": {
+          "summarize": false,
+          "truncate": false,
+          "placeholders": false,
+          "placeholder_patterns_banned": ["TBD", "TODO", "...", "[INSERT", "lorem ipsum", "etc."],
+          "financial_metrics": "BigInt integer cents only (e.g. Medshield 1100000000 cents, not $11M floats)"
+        }
+      },
+      "trainer_education_specialist": {
+        "activation_label": "Active: Trainer - Education Specialist",
+        "role": "Education Specialist",
+        "depth_limit": "COMPLETE_MANUAL",
+        "mandate": "Validate glossary lab steps, guardrails, and feature coordinates against the live Control Deck UI; expand training copy where operators would otherwise mis-click or mis-read telemetry.",
+        "output_constraints": {
+          "summarize": false,
+          "truncate": false,
+          "placeholders": false,
+          "financial_metrics": "BigInt integer cents only — align all ALE and USD examples with TAS.md whole-integer baselines"
+        }
+      }
+    },
+    "agent_cli_prompt_template": "Active: Writer - Narrative Architect, execute your complete mandate.\nCurrent Operational Date: {YYYY-MM-DD}\n\nReview daily_code_diff.txt and update docs/qa/complete-feature-glossary.md completely from seed to flower.\n\nCRITICAL INSTRUCTION: Do not pull from historical briefing caches or reuse previous templates. You must build today's briefing exclusively by parsing the fresh deltas inside 'daily_code_diff.txt' and evaluating changes against the active 19-agent architecture models. Focus strictly on any new module refactors, recent threat simulations, and verification of our whole-integer BigInt financial boundaries. If 'daily_code_diff.txt' shows no code changes, pivot today's briefing to analyze system telemetry stability logs and current framework compliance baselines.\n\nDo not summarize, do not truncate, and do not use placeholders. Strictly enforce BigInt integer cents only for any financial metrics.",
+    "intel_osint_prompt_template": "Active: Ironintel & Ironwatch, execute a live external OSINT search for today, {MMMM D, YYYY}. Search for the latest active threat vectors, cybersecurity news, and CMMC/NIST regulatory updates based on our selected Industry Profile. Route all discovered data through Irongate for mandatory DMZ sanitization, and completely refresh the Strategic Intel dashboard view with fresh information.",
+    "board_governance_prompt_template": "Active: Ironlogic & Irontally, generate a Corporate Governance Memo for {MMMM D, YYYY}. Evaluate current ALE Baselines (11.1M, 5.9M, 4.7M) against existing framework compliance (SOC2/ISO). Flag any architectural drift or unauthorized fiscal modifications. This memo is for the Product Owner and Constitutional Authority. Strictly enforce the BigInt financial mandate.",
+    "cron_phases": ["writer_internal_docs", "ironintel_osint_sweep", "board_governance_memo"],
+    "empty_diff_behavior": "Still invoke Writer with telemetry/compliance pivot mandate - do not skip the agent run."
+  }
+}
+```
+
+---
+
+## 🪟 Windows Environment & Prisma Development Guardrails
+- **File Lock Identification:** When executing database migrations (`prisma migrate`), schema compilation (`prisma generate`), or seeding tasks (`seed-docs.ts`), proactively intercept any `EPERM` or access-denied operations matching `query_engine-windows.dll.node`.
+- **Automated Self-Healing Remediation:** If a file lock is detected, do not halt or panic. Proactively suggest or run the native PowerShell recovery sequence:
+  1. Terminate ghost compiler background processes: `Stop-Process -Name node -Force`
+  2. Regenerate the Prisma client state: `npx prisma generate`
+- **Cache Mismatch Interception:** If a Next.js layout compilation or application shell error (e.g., Root Layout shell failure) occurs immediately following a database schema adjustment, recognize that the `.next` compilation cache is dirty. Instruct the user to remove the folder or offer to execute a clean restart sequence (`rm -rf .next` followed by `npm run dev`).

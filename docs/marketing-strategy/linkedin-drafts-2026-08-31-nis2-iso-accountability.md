@@ -7,7 +7,7 @@
 **Avoids:** legal advice; naming entities as in or out of scope; implying Ironframe certifies anything; Path B pitch in body  
 **Industry pull:** EU-exposed operators and their MSSP/vCISO advisors who treat an ISO 27001 certificate as the compliance answer  
 **History:** Originally carded for Fri 2026-08-14 (moved to avoid stacking with residual-vs-spend), then Fri 2026-08-28. Moved to Mon 2026-08-31 — the draft file the old card pointed at was never written; this is that draft.  
-**Drafted:** 2026-08-28 · **Voice pass:** pending · **Status:** Citations verified — ready for voice pass
+**Drafted:** 2026-08-28 · **Voice pass:** 2026-09-21 · **Status:** Ready for publish
 
 ### Board voice (founder cadence)
 
@@ -20,7 +20,7 @@ An ISO 27001 certificate does not answer the two questions NIS2 actually asks.
 
 A certificate says a management system was assessed against a standard, within a defined scope, at a point in time. That is a real thing. It is just not the same thing.
 
-**What time is it?** Article 23 puts statutory clocks on a significant incident: an early warning within 24 hours of becoming aware, an incident notification within 72 hours, and a final report within one month of that notification. A certified ISMS tells you incident handling exists. It does not tell you whether the clock starts when the SOC sees the alert, when on-call confirms it, or when somebody decides the word "significant" applies.
+**What time is it?** Article 23 puts statutory clocks on a significant incident: early warning within 24 hours of becoming aware, incident notification within 72 hours, and a final report within one month of that notification. A certified ISMS tells you incident handling exists. It does not tell you whether the clock starts when the SOC sees the alert, when on-call confirms it, or when someone decides the word "significant" applies.
 
 **Who is accountable, by name?** Article 20 puts approval and oversight of the risk-management measures on the management body — and states they can be held liable for infringements. A certificate names an organization and a scope. It does not name the person who approved the measures.
 
@@ -52,7 +52,8 @@ Directive (EU) 2022/2555, Arts 20 / 21 / 23: https://eur-lex.europa.eu/eli/dir/2
 
 NIS2 applies through national transposition, so scope and supervision sit with your member state's implementing law — worth confirming which one governs you before mapping.
 
-Want to walk one of these clocks against your own evidence path? 10–15 minute workflow review: https://ironframegrc.com/register/contact
+Want to walk one of these clocks against your own evidence path? 10–15 minute workflow review:
+https://ironframegrc.com/register/contact
 
 ---
 
@@ -67,3 +68,5 @@ Want to walk one of these clocks against your own evidence path? 10–15 minute 
 **Verified:** 2026-08-28 against the EUR-Lex consolidated text. All three articles read directly; quoted language above is from the operative text, not the recitals.
 
 **Do not claim:** that any named entity is in or out of NIS2 scope; that Ironframe delivers NIS2 compliance or certification; SOC 2 or ISO certification for Ironframe; specific national penalties or fine amounts; that an ISO 27001 certificate has no value. Do not present this as legal advice — NIS2 binds through member-state transposition, and scope determinations belong to counsel.
+
+**Voice pass:** 2026-09-21 — ready to Copy → LinkedIn.

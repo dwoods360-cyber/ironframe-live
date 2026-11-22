@@ -7,7 +7,7 @@
 **Avoids:** naming a specific compromised vendor as a customer-impact claim; incident-response advice; product feature list; Path B pitch in body  
 **Industry pull:** Operators whose registers are populated by scanner, connector, and gateway output they do not control  
 **History:** Carded for Fri 2026-08-28, not published — the independent citation was missing. Moved to Fri 2026-09-04; citation supplied 2026-08-30 (CVE-2026-33634, NVD).  
-**Drafted:** 2026-08-27 · **Voice pass:** pending · **Status:** DRAFT — citations verified 2026-08-30, holding for voice pass
+**Drafted:** 2026-08-27 · **Voice pass:** 2026-09-21 · **Status:** Ready for publish
 
 ### Board voice (founder cadence)
 
@@ -64,4 +64,4 @@ https://ironframegrc.com/register/contact
 
 **Do not claim:** that any named vendor compromise affected Ironframe customers or any specific organization; incident counts or credential totals without the primary citation open; SOC 2 or ISO certification; that provenance capture prevents compromise rather than bounding it.
 
-**Blocking:** cleared 2026-08-30. The Publishing Desk requires at least one **independent** (non-`ironframegrc.com`) citation before Save or Copy; row 2 now carries the NVD entry for CVE-2026-33634, which is independent, government-hosted and stable. Remaining gate is the voice pass.
+**Blocking:** cleared 2026-08-30. Independent citation is NVD CVE-2026-33634 (non-`ironframegrc.com`). Voice pass completed 2026-09-21 — ready to Copy → LinkedIn.

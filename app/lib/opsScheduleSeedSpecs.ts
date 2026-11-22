@@ -806,6 +806,24 @@ export function ironframeRollout2026SeedSpecs(): OpsScheduleSeedSpec[] {
       synopsis:
         "Flip Stripe CREDENTIAL_MODE to live before commercial GA charges — controlled ops gate.",
     },
+    {
+      title: "LegalCORPS — Core Business Brief Advice (Path B contracts)",
+      kind: "OPS_GENERAL",
+      status: "PLANNED",
+      dueAt: "2026-10-06T20:30:00.000Z",
+      sourceRef: "rollout/legalcorps-brief-advice-2026-10-06",
+      priorityHint: 4,
+      href: "https://github.com/dwoods360-cyber/ironframe-live/blob/main/docs/sales/counsel-packet-export/",
+      synopsis:
+        "Tue Oct 6, 2026 3:30–4:00 PM CT — LegalCORPS Zoom clinic. #1 ask: indemnity (MSA has liability cap only). Join their Zoom; Ironframe does not host the call. Packet: counsel-packet-export 00–06 + live /terms /privacy /trust-center.",
+      nextActions: [
+        "Confirm Zoom join link from LegalCORPS confirmation email",
+        "Have under-1000-char brief + GitHub/live URLs ready to paste/share",
+        "Join Zoom at 3:30 PM CT (do not expect in-app hosting)",
+        "Capture counsel notes: indemnity, order form, Path B fee/convert, DPA readiness",
+        "File next steps / redline asks after the call",
+      ],
+    },
   ];
 }
 
